@@ -1,0 +1,5 @@
+obj-y += string/
+obj-y += stdio/
+obj-y += stdlib/
+obj-y += tty/
+obj-y += page/

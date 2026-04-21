@@ -1,0 +1,67 @@
+#include <idt.h>
+#include <stdlib.h> // for outb
+#include <stdio.h>
+#include <string.h>
+#include <pi.h>
+#include <lapic.h>
+
+struct idt_entry idt[256] __attribute__((aligned(16)));
+struct idtr idtr_instance;
+
+/* Externs from the ASM file */
+extern void isr0(void);
+extern void isr32(void); 
+extern void* isr_ptr_table[];
+
+extern volatile uint64_t timer_ticks;
+
+void idt_set_gate(uint8_t vector, void *isr) {
+    uint64_t addr = (uint64_t)isr;
+    idt[vector].isr_low    = (uint16_t)addr;
+    idt[vector].kernel_cs  = 0x08;
+    idt[vector].ist        = 0;
+    idt[vector].attributes = 0x8E; // Present, Ring 0, Interrupt Gate
+    idt[vector].isr_mid    = (uint16_t)(addr >> 16);
+    idt[vector].isr_high   = (uint32_t)(addr >> 32);
+    idt[vector].reserved   = 0;
+}
+
+void k_exception_handler(registers_t *regs) {
+    if (regs->int_no >= 32) {
+        lapic_eoi();
+    }
+
+    if (regs->int_no == 32) {
+        timer_ticks++;
+        if (timer_ticks % 100 == 0) { // Log every 100 ticks to avoid spam
+            debugln("Tick! %d", timer_ticks);
+        }
+        return;
+    }
+    debugln("Received interrupt: %d\n", regs->int_no);
+    outb(0x20, 0x20); // Send EOI just in case
+}
+
+void idt_init() {
+    memset(idt, 0, sizeof(struct idt_entry) * 256);
+
+    // Set all gates to isr32, then override specific ones
+    for (int i = 0; i < 256; i++) {
+        idt_set_gate(i, isr_ptr_table[i]);
+    }
+
+    // Override specific ones
+    idt_set_gate(0,  isr0);
+
+    idtr_instance.limit = (sizeof(struct idt_entry) * 256) - 1;
+    idtr_instance.base  = (uint64_t)&idt;
+    asm volatile ("lidt %0" : : "m"(idtr_instance));
+
+    pic_remap();
+
+    outb(0x21, 0xFD);
+    // Unmask IRQ0 (Timer)
+    outb(0x21, 0xFE); 
+    outb(0xA1, 0xFF); // All masked on slave
+}
+

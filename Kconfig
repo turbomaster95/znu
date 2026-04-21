@@ -1,0 +1,34 @@
+#
+# For a description of the syntax of this configuration file,
+# see Documentation/kbuild/kconfig-language.txt.
+#
+mainmenu "Configuration"
+
+#config SRCARCH
+#	string
+#	option env="SRCARCH"
+
+#source "arch/$SRCARCH/Kconfig"
+
+config CROSS_COMPILE
+	string "Cross-compiler tool prefix"
+	help
+	  Same as running 'make CROSS_COMPILE=prefix-' but stored for
+	  default make runs in this kernel build directory.  You don't
+	  need to set this unless you want the configured kernel build
+	  directory to select the cross-compiler automatically.
+
+source "lib/Kconfig"
+source "kernel/Kconfig"
+
+config FB_TEST
+	bool "Show a small line test"
+	default y
+	help
+	  Shows a small line from the top-left corner to show kernel is working.
+
+config GENERATE_ISO
+	bool "Generate a Limine iso with the kernel"
+#	depends on FOO
+	help
+	  It automatically generates a image.iso file with the Limine bootloader in it.

@@ -1,0 +1,5 @@
+config EG_GUI
+	bool "Show example gui"
+	default n
+	help
+	  Shows an example gui from kernel mode

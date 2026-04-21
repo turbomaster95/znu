@@ -1,0 +1,7 @@
+obj-y += gdt.o
+obj-y += gdt_flush.o
+obj-y += idt.o
+obj-y += idt_stub.o
+obj-y += pit.o
+obj-y += pic.o
+obj-y += lapic.o
