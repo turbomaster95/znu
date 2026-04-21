@@ -145,8 +145,8 @@ void kmain(void) {
     debugln("LAPIC initialized.");
 
     // Initialize PIT (or LAPIC timer later)
-    //pit_init(1000); // Use PIT for now, will switch to LAPIC timer
-    //debugln("PIT initialized for calibration.");
+    pit_init(1000); // Use PIT for now, will switch to LAPIC timer
+    debugln("PIT initialized for calibration.");
 
     __asm__ volatile("sti");
     debugln("Interupts Enabled.");
@@ -154,39 +154,11 @@ void kmain(void) {
     calibrate_lapic_timer(); // This will now succeed because timer_ticks moves!
     debugln("LAPIC calibrated: %u ticks/ms", lapic_ticks_per_ms);
 
-    debugln("Testing first interrupt...");
-    __asm__ volatile("int $32"); // Manually trigger the timer interrupt
-    debugln("If you see this, your ISR/IDT is working!");
-
-    uint64_t start = timer_ticks;
-    // Wait a bit
-    for(volatile int i = 0; i < 1000000; i++); 
-    debugln("Ticks after loop: %d", timer_ticks);
-
-    lapic_timer_test();
-    debugln("LAPIC calibrated.");
-
-    debugln("Wait 1s...");
-    sleep(1000);
-    debugln("Done!");
-
-    while(1) {
-     // Read the current PIT count directly from the hardware
-     outb(0x43, 0x00); // Latch count
-     uint8_t lo = inb(0x40);
-     uint8_t hi = inb(0x40);
-     uint16_t count = (hi << 8) | lo;
-
-     // Read the PIC's In-Service Register (ISR)
-     // This tells us if the PIC has sent an interrupt that the CPU hasn't EOI'd yet.
-     outb(0x20, 0x0B); 
-     uint8_t pic_isr = inb(0x20);
-
-     uint64_t rflags;
-     __asm__ volatile("pushfq; pop %0" : "=r"(rflags));
-     debugln("PIT: %d | ISR: %x | Ticks: %d | IF: %d", count, pic_isr, timer_ticks, (rflags >> 9) & 1);
-     for(volatile int i = 0; i < 1000000; i++); // Small delay
-    }
+    debugln("Testing sleep(2000)...");
+    uint64_t s_start = timer_ticks;
+    sleep(2000);
+    uint64_t s_end = timer_ticks;
+    debugln("sleep(2000) finished. PIT ticks elapsed: %d", s_end - s_start);
 
     hcf(); // Halt
 }

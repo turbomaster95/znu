@@ -23,8 +23,8 @@ volatile uint64_t* lapic_base = NULL;
 #define LAPIC_REG_DIVIDE_CONF 0x003E0
 #define LAPIC_REG_EOI         0x00B0
 
-// LAPIC Timer Interrupt Vector. We will use vector 32 to replace the PIT timer handler.
-#define LAPIC_TIMER_VECTOR 32
+// LAPIC Timer Interrupt Vector.
+#define LAPIC_TIMER_VECTOR 48
 
 // --- Constants for LAPIC Timer ---
 // Define LAPIC timer clock frequency (example: 24MHz).
@@ -38,6 +38,7 @@ volatile uint64_t* lapic_base = NULL;
 
 // Global variable to store calibrated ticks per millisecond for LAPIC timer
 volatile uint32_t lapic_ticks_per_ms = 0;
+volatile bool lapic_timer_fired = false;
 
 // --- Helper functions for LAPIC MMIO access ---
 static inline uint32_t lapic_read(uint32_t offset) {
@@ -86,6 +87,10 @@ void lapic_init() {
     uint32_t svr = lapic_read(LAPIC_REG_SVR);
     lapic_write(LAPIC_REG_SVR, lapic_read(LAPIC_REG_SVR) | 0x100 | 0xFF);
     debugln("Survived the write?");
+
+    // LINT0: Virtual Wire Mode (ExtINT)
+    // Delivery Mode: ExtINT (0x7), Masked: 0 (bit 16)
+    lapic_write(0x350, 0x700); 
 }
 
 // --- LAPIC Timer Calibration ---
@@ -166,14 +171,15 @@ void calibrate_lapic_timer() {
     }
 
     // 6. Calculate ticks per ms.
-    //    Duration in ms = (pit_wait_duration_ticks / PIT_FREQUENCY) * 1000
+    //    Duration in ms = (pit_wait_duration_ticks * 1000) / PIT_FREQUENCY
     //    Assuming PIT frequency is 1000 Hz from pit_init(1000).
     uint32_t pit_frequency_hz = 1000; // From pit_init(1000)
-    uint32_t duration_ms = (pit_wait_duration_ticks / pit_frequency_hz) * 1000;
+    uint32_t duration_ms = (pit_wait_duration_ticks * 1000) / pit_frequency_hz;
 
     if (duration_ms == 0) duration_ms = 1; // Avoid division by zero
 
     lapic_ticks_per_ms = ticks_elapsed / duration_ms;
+
 
     debugln("LAPIC timer calibrated: %u ticks/ms.", lapic_ticks_per_ms);
 
@@ -184,8 +190,9 @@ void calibrate_lapic_timer() {
 
 
 void lapic_eoi() {
-    // Assuming lapic_base is mapped correctly as we saw before
-    *(volatile uint32_t*)((uintptr_t)lapic_base + LAPIC_REG_EOI) = 0;
+    if (lapic_base) {
+        *(volatile uint32_t*)((uintptr_t)lapic_base + LAPIC_REG_EOI) = 0;
+    }
 }
 
 // --- LAPIC Timer ISR ---
@@ -206,7 +213,6 @@ void lapic_timer_isr() {
     // will return when this interrupt occurs.
 }
 
-// --- Sleep Function using LAPIC Timer ---
 // Implements power-saving sleep using the LAPIC timer in one-shot mode.
 void sleep(uint32_t ms) {
     if (!lapic_base) {
@@ -219,26 +225,20 @@ void sleep(uint32_t ms) {
     }
 
     // 1. Configure LAPIC Timer for One-Shot mode and set duration.
-    //    Set the divider configuration.
     lapic_write(LAPIC_REG_DIVIDE_CONF, LAPIC_TIMER_DIVIDER_CONF);
-
-    //    Set LVT Timer Register: One-Shot Mode (bit 17=0) | Delivery Vector.
-    //    We use LAPIC_TIMER_VECTOR (defined as 32).
-    uint32_t lvt_timer_value = LAPIC_TIMER_VECTOR; // One-shot, vector 32
-    lapic_write(LAPIC_REG_LVT_TIMER, lvt_timer_value);
+    lapic_write(LAPIC_REG_LVT_TIMER, LAPIC_TIMER_VECTOR);
 
     //    Calculate and set the Initial Count.
     uint32_t ticks_to_wait = ms * lapic_ticks_per_ms;
-    // Ensure at least one tick to avoid immediate expiration if ms is 0 or very small.
     if (ticks_to_wait == 0) ticks_to_wait = 1;
+    
+    lapic_timer_fired = false;
     lapic_write(LAPIC_REG_INITIAL_COUNT, ticks_to_wait);
 
     // 2. Halt the CPU until the LAPIC timer interrupt occurs.
-    //    This instruction puts the CPU into a low-power state.
-    __asm__ volatile("hlt");
-
-    // 3. When the LAPIC timer ISR fires, the CPU wakes up from HLT.
-    //    The ISR sends LAPIC EOI, and control returns here. Sleep is complete.
+    while (!lapic_timer_fired) {
+        __asm__ volatile("hlt");
+    }
 }
 
 void lapic_timer_test() {

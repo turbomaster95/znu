@@ -14,6 +14,7 @@ extern void isr32(void);
 extern void* isr_ptr_table[];
 
 extern volatile uint64_t timer_ticks;
+extern volatile bool lapic_timer_fired;
 
 void idt_set_gate(uint8_t vector, void *isr) {
     uint64_t addr = (uint64_t)isr;
@@ -27,15 +28,26 @@ void idt_set_gate(uint8_t vector, void *isr) {
 }
 
 void k_exception_handler(registers_t *regs) {
+    if (regs->int_no >= 32 && regs->int_no < 48) {
+        // PIC EOI
+        if (regs->int_no >= 40) outb(0xA0, 0x20);
+        outb(0x20, 0x20);
+    }
+
     if (regs->int_no >= 32) {
         lapic_eoi();
     }
 
     if (regs->int_no == 32) {
         timer_ticks++;
-        if (timer_ticks % 100 == 0) { // Log every 100 ticks to avoid spam
+        if (timer_ticks % 1000 == 0) { // Log every 1000 ticks to avoid spam
             debugln("Tick! %d", timer_ticks);
         }
+        return;
+    }
+
+    if (regs->int_no == 48) {
+        lapic_timer_fired = true;
         return;
     }
     debugln("Received interrupt: %d\n", regs->int_no);
