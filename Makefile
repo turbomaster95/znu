@@ -368,7 +368,7 @@ quiet_cmd_strip = STRIP   $@ -> $(STARGET)
       cmd_strip = $(OBJCOPY) --strip-all --strip-unneeded --strip-debug $@ $(STARGET)
 
 quiet_cmd_mkiso = MKISO   $(STARGET) -> image.iso
-      cmd_mkiso = ./iso.sh > /dev/null 2>&1
+      cmd_mkiso = ./scripts/iso.sh > /dev/null 2>&1
 
 $(TARGET): $($(TARGET)-all) FORCE
 	$(call if_changed,$(TARGET))

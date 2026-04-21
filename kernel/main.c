@@ -134,9 +134,7 @@ void kmain(void) {
 
     debugln("About to map page");
     uint64_t* pml4 = (uint64_t*)(read_cr3() + hhdm_offset);
-    uint64_t dummy = *pml4;
-    debugln("PML4 is readable: %p", dummy);
-    debugln("PML4[511] (Kernel space): %p", pml4[511]);
+    debugln("PML4[511] is: %p", pml4[511]);
     map_page(pml4, 0xffff8000fee00000, 0xfee00000, PTE_WRITABLE | PTE_CACHE_DISABLE);
     debugln("Mapped page!");
 
@@ -151,7 +149,7 @@ void kmain(void) {
     __asm__ volatile("sti");
     debugln("Interupts Enabled.");
 
-    calibrate_lapic_timer(); // This will now succeed because timer_ticks moves!
+    calibrate_lapic_timer();
     debugln("LAPIC calibrated: %u ticks/ms", lapic_ticks_per_ms);
 
     debugln("Testing sleep(2000)...");
@@ -162,4 +160,3 @@ void kmain(void) {
 
     hcf(); // Halt
 }
-
