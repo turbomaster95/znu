@@ -1,4 +1,3 @@
-
 KBUILD_CFLAGS += -ffreestanding -nostdinc -isystem $(shell $(CC) -print-file-name=include)
 KBUILD_CFLAGS += -mcmodel=kernel -mno-red-zone
 

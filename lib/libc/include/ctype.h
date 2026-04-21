@@ -1,7 +1,12 @@
 #ifndef _CTYPE_H
 #define _CTYPE_H
-#define isdigit(c) ((c) >= '0' && (c) <= '9')
-#define isspace(c) ((c) == ' ' || (c) == '\t' || (c) == '\n')
-// ... only add what it complains about ...
+
+int toupper(int c);
+int tolower(int c);
+int isprint(int c);
+int isxdigit(int c);
+int isdigit(int c);
+int isspace(int c);
+
 #endif
 

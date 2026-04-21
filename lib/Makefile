@@ -9,3 +9,6 @@ KBUILD_CPPFLAGS += -I$(srctree)/include -I$(srctree)/lib/libc/include
 export KBUILD_CPPFLAGS KBUILD_CFLAGS
 
 obj-y += libc/
+
+KBUILD_CPPFLAGS += -I$(srctree)/lib/acpica/source/include
+obj-y += acpica_lib.o

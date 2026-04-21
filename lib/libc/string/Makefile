@@ -3,3 +3,4 @@ obj-y += memcpy.o
 obj-y += memmove.o
 obj-y += memset.o
 obj-y += strlen.o
+obj-y += ops.o

@@ -13,6 +13,8 @@
 extern void draw_kernel_gui(void);
 extern void gdt_init(void);
 extern void lapic_timer_test(void);
+extern void init_acpi(void);
+extern void lapic_timer_test(void);
 extern void gdt_reload_segments(void);
 extern uint32_t lapic_ticks_per_ms;
 
@@ -43,6 +45,12 @@ volatile struct limine_hhdm_request hhdm_request = {
 __attribute__((used, section(".limine_requests")))
 volatile struct limine_memmap_request memmap_request = {
     .id = LIMINE_MEMMAP_REQUEST_ID,
+    .revision = 0
+};
+
+__attribute__((used, section(".limine_requests")))
+volatile struct limine_rsdp_request rsdp_request = {
+    .id = LIMINE_RSDP_REQUEST_ID,
     .revision = 0
 };
 
@@ -82,6 +90,11 @@ void kmain(void) {
 
     if (hhdm_request.response) {
         hhdm_offset = hhdm_request.response->offset;
+    }
+
+
+    if (rsdp_request.response) {
+        debugln("Got RSDP from Limine!");
     }
 
     // 2. Initialize your PMM (Bump Allocator) using the memmap
@@ -131,6 +144,10 @@ void kmain(void) {
 
     idt_init();
     debugln("IDT initialized.");
+
+    debugln("HHDM Offset: %p\n", hhdm_request.response->offset);
+    debugln("RSDP Address: %p", rsdp_request.response->address);
+    init_acpi();
 
     debugln("About to map page");
     uint64_t* pml4 = (uint64_t*)(read_cr3() + hhdm_offset);
