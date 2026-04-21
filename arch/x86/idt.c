@@ -50,7 +50,7 @@ void k_exception_handler(registers_t *regs) {
         lapic_timer_fired = true;
         return;
     }
-    debugln("Received interrupt: %d\n", regs->int_no);
+    // debugln("Received interrupt: %d\n", regs->int_no);
     outb(0x20, 0x20); // Send EOI just in case
 }
 

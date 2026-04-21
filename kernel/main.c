@@ -158,5 +158,7 @@ void kmain(void) {
     uint64_t s_end = timer_ticks;
     debugln("sleep(2000) finished. PIT ticks elapsed: %d", s_end - s_start);
 
+    debug_ram_map(memmap_request.response);
+
     hcf(); // Halt
 }
