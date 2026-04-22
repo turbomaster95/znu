@@ -402,7 +402,7 @@ $($(TARGET)-dirs): scripts_basic
 # make distclean Remove editor backup files, patch leftover files and the like
 
 # Directories & files removed with 'make clean'
-CLEAN_DIRS  +=
+CLEAN_DIRS  += lib/acpica_out
 CLEAN_FILES +=	$(TARGET) image.iso $(STARGET)
 
 # Directories & files removed with 'make mrproper'

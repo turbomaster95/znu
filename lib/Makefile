@@ -11,4 +11,14 @@ export KBUILD_CPPFLAGS KBUILD_CFLAGS
 obj-y += libc/
 
 KBUILD_CPPFLAGS += -I$(srctree)/lib/acpica/source/include
+# Define the object so Kbuild includes it in the link stage
 obj-y += acpica_lib.o
+
+# Tell Kbuild how to 'create' acpica_lib.o
+$(obj)/acpica_lib.o: $(srctree)/scripts/acpica.sh
+	$(call if_changed,run_acpica)
+
+# The actual command definition
+quiet_cmd_run_acpica = SH      $(patsubst $(srctree)/%,%,$<)
+      cmd_run_acpica = /bin/bash $(srctree)/scripts/acpica.sh $@
+
