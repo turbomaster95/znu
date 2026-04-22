@@ -5,7 +5,7 @@ set -e
 # (cd src && bash build.sh) || true
 
 # Strip things down
-objcopy --strip-all --strip-unneeded --strip-debug --strip-all-gnu oxus ox
+llvm-objcopy --strip-all --strip-unneeded --strip-debug --strip-all-gnu oxus ox
 
 # Copy kernel to ISO root
 cp ox configs/iso_root/boot/kernel.bin

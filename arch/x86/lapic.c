@@ -86,11 +86,11 @@ void lapic_init() {
     // Software-enable LAPIC (SVR bit 8)
     uint32_t svr = lapic_read(LAPIC_REG_SVR);
     lapic_write(LAPIC_REG_SVR, lapic_read(LAPIC_REG_SVR) | 0x100 | 0xFF);
-    debugln("Survived the write?");
+    debugln("Survived the LAPIC SVR write!");
 
     // LINT0: Virtual Wire Mode (ExtINT)
     // Delivery Mode: ExtINT (0x7), Masked: 0 (bit 16)
-    lapic_write(0x350, 0x700); 
+    lapic_write(0x350, 0x700);
 }
 
 // --- LAPIC Timer Calibration ---

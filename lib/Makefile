@@ -10,15 +10,12 @@ export KBUILD_CPPFLAGS KBUILD_CFLAGS
 
 obj-y += libc/
 
-KBUILD_CPPFLAGS += -I$(srctree)/lib/acpica/source/include
-# Define the object so Kbuild includes it in the link stage
-obj-y += acpica_lib.o
+KBUILD_CPPFLAGS += -I$(srctree)/lib/uacpi/include
+obj-y += uacpi_lib.o
 
-# Tell Kbuild how to 'create' acpica_lib.o
-$(obj)/acpica_lib.o: $(srctree)/scripts/acpica.sh
-	$(call if_changed,run_acpica)
+$(obj)/uacpi_lib.o: $(srctree)/scripts/uacpi.sh
+	$(call if_changed,run_uacpi)
 
-# The actual command definition
-quiet_cmd_run_acpica = SH      $(patsubst $(srctree)/%,%,$<)
-      cmd_run_acpica = /bin/bash $(srctree)/scripts/acpica.sh $@
+quiet_cmd_run_uacpi  = SH      $(patsubst $(srctree)/%,%,$<)
+      cmd_run_uacpi  = /bin/bash $(srctree)/scripts/uacpi.sh $(srctree)
 

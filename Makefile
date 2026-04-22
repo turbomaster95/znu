@@ -349,7 +349,6 @@ endif # $(dot-config)
 # Defaults to vmlinux, but the arch makefile usually adds further targets
 all: $(TARGET)
 
-
 objs-y		:= kernel
 objs-y		+= arch
 libs-y		:= lib
@@ -403,11 +402,11 @@ $($(TARGET)-dirs): scripts_basic
 # make distclean Remove editor backup files, patch leftover files and the like
 
 # Directories & files removed with 'make clean'
-CLEAN_DIRS  += lib/acpica_out
+CLEAN_DIRS  += lib/uacpi_out
 CLEAN_FILES +=	$(TARGET) image.iso $(STARGET)
 
 # Directories & files removed with 'make mrproper'
-MRPROPER_DIRS  += include/config include/generated lib/acpica
+MRPROPER_DIRS  += include/config include/generated lib/uacpi
 MRPROPER_FILES += .config .config.old tags TAGS cscope* GPATH GTAGS GRTAGS GSYMS
 
 # clean - Delete most, but leave enough to build external modules

@@ -9,11 +9,12 @@
 #include <lapic.h>
 #include <pi.h>
 #include <page.h>
+#include <uacpi/uacpi.h>
 
+extern uacpi_status init_acpi(void);
 extern void draw_kernel_gui(void);
 extern void gdt_init(void);
 extern void lapic_timer_test(void);
-extern void init_acpi(void);
 extern void lapic_timer_test(void);
 extern void gdt_reload_segments(void);
 extern uint32_t lapic_ticks_per_ms;
@@ -78,6 +79,8 @@ static inline uint64_t read_cr3(void) {
     __asm__ volatile("mov %%cr3, %0" : "=r"(val));
     return val;
 }
+
+uint64_t* kernel_pml4;
 
 // The following will be our kernel's entry point.
 // If renaming kmain() to something else, make sure to change the
@@ -152,6 +155,7 @@ void kmain(void) {
     uint64_t* pml4 = (uint64_t*)(read_cr3() + hhdm_offset);
     debugln("PML4[511] is: %p", pml4[511]);
     map_page(pml4, 0xffff8000fee00000, 0xfee00000, PTE_WRITABLE | PTE_CACHE_DISABLE);
+    uint64_t* kernel_pml4 = pml4;
     debugln("Mapped page!");
 
     // Initialize LAPIC first
@@ -174,7 +178,10 @@ void kmain(void) {
     uint64_t s_end = timer_ticks;
     debugln("sleep(2000) finished. PIT ticks elapsed: %d", s_end - s_start);
 
-    init_acpi();
+    uacpi_status status = init_acpi();
+    if (uacpi_likely_error(status)) {
+        debugln("ACPI initialization failed!");
+    }
 
     debug_ram_map(memmap_request.response);
 
