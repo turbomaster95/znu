@@ -106,22 +106,40 @@ static inline void _outl(uint16_t port, uint32_t val) {
 /* --- ACPICA OSL Implementation --- */
 
 void* AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length) {
-    // Force everything to 64-bit to prevent truncation
-    uint64_t addr = (uint64_t)PhysicalAddress;
-    return (void*)(addr + hhdm_offset);
+    // If the address is already in the higher half (above hhdm_offset), 
+    // don't add it again.
+    if (PhysicalAddress >= hhdm_offset) {
+        return (void*)PhysicalAddress;
+    }
+    void* virt = (void*)(PhysicalAddress + hhdm_offset);
+    debugln("ACPI Map: Phys %p -> Virt %p", PhysicalAddress, virt);
+    return (void*)(PhysicalAddress + hhdm_offset);
 }
+
 
 void AcpiOsUnmapMemory(void* where, ACPI_SIZE length) {}
 
 ACPI_PHYSICAL_ADDRESS AcpiOsGetRootPointer() {
-    if (rsdp_request.response == NULL) {
-        debugln("ACPI Error: No RSDP response from Limine");
-        return 0; 
+    if (rsdp_request.response == NULL) return 0;
+    
+    uint64_t addr = (uint64_t)rsdp_request.response->address;
+    
+    // CONVERT TO PHYSICAL: Strip the HHDM offset before giving it to ACPICA
+    if (addr >= 0xffff800000000000) {
+        return (ACPI_PHYSICAL_ADDRESS)(addr - 0xffff800000000000);
     }
-    return (ACPI_PHYSICAL_ADDRESS)rsdp_request.response->address;
+    debugln("OSL: AcpiOsGetRootPointer: %d", (ACPI_PHYSICAL_ADDRESS)addr);
+    return (ACPI_PHYSICAL_ADDRESS)addr;
 }
 
-void* AcpiOsAllocate(ACPI_SIZE Size) { return kmalloc(Size); }
+
+int alloc_count = 0;
+void* AcpiOsAllocate(ACPI_SIZE Size) {
+    alloc_count++;
+    if (alloc_count % 100 == 0) debugln("OSL: %d allocations performed", alloc_count);
+    return kmalloc(Size);
+}
+
 void AcpiOsFree(void* Memory) { kfree(Memory); }
 
 ACPI_STATUS AcpiOsReadPort(ACPI_IO_ADDRESS Address, UINT32 *Value, UINT32 Width) {
@@ -149,7 +167,15 @@ ACPI_THREAD_ID AcpiOsGetThreadId(void) { return 1; }
 ACPI_STATUS AcpiOsSignal(UINT32 Function, void *Info) { return AE_OK; }
 void AcpiOsWaitEventsComplete(void) {}
 void AcpiOsSleep(UINT64 Milliseconds) {}
-void AcpiOsStall(UINT32 Microseconds) {}
+void AcpiOsStall(UINT32 Microseconds) {
+    // You have a calibrated LAPIC! Use it.
+    // If 1ms = 63039 ticks, then 1us = ~63 ticks.
+    uint64_t start = AcpiOsGetTimer();
+    uint64_t ticks_to_wait = Microseconds * 63; 
+    while (AcpiOsGetTimer() - start < ticks_to_wait) {
+        asm volatile ("pause");
+    }
+}
 
 ACPI_STATUS AcpiOsInstallInterruptHandler(UINT32 InterruptNumber, ACPI_OSD_HANDLER ServiceRoutine, void *Context) { return AE_OK; }
 ACPI_STATUS AcpiOsRemoveInterruptHandler(UINT32 InterruptNumber, ACPI_OSD_HANDLER ServiceRoutine) { return AE_OK; }
@@ -162,13 +188,37 @@ ACPI_STATUS AcpiOsPurgeCache(ACPI_CACHE_T *Cache) { return AE_OK; }
 void* AcpiOsAcquireObject(ACPI_CACHE_T *Cache) { return kmalloc(1024); } 
 ACPI_STATUS AcpiOsReleaseObject(ACPI_CACHE_T *Cache, void *Object) { kfree(Object); return AE_OK; }
 
-/* Semaphore Fix: Use ACPI_SEMAPHORE throughout */
-ACPI_STATUS AcpiOsCreateSemaphore(UINT32 MaxUnits, UINT32 InitialUnits, ACPI_SEMAPHORE *OutHandle) { *OutHandle = (void*)1; return AE_OK; }
+// Updated OSL Semaphore implementation
+ACPI_STATUS AcpiOsCreateSemaphore(UINT32 MaxUnits, UINT32 InitialUnits, ACPI_SEMAPHORE *OutHandle) {
+    uint32_t* sem = kmalloc(sizeof(uint32_t));
+    if (!sem) return AE_NO_MEMORY;
+    *sem = InitialUnits;
+    *OutHandle = (ACPI_SEMAPHORE)sem;
+    return AE_OK;
+}
+
+ACPI_STATUS AcpiOsWaitSemaphore(ACPI_SEMAPHORE Handle, UINT32 Units, UINT16 Timeout) {
+    if (!Handle) return AE_BAD_PARAMETER;
+    // For single-core, we don't block, but we MUST update the count
+    uint32_t* val = (uint32_t*)Handle;
+    if (*val >= Units) {
+        *val -= Units;
+        return AE_OK;
+    }
+    // If it was 0, it would normally block here. 
+    return AE_OK; 
+}
+
 ACPI_STATUS AcpiOsDeleteSemaphore(ACPI_SEMAPHORE Handle) { return AE_OK; }
-ACPI_STATUS AcpiOsWaitSemaphore(ACPI_SEMAPHORE Handle, UINT32 Units, UINT16 Timeout) { return AE_OK; }
 ACPI_STATUS AcpiOsSignalSemaphore(ACPI_SEMAPHORE Handle, UINT32 Units) { return AE_OK; }
 
-ACPI_STATUS AcpiOsCreateLock(ACPI_SPINLOCK *OutHandle) { *OutHandle = (void*)1; return AE_OK; }
+ACPI_STATUS AcpiOsCreateLock(ACPI_SPINLOCK *OutHandle) {
+    uint32_t* lock = kmalloc(sizeof(uint32_t));
+    *lock = 0;
+    *OutHandle = (ACPI_SPINLOCK)lock;
+    return AE_OK;
+}
+
 void AcpiOsDeleteLock(ACPI_SPINLOCK Handle) {}
 ACPI_CPU_FLAGS AcpiOsAcquireLock(ACPI_SPINLOCK Handle) { return 0; }
 void AcpiOsReleaseLock(ACPI_SPINLOCK Handle, ACPI_CPU_FLAGS Flags) {}

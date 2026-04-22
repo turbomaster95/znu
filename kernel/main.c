@@ -147,7 +147,6 @@ void kmain(void) {
 
     debugln("HHDM Offset: %p\n", hhdm_request.response->offset);
     debugln("RSDP Address: %p", rsdp_request.response->address);
-    init_acpi();
 
     debugln("About to map page");
     uint64_t* pml4 = (uint64_t*)(read_cr3() + hhdm_offset);
@@ -174,6 +173,8 @@ void kmain(void) {
     sleep(2000);
     uint64_t s_end = timer_ticks;
     debugln("sleep(2000) finished. PIT ticks elapsed: %d", s_end - s_start);
+
+    init_acpi();
 
     debug_ram_map(memmap_request.response);
 

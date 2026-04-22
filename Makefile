@@ -89,6 +89,7 @@ ifeq ($(skip-makefile),)
 
 TARGET       := oxus
 STARGET      := ox
+ISOIMAGE     := image.iso
 # ---------------------------------------------------------------
 
 # If building an external module we do not care about the all: rule
@@ -367,8 +368,8 @@ quiet_cmd_$(TARGET) = KRNLD   $@
 quiet_cmd_strip = STRIP   $@ -> $(STARGET)
       cmd_strip = $(OBJCOPY) --strip-all --strip-unneeded --strip-debug $@ $(STARGET)
 
-quiet_cmd_mkiso = MKISO   $(STARGET) -> image.iso
-      cmd_mkiso = ./scripts/iso.sh > /dev/null 2>&1
+quiet_cmd_mkiso = MKISO   $(STARGET) -> $(ISOIMAGE)
+      cmd_mkiso = ./scripts/iso.sh $(ISOIMAGE) > /dev/null 2>&1
 
 $(TARGET): $($(TARGET)-all) FORCE
 	$(call if_changed,$(TARGET))
@@ -406,7 +407,7 @@ CLEAN_DIRS  += lib/acpica_out
 CLEAN_FILES +=	$(TARGET) image.iso $(STARGET)
 
 # Directories & files removed with 'make mrproper'
-MRPROPER_DIRS  += include/config include/generated
+MRPROPER_DIRS  += include/config include/generated lib/acpica
 MRPROPER_FILES += .config .config.old tags TAGS cscope* GPATH GTAGS GRTAGS GSYMS
 
 # clean - Delete most, but leave enough to build external modules

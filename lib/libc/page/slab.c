@@ -1,6 +1,7 @@
 #include <page.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <stdlib.h>
 
 // Each slab manages a specific power-of-two size
 struct slab_header {
@@ -61,6 +62,7 @@ void* kmalloc(uint64_t size) {
     void* addr = slab->free_list;
     slab->free_list = *(void**)addr;
     slab->slots_free--;
+    debugln("Allocated: %p", addr);
 
     return addr;
 }
