@@ -368,7 +368,7 @@ quiet_cmd_strip = STRIP   $@ -> $(STARGET)
       cmd_strip = $(OBJCOPY) --strip-all --strip-unneeded --strip-debug $@ $(STARGET)
 
 quiet_cmd_mkiso = MKISO   $(STARGET) -> $(ISOIMAGE)
-      cmd_mkiso = ./scripts/iso.sh $(ISOIMAGE) > /dev/null 2>&1
+      cmd_mkiso = $(srctree)/scripts/iso.sh $(srctree) $(ISOIMAGE) > /dev/null 2>&1
 
 $(TARGET): $($(TARGET)-all) FORCE
 	$(call if_changed,$(TARGET))
@@ -406,7 +406,7 @@ CLEAN_DIRS  += lib/uacpi_out
 CLEAN_FILES +=	$(TARGET) image.iso $(STARGET)
 
 # Directories & files removed with 'make mrproper'
-MRPROPER_DIRS  += include/config include/generated lib/uacpi
+MRPROPER_DIRS  += include/config include/generated lib/uacpi build/
 MRPROPER_FILES += .config .config.old tags TAGS cscope* GPATH GTAGS GRTAGS GSYMS
 
 # clean - Delete most, but leave enough to build external modules
