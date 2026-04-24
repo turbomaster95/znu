@@ -11,7 +11,11 @@ fi
 
 llvm-objcopy --strip-all --strip-unneeded --strip-debug --strip-all-gnu znus znu
 
+mkdir -p "$SRCTREE/configs/iso_root/boot/limine"
+
 cp znu "$SRCTREE/configs/iso_root/boot/kernel.bin"
+cp "$SRCTREE"/scripts/limine/bin/*.bin "$SRCTREE/configs/iso_root/boot/limine/"
+cp "$SRCTREE"/scripts/limine/bin/*.sys "$SRCTREE/configs/iso_root/boot/limine/"
 
 xorriso -as mkisofs \
   -b boot/limine/limine-bios-cd.bin \

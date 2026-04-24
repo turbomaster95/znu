@@ -367,6 +367,9 @@ quiet_cmd_$(TARGET) = KRNLD   $@
 quiet_cmd_strip = STRIP   $@ -> $(STARGET)
       cmd_strip = $(OBJCOPY) --strip-all --strip-unneeded --strip-debug $@ $(STARGET)
 
+quiet_cmd_build_limine = LIMINE  scripts/limine
+      cmd_build_limine = $(MAKE) -C $(srctree)/scripts/limine > /dev/null
+
 quiet_cmd_mkiso = MKISO   $(STARGET) -> $(ISOIMAGE)
       cmd_mkiso = $(srctree)/scripts/iso.sh $(srctree) $(ISOIMAGE) > /dev/null 2>&1
 
