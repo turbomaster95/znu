@@ -73,6 +73,15 @@ void init_vmm(struct limine_memmap_response* memmap) {
         );
     }
 
+    debugln("[VMM] Mapping common MMIO range (0xFD000000 - 0xFFFFFFFF)...");
+    vmm_map_region(
+        kernel_pml4,
+        0xfd000000 + hhdm_offset,
+        0xfd000000,
+        0x03000000, // 48MB covering HPET, LAPIC, and I/O APICs
+        PTE_WRITABLE | PTE_CACHE_DISABLE // Cache disable is safer for MMIO
+    );
+
     // 4. Activate the new table
     // After this instruction, the CPU is officially using your kernel_pml4
     vmm_switch(kernel_pml4);

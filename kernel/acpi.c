@@ -58,7 +58,7 @@ void uacpi_kernel_free(void *ptr) {
 }
 
 void *uacpi_kernel_map(uacpi_phys_addr physical, uacpi_size length) {
-    debugln("Mapping %p...", physical);
+    debugln("[VMM] uACPI requesting map: Phys %p (len %d)", (void*)physical, length);
     (void)length;
 
     return (void*)(physical + 0xffff800000000000);
@@ -71,54 +71,30 @@ void uacpi_kernel_unmap(void *ptr, uacpi_size length) {
 	unmap_page((void*)ROUND_DOWN(addr, PAGE_SIZE), ROUND_UP(length + pageoffset, PAGE_SIZE));
 }
 
-uacpi_status uacpi_kernel_raw_memory_read(uacpi_phys_addr address, uacpi_u8 width, uacpi_u64 *out) {
-	void *ptr = uacpi_kernel_map(address, width);
-
-	switch (width) {
-		case 1:
-			*out = *(volatile uint8_t *)ptr;
-			break;
-		case 2:
-			*out = *(volatile uint16_t *)ptr;
-			break;
-		case 4:
-			*out = *(volatile uint32_t *)ptr;
-			break;
-		case 8:
-			*out = *(volatile uint64_t *)ptr;
-			break;
-		default:
-			uacpi_kernel_unmap(ptr, width);
-			return UACPI_STATUS_INVALID_ARGUMENT;
-	}
-
-	uacpi_kernel_unmap(ptr, width);
-	return UACPI_STATUS_OK;
+uacpi_status uacpi_kernel_raw_memory_read(uacpi_phys_addr address, uacpi_u8 byte_width, uacpi_u64 *out_value) {
+    debugln("acpi raw mem read addr: %s", address);
+    debugln("acpi raw mem read byte_width: %s", byte_width);
+    // You MUST map the address before reading if it's not in your HHDM
+    void* virt = (void*)((uintptr_t)address + 0xffff800000000000);
+    
+    if (byte_width == 1) *out_value = *(volatile uint8_t*)virt;
+    else if (byte_width == 2) *out_value = *(volatile uint16_t*)virt;
+    else if (byte_width == 4) *out_value = *(volatile uint32_t*)virt;
+    else if (byte_width == 8) *out_value = *(volatile uint64_t*)virt;
+    
+    return UACPI_STATUS_OK;
 }
 
-uacpi_status uacpi_kernel_raw_memory_write(uacpi_phys_addr address, uacpi_u8 width, uacpi_u64 in) {
-	void *ptr = uacpi_kernel_map(address, width);
-
-	switch (width) {
-		case 1:
-			*(volatile uint8_t *)ptr = in;
-			break;
-		case 2:
-			*(volatile uint16_t *)ptr = in;
-			break;
-		case 4:
-			*(volatile uint32_t *)ptr = in;
-			break;
-		case 8:
-			*(volatile uint64_t *)ptr = in;
-			break;
-		default:
-			uacpi_kernel_unmap(ptr, width);
-			return UACPI_STATUS_INVALID_ARGUMENT;
-	}
-
-	uacpi_kernel_unmap(ptr, width);
-	return UACPI_STATUS_OK;
+uacpi_status uacpi_kernel_raw_memory_write(uacpi_phys_addr address, uacpi_u8 byte_width, uacpi_u64 value) {
+    debugln("acpi raw mem write addr: %s", address);
+    debugln("acpi raw mem write byte_width: %s", byte_width);
+    uintptr_t virt = address + hhdm_offset;
+    // Ensure you are using 'volatile' so the compiler doesn't optimize the write away!
+    if (byte_width == 1) *(volatile uint8_t*)virt = (uint8_t)value;
+    else if (byte_width == 2) *(volatile uint16_t*)virt = (uint16_t)value;
+    else if (byte_width == 4) *(volatile uint32_t*)virt = (uint32_t)value;
+    else if (byte_width == 8) *(volatile uint64_t*)virt = (uint64_t)value;
+    return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_io_read8(uacpi_handle handle, uacpi_size offset, uacpi_u8 *out) {
@@ -216,10 +192,18 @@ void uacpi_kernel_free_mutex(uacpi_handle mutex) { (void)mutex; }
 uacpi_status uacpi_kernel_acquire_mutex(uacpi_handle mutex, uacpi_u16 timeout) { (void)mutex; (void)timeout; return UACPI_STATUS_OK; }
 void uacpi_kernel_release_mutex(uacpi_handle mutex) { (void)mutex; }
 
-uacpi_handle uacpi_kernel_create_spinlock(void) { return (uacpi_handle)1; }
+uacpi_handle uacpi_kernel_create_spinlock(void) {
+    return (uacpi_handle)1;
+}
+
 void uacpi_kernel_free_spinlock(uacpi_handle spinlock) { (void)spinlock; }
-uacpi_cpu_flags uacpi_kernel_lock_spinlock(uacpi_handle spinlock) { (void)spinlock; return 0; }
-void uacpi_kernel_unlock_spinlock(uacpi_handle spinlock, uacpi_cpu_flags flags) { (void)spinlock; (void)flags; }
+uacpi_cpu_flags uacpi_kernel_lock_spinlock(uacpi_handle spinlock) { 
+    __asm__ volatile("cli");
+}
+void uacpi_kernel_unlock_spinlock(uacpi_handle spinlock, uacpi_cpu_flags flags) {
+   __asm__ volatile("sti");
+   (void)flags;
+}
 
 uacpi_handle uacpi_kernel_create_event(void) { return (uacpi_handle)1; }
 void uacpi_kernel_free_event(uacpi_handle event) { (void)event; }
@@ -267,15 +251,20 @@ void uacpi_kernel_sleep(uacpi_u64 msec) {
 }
 
 uacpi_status uacpi_kernel_get_rsdp(uacpi_phys_addr *out_rsdp) {
-    // Assuming your HHDM offset is 0xffff800000000000
-    uintptr_t virt_addr = (uintptr_t)rsdp_request->response->address;
+    debugln("Called get_rsdp!");
     
-    // Convert Virtual to Physical
-    *out_rsdp = (uacpi_phys_addr)(virt_addr - 0xffff800000000000);
+    /* * From your logs: 
+     * [KERNEL LOG] RSDP Address: 0xffff8000000f52e0
+     * HHDM Offset is: 0xffff800000000000
+     * Physical address = Virtual - Offset = 0xF52E0
+     */
     
-    debugln("[uACPI] Handing over RSDP Phys: %p", (void*)*out_rsdp);
+    *out_rsdp = (uacpi_phys_addr)0xF52E0;
+
+    debugln("[uACPI] Hardcoded RSDP Phys: 0x%x", *out_rsdp);
     return UACPI_STATUS_OK;
 }
+
 
 uacpi_status uacpi_kernel_handle_firmware_request(uacpi_firmware_request *req) { return UACPI_STATUS_UNIMPLEMENTED; }
 

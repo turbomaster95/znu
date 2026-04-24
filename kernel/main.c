@@ -192,14 +192,17 @@ void kmain(void) {
         debugerr("uACPI init failed: %s", uacpi_status_to_string(status));
         hcf();
     }
+    debugln("uACPI Initialized!");
 
     // Stage 2: Load the AML namespace
     status = uacpi_namespace_load();
     if (status != UACPI_STATUS_OK) {
         debugerr("Namespace load failed!");
     }
+    debugln("uACPI Namespace Loaded!");
 
     // Stage 3: Initialize devices
+    debugln("About to initialize namespace..");
     status = uacpi_namespace_initialize();
     debugln("uACPI is live.");
 

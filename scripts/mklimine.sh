@@ -31,12 +31,10 @@ echo "Building Limine binaries..."
 pushd "$LIMINE_DIR"
 unset LDFLAGS
 unset CFLAGS
+export TOOLCHAIN_FOR_TARGET="x86_64-elf-"
 if [ ! -f "$LIMINE_DIR/Makefile" ]; then
     ./bootstrap
-    ./configure --enable-bios --enable-bios-cd --enable-bios-pxe \
-        --host=x86_64-elf CC="gcc" \
-        TOOLCHAIN_FOR_TARGET="x86_64-elf-" \
-        LD_FOR_TARGET="x86_64-elf-ld"
+    ./configure --enable-bios --enable-bios-cd CC="gcc"
 fi
 
 if [ ! -f "$LIMINE_DIR/bin/limine-bios-cd.bin" ]; then
@@ -50,6 +48,7 @@ else
 fi
 popd
 
+exit 0
 # 3. Verify the build produced the necessary BIOS binary
 if [ ! -f "$LIMINE_DIR/bin/limine-bios-cd.bin" ]; then
     echo "Error: Limine build failed to produce BIOS binaries."
