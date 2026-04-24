@@ -21,6 +21,30 @@ static inline uint8_t inb(uint16_t port) {
     return ret;
 }
 
+// Output a 16-bit Word to an I/O port
+static inline void outw(uint16_t port, uint16_t val) {
+    __asm__ volatile ("outw %0, %1" : : "a"(val), "Nd"(port));
+}
+
+// Input a 16-bit Word from an I/O port
+static inline uint16_t inw(uint16_t port) {
+    uint16_t ret;
+    __asm__ volatile ("inw %1, %0" : "=a"(ret) : "Nd"(port));
+    return ret;
+}
+
+// Output a 32-bit Double Word to an I/O port
+static inline void outd(uint16_t port, uint32_t val) {
+    __asm__ volatile ("outl %0, %1" : : "a"(val), "Nd"(port));
+}
+
+// Input a 32-bit Double Word from an I/O port
+static inline uint32_t ind(uint16_t port) {
+    uint32_t ret;
+    __asm__ volatile ("inl %1, %0" : "=a"(ret) : "Nd"(port));
+    return ret;
+}
+
 void debug_putchar(char c);
 void debugerr(const char* format, ...);
 void debugwarn(const char* format, ...);

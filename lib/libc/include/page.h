@@ -24,6 +24,7 @@ extern uint64_t hhdm_offset;
 #define VIRT_TO_PHYS(addr) ((uint64_t)(addr) - hhdm_offset)
 #define PAGE_ALIGN_DOWN(addr) ((addr) & ~(PAGE_SIZE - 1))
 #define PAGE_ALIGN_UP(addr)   (((addr) + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1))
+#define FROM_HHDM(x) (void *)((uintptr_t)x - hhdm_offset)
 
 #if defined(__is_libk)
 
@@ -32,12 +33,14 @@ void* palloc_zero(void);
 void  pfree(void* phys_addr);
 void  init_slab(void);
 void  map_page(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t flags);
+void unmap_page(uint64_t* pml4, uint64_t virt);
 void  debug_ram_map(struct limine_memmap_response* memmap);
 void* kmalloc(uint64_t size);
 void  kfree(void* ptr);
 void  vmm_switch(uint64_t* pml4_virt);
 void  vmm_map_region(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t size, uint64_t flags);
 void  init_vmm(struct limine_memmap_response* memmap);
+void* heap_extend(uint64_t pages);
 uint64_t* vmm_get_kernel_pml4(void);
 
 #endif

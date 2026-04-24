@@ -3,12 +3,17 @@
 
 #include <sys/cdefs.h>
 #include <stdarg.h>
+#include <stddef.h>
 
 #define EOF (-1)
+#define ROUND_DOWN(v, n) ((v) - ((v) % (n)))
+#define ROUND_UP(v, n) ROUND_DOWN((v) + (n) - 1, n)
 
 int printf(const char* __restrict, ...);
 int putchar(int);
 int puts(const char*);
 int vprintf(const char* restrict format, va_list parameters);
+int snprintf(char *str, size_t size, const char *fmt, ...);
+int vsnprintf(char *str, size_t size, const char *fmt, va_list ap);
 
 #endif

@@ -181,10 +181,10 @@ void kmain(void) {
     debugln("sleep(2000) finished. PIT ticks elapsed: %d", s_end - s_start);
 
     rsdp_response = rsdp_request.response;
-    uacpi_status status = init_acpi();
-    if (uacpi_likely_error(status)) {
-        debugln("ACPI initialization failed!");
-    }
+//    uacpi_status status = init_acpi();
+  //  if (uacpi_likely_error(status)) {
+    //    debugln("ACPI initialization failed!");
+   // }
 
     debugln("DONE!!");
     //debug_ram_map(memmap_request.response);

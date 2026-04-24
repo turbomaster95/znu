@@ -46,7 +46,7 @@ rm -f "$TMP_C" "$TMP_O"
 # Resolve absolute path for SRC to prevent find errors
 PROJECT_ROOT=$(realpath "$SRCTREE")
 SRC=$(realpath "$SRCTREE/lib/uacpi/source" 2>/dev/null)
-INC="-I$SRCTREE/lib/uacpi/include -I$SRCTREE/lib/libc/include"
+INC="-I$SRCTREE/lib/uacpi/include -I$SRCTREE/lib/libc/include -I$SRCTREE/include"
 INTERNAL_INC=$($CC -print-file-name=include)
 OUT="lib/uacpi/uacpi_out"
 FINAL_OBJ="$OBJTREE/lib/uacpi_lib.o"
@@ -84,9 +84,7 @@ for f in $FILES; do
         -U__linux__ -w -U__unix__ \
         -include "$SRCTREE/lib/libc/include/string.h" \
         -include "$SRCTREE/lib/libc/include/ctype.h" \
-        -D_GNU_EFI -D_EFI64 -DACPI_MACHINE_WIDTH=64 \
-        -DACPI_USE_SYSTEM_CLIBRARY=0 \
-        -DACPI_USE_STANDARD_HEADERS=0 \
+        -DUACPI_OVERRIDE_LIBC -DUACPI_KERNEL_INITIALIZATION -DUACPI_NATIVE_ALLOC_ZEROED \
         -ffreestanding -nostdinc -fno-stack-protector -mcmodel=kernel -mno-red-zone; then
         NEW_FILES_COMPILED=true
     else

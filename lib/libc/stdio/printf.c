@@ -87,3 +87,45 @@ int vdebugprintf(const char* restrict format, va_list parameters) {
     return base_vprintf(debug_putchar, format, parameters);
 }
 
+/* Helper for vsnprintf */
+struct snprintf_ctx {
+    char *buf;
+    size_t size;
+    size_t written;
+};
+
+static struct snprintf_ctx _sn_ctx;
+
+static void sn_putc(char c) {
+    if (_sn_ctx.written < _sn_ctx.size - 1) {
+        _sn_ctx.buf[_sn_ctx.written] = c;
+    }
+    _sn_ctx.written++;
+}
+
+int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
+    if (size == 0) return 0;
+
+    _sn_ctx.buf = str;
+    _sn_ctx.size = size;
+    _sn_ctx.written = 0;
+
+    base_vprintf(sn_putc, format, ap);
+
+    // Null terminate
+    if (_sn_ctx.written < _sn_ctx.size) {
+        str[_sn_ctx.written] = '\0';
+    } else {
+        str[_sn_ctx.size - 1] = '\0';
+    }
+
+    return _sn_ctx.written;
+}
+
+int snprintf(char *str, size_t size, const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    int result = vsnprintf(str, size, format, args);
+    va_end(args);
+    return result;
+}

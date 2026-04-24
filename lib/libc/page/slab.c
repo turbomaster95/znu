@@ -38,7 +38,7 @@ static int get_bucket_idx(uint64_t size) {
     return -1;
 }
 
-static void* heap_extend(uint64_t pages) {
+void* heap_extend(uint64_t pages) {
     void* virt_addr = (void*)heap_virtual_top;
 
     for (uint64_t i = 0; i < pages; i++) {

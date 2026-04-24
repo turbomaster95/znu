@@ -11,7 +11,7 @@ export KBUILD_CPPFLAGS KBUILD_CFLAGS
 obj-y += libc/
 
 KBUILD_CPPFLAGS += -I$(srctree)/lib/uacpi/include
-obj-y += uacpi_lib.o
+#obj-y += uacpi_lib.o
 
 $(obj)/uacpi_lib.o: $(srctree)/scripts/uacpi.sh
 	$(call if_changed,run_uacpi)
