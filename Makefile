@@ -402,12 +402,12 @@ $($(TARGET)-dirs): scripts_basic
 # make distclean Remove editor backup files, patch leftover files and the like
 
 # Directories & files removed with 'make clean'
-CLEAN_DIRS  += lib/uacpi_out
+CLEAN_DIRS  += lib/uacpi/uacpi_out
 CLEAN_FILES +=	$(TARGET) image.iso $(STARGET)
 
 # Directories & files removed with 'make mrproper'
-MRPROPER_DIRS  += include/config include/generated lib/uacpi build/
-MRPROPER_FILES += .config .config.old tags TAGS cscope* GPATH GTAGS GRTAGS GSYMS
+MRPROPER_DIRS  += include/config include/generated lib/uacpi build/ $(CLEAN_DIRS)
+MRPROPER_FILES += .config .config.old tags TAGS cscope* GPATH GTAGS GRTAGS GSYMS $(CLEAN_FILES)
 
 # clean - Delete most, but leave enough to build external modules
 #

@@ -44,10 +44,11 @@ rm -f "$TMP_C" "$TMP_O"
 
 # 3. Directory Definitions
 # Resolve absolute path for SRC to prevent find errors
+PROJECT_ROOT=$(realpath "$SRCTREE")
 SRC=$(realpath "$SRCTREE/lib/uacpi/source" 2>/dev/null)
 INC="-I$SRCTREE/lib/uacpi/include -I$SRCTREE/lib/libc/include"
 INTERNAL_INC=$($CC -print-file-name=include)
-OUT="lib/uacpi_out"
+OUT="lib/uacpi/uacpi_out"
 FINAL_OBJ="$OBJTREE/lib/uacpi_lib.o"
 
 mkdir -p "$OUT"
@@ -67,6 +68,7 @@ OBJ_LIST=""
 NEW_FILES_COMPILED=false
 
 for f in $FILES; do
+    DISPATH="${f#$PROJECT_ROOT/}"
     # Create unique object name by converting path separators to underscores
     obj_name=$(echo "$f" | tr '/' '_').o
     obj_path="$OUT/$obj_name"
@@ -77,7 +79,7 @@ for f in $FILES; do
         continue
     fi
 
-    echo "  ACC     $f"
+    echo "  ACC     $DISPATH"
     if $CC -c "$f" -o "$obj_path" $INC -isystem "$INTERNAL_INC" \
         -U__linux__ -w -U__unix__ \
         -include "$SRCTREE/lib/libc/include/string.h" \
@@ -99,11 +101,12 @@ if [ -z "$OBJ_LIST" ]; then
     exit 1
 fi
 
-# Link if the final object is missing OR if we just compiled something new
+
+FINAL_DISPATH="${FINAL_OBJ#$PROJECT_ROOT/}"
+
 if [ ! -f "$FINAL_OBJ" ] || [ "$NEW_FILES_COMPILED" = true ]; then
-    echo "  LD      $FINAL_OBJ"
+    echo "  LD      $FINAL_DISPATH"
     $LD -r $OBJ_LIST -o "$FINAL_OBJ"
 else
-    echo "  ACPI    $FINAL_OBJ already exists and is up to date."
+    echo "  ACPI    $FINAL_DISPATH is up to date."
 fi
-
