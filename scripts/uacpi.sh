@@ -48,8 +48,8 @@ PROJECT_ROOT=$(realpath "$SRCTREE")
 SRC=$(realpath "$SRCTREE/lib/uacpi/source" 2>/dev/null)
 INC="-I$SRCTREE/lib/uacpi/include -I$SRCTREE/lib/libc/include -I$SRCTREE/include"
 INTERNAL_INC=$($CC -print-file-name=include)
-OUT="lib/uacpi/uacpi_out"
-FINAL_OBJ="$OBJTREE/lib/uacpi_lib.o"
+OUT="lib/uacpi/.uacpi_out"
+FINAL_OBJ="$OBJTREE/lib/uacpi/uacpi_lib.o"
 
 mkdir -p "$OUT"
 
@@ -84,8 +84,8 @@ for f in $FILES; do
         -U__linux__ -w -U__unix__ \
         -include "$SRCTREE/lib/libc/include/string.h" \
         -include "$SRCTREE/lib/libc/include/ctype.h" \
-        -DUACPI_OVERRIDE_LIBC -DUACPI_KERNEL_INITIALIZATION -DUACPI_NATIVE_ALLOC_ZEROED \
-        -ffreestanding -nostdinc -fno-stack-protector -mcmodel=kernel -mno-red-zone; then
+        -DUACPI_NATIVE_ALLOC_ZEROED -D__is_libk \
+        -ffreestanding -nostdinc -fno-stack-protector -mcmodel=kernel -mno-red-zone -mno-mmx -mno-sse -mno-sse2; then
         NEW_FILES_COMPILED=true
     else
         echo "  ERROR: Failed to compile $f"

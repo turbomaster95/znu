@@ -10,6 +10,7 @@
 #include <pi.h>
 #include <page.h>
 #include <uacpi/uacpi.h>
+#include <timekeeper.h>
 
 extern uacpi_status init_acpi(void);
 extern void draw_kernel_gui(void);
@@ -181,13 +182,26 @@ void kmain(void) {
     debugln("sleep(2000) finished. PIT ticks elapsed: %d", s_end - s_start);
 
     rsdp_response = rsdp_request.response;
-//    uacpi_status status = init_acpi();
-  //  if (uacpi_likely_error(status)) {
-    //    debugln("ACPI initialization failed!");
-   // }
 
     debugln("DONE!!");
-    //debug_ram_map(memmap_request.response);
+    debugln("Starting uACPI...");
+
+    // Stage 1: Table initialization
+    uacpi_status status = uacpi_initialize(UACPI_LOG_DEBUG);
+    if (status != UACPI_STATUS_OK) {
+        debugerr("uACPI init failed: %s", uacpi_status_to_string(status));
+        hcf();
+    }
+
+    // Stage 2: Load the AML namespace
+    status = uacpi_namespace_load();
+    if (status != UACPI_STATUS_OK) {
+        debugerr("Namespace load failed!");
+    }
+
+    // Stage 3: Initialize devices
+    status = uacpi_namespace_initialize();
+    debugln("uACPI is live.");
 
     hcf(); // Halt
 }

@@ -198,7 +198,7 @@ LINUXINCLUDE    := -Iinclude \
 
 KBUILD_CPPFLAGS := -D__KERNEL__
 
-KBUILD_CFLAGS   := -Wall -Wno-unused-variable -Wundef -Wstrict-prototypes -Wno-trigraphs \
+KBUILD_CFLAGS   := -Wall -Wno-unused-variable -Wundef -Wstrict-prototypes -Wno-trigraphs -mno-mmx -mno-sse -mno-sse2 \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
@@ -368,7 +368,7 @@ quiet_cmd_strip = STRIP   $@ -> $(STARGET)
       cmd_strip = $(OBJCOPY) --strip-all --strip-unneeded --strip-debug $@ $(STARGET)
 
 quiet_cmd_build_limine = LIMINE  scripts/limine
-      cmd_build_limine = $(srctree)/scripts/mklimine.sh $(srctree) "$(MAKEFLAGS)"
+      cmd_build_limine = $(srctree)/scripts/mklimine.sh $(srctree) "$(MAKEFLAGS)" &> /dev/null
 
 quiet_cmd_mkiso = MKISO   $(STARGET) -> $(ISOIMAGE)
       cmd_mkiso = $(srctree)/scripts/iso.sh $(srctree) $(ISOIMAGE) > /dev/null 2>&1

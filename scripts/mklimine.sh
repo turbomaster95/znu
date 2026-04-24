@@ -29,17 +29,24 @@ fi
 # We use -C to run make inside the directory
 echo "Building Limine binaries..."
 pushd "$LIMINE_DIR"
-if [ ! -f "$LIMINE_DIR/Makefile" ]; then
-    ./bootstrap
-fi
 unset LDFLAGS
 unset CFLAGS
-./configure --enable-bios --enable-bios-cd --enable-bios-pxe --host=x86_64-elf CC="gcc" TOOLCHAIN_FOR_TARGET="x86_64-elf-" LD_FOR_TARGET="x86_64-elf-ld"
+if [ ! -f "$LIMINE_DIR/Makefile" ]; then
+    ./bootstrap
+    ./configure --enable-bios --enable-bios-cd --enable-bios-pxe \
+        --host=x86_64-elf CC="gcc" \
+        TOOLCHAIN_FOR_TARGET="x86_64-elf-" \
+        LD_FOR_TARGET="x86_64-elf-ld"
+fi
 
-if [ -n "$JOBS" ]; then
-    make -j"$JOBS" > /dev/null
+if [ ! -f "$LIMINE_DIR/bin/limine-bios-cd.bin" ]; then
+    if [ -n "$JOBS" ]; then
+        make -j"$JOBS" > /dev/null
+    else
+        make -j > /dev/null
+    fi
 else
-    make -j > /dev/null
+    echo "Limine already compiled, skipping build."
 fi
 popd
 

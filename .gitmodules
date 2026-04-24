@@ -4,3 +4,6 @@
 [submodule "scripts/limine"]
 	path = scripts/limine
 	url = https://github.com/limine-bootloader/limine
+[submodule "lib/flanterm"]
+	path = lib/flanterm
+	url = https://github.com/Mintsuki/Flanterm

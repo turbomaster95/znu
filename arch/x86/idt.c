@@ -4,6 +4,8 @@
 #include <string.h>
 #include <pi.h>
 #include <lapic.h>
+#include <timekeeper.h>
+
 
 struct idt_entry idt[256] __attribute__((aligned(16)));
 struct idtr idtr_instance;
@@ -39,6 +41,7 @@ void k_exception_handler(registers_t *regs) {
     }
 
     if (regs->int_no == 32) {
+	timekeeper_on_tick();
         timer_ticks++;
         if (timer_ticks % 1000 == 0) { // Log every 1000 ticks to avoid spam
             debugln("Tick! %d", timer_ticks);

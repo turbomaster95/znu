@@ -38,8 +38,18 @@ static int base_vprintf(void (*putc)(char), const char* restrict format, va_list
             continue;
         }
 
-        // Move past '%'
-        format++; 
+        format++; // Move past '%'
+
+        // --- Length Modifier Detection ---
+        int length_mod = 0; // 0 = default, 1 = long (l), 2 = long long (ll)
+        if (*format == 'l') {
+            length_mod = 1;
+            format++;
+            if (*format == 'l') {
+                length_mod = 2;
+                format++;
+            }
+        }
 
         if (*format == 'c') {
             format++;
@@ -54,16 +64,24 @@ static int base_vprintf(void (*putc)(char), const char* restrict format, va_list
             char type = *format++;
             uint64_t n;
             char buf[64];
+
             if (type == 'd' || type == 'i') {
-                int32_t val = va_arg(parameters, int32_t);
+                int64_t val;
+                // If it's %ld or %lld, pull 64 bits, otherwise pull 32 bits
+                if (length_mod >= 1) val = va_arg(parameters, int64_t);
+                else val = va_arg(parameters, int32_t);
+
                 if (val < 0) { putc('-'); written++; val = -val; }
-                n = (uint32_t)val;
+                n = (uint64_t)val;
             } else if (type == 'p') {
                 n = (uintptr_t)va_arg(parameters, void*);
                 putc('0'); putc('x'); written += 2;
             } else {
-                n = va_arg(parameters, uint32_t);
+                // Handle %lu or %llu
+                if (length_mod >= 1) n = va_arg(parameters, uint64_t);
+                else n = va_arg(parameters, uint32_t);
             }
+
             itoa(n, buf, (type == 'x' || type == 'p') ? 16 : 10);
             for (int i = 0; buf[i]; i++) { putc(buf[i]); written++; }
         }

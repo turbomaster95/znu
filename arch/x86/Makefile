@@ -5,3 +5,4 @@ obj-y += idt_stub.o
 obj-y += pit.o
 obj-y += pic.o
 obj-y += lapic.o
+obj-y += timekeeper.o

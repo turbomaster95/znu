@@ -13,8 +13,17 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <lapic.h>
+#include <timekeeper.h>
 
 extern struct limine_rsdp_request *rsdp_request;
+
+static uint32_t pci_get_addr(uacpi_handle device, uacpi_size offset) {
+    uint64_t addr = (uint64_t)device;
+    uint8_t bus = (addr >> 32) & 0xFF;
+    uint8_t dev = (addr >> 16) & 0xFF;
+    uint8_t func = addr & 0xFF;
+    return (uint32_t)((1 << 31) | (bus << 16) | (dev << 11) | (func << 8) | (offset & 0xFC));
+}
 
 void uacpi_kernel_vlog(uacpi_log_level lvl, const char *fmt, va_list args) {
     switch (lvl) {
@@ -26,7 +35,9 @@ void uacpi_kernel_vlog(uacpi_log_level lvl, const char *fmt, va_list args) {
 }
 
 void *uacpi_kernel_alloc(uacpi_size size) {
-	return kmalloc(size);
+    void *p = kmalloc(size);
+    debugln("[uACPI Alloc] %d bytes at %p", (uint32_t)size, p);
+    return p;
 }
 
 void *uacpi_kernel_alloc_zeroed(uacpi_size size) {
@@ -47,31 +58,10 @@ void uacpi_kernel_free(void *ptr) {
 }
 
 void *uacpi_kernel_map(uacpi_phys_addr physical, uacpi_size length) {
-    uintptr_t phys_start = (uintptr_t)physical & ~0xFFF; // Your PAGE_SIZE is 4096
-    uintptr_t offset = (uintptr_t)physical & 0xFFF;
-    uintptr_t size_to_map = PAGE_ALIGN_UP(length + offset);
-    size_t pages = size_to_map / PAGE_SIZE;
+    debugln("Mapping %p...", physical);
+    (void)length;
 
-    // Exchange 'vmm_map' for your 'heap_extend' or a virtual range allocator
-    // This gets you a fresh virtual address range
-    void *virt_base = heap_extend(pages);
-
-    if (virt_base == NULL) {
-        return NULL; // uACPI handles NULL as an error
-    }
-
-    // Map the pages manually using your 'map_page' function
-    uintptr_t curr_v = (uintptr_t)virt_base;
-    uintptr_t curr_p = phys_start;
-
-    for (size_t i = 0; i < pages; i++) {
-        // Exchange 'ARCH_MMU_FLAGS' for your 'PTE_WRITABLE' etc.
-        map_page(vmm_get_kernel_pml4(), curr_v, curr_p, PTE_WRITABLE);
-        curr_v += PAGE_SIZE;
-        curr_p += PAGE_SIZE;
-    }
-
-    return (void *)((uintptr_t)virt_base + offset);
+    return (void*)(physical + 0xffff800000000000);
 }
 
 void uacpi_kernel_unmap(void *ptr, uacpi_size length) {
@@ -217,3 +207,146 @@ void uacpi_kernel_pci_device_close(uacpi_handle handle) {
 	(void)handle;
 }
 
+uacpi_u64 uacpi_kernel_get_nanoseconds_since_boot(void) {
+    return (uacpi_u64)timekeeper_timefromboot();
+}
+
+uacpi_handle uacpi_kernel_create_mutex(void) { return (uacpi_handle)1; }
+void uacpi_kernel_free_mutex(uacpi_handle mutex) { (void)mutex; }
+uacpi_status uacpi_kernel_acquire_mutex(uacpi_handle mutex, uacpi_u16 timeout) { (void)mutex; (void)timeout; return UACPI_STATUS_OK; }
+void uacpi_kernel_release_mutex(uacpi_handle mutex) { (void)mutex; }
+
+uacpi_handle uacpi_kernel_create_spinlock(void) { return (uacpi_handle)1; }
+void uacpi_kernel_free_spinlock(uacpi_handle spinlock) { (void)spinlock; }
+uacpi_cpu_flags uacpi_kernel_lock_spinlock(uacpi_handle spinlock) { (void)spinlock; return 0; }
+void uacpi_kernel_unlock_spinlock(uacpi_handle spinlock, uacpi_cpu_flags flags) { (void)spinlock; (void)flags; }
+
+uacpi_handle uacpi_kernel_create_event(void) { return (uacpi_handle)1; }
+void uacpi_kernel_free_event(uacpi_handle event) { (void)event; }
+void uacpi_kernel_signal_event(uacpi_handle event) { (void)event; }
+void uacpi_kernel_reset_event(uacpi_handle event) { (void)event; }
+
+
+uacpi_status uacpi_kernel_install_interrupt_handler(
+    uacpi_u32 irq, 
+    uacpi_interrupt_handler handler, 
+    uacpi_handle ctx, 
+    uacpi_handle *out_irq_handle
+) {
+    // For a basic start, we can just return OK. 
+    // Eventually, you'll want to map 'irq' to your IDT.
+    (void)irq; (void)handler; (void)ctx;
+    *out_irq_handle = (uacpi_handle)1;
+    return UACPI_STATUS_OK;
+}
+
+uacpi_status uacpi_kernel_uninstall_interrupt_handler(
+    uacpi_interrupt_handler handler, 
+    uacpi_handle irq_handle
+) {
+    (void)handler; (void)irq_handle;
+    return UACPI_STATUS_OK;
+}
+
+uacpi_status uacpi_kernel_schedule_work(uacpi_work_type type, uacpi_work_handler handler, uacpi_handle ctx) {
+    // For a simple kernel, just run it immediately (serial execution)
+    handler(ctx);
+    return UACPI_STATUS_OK;
+}
+uacpi_status uacpi_kernel_wait_for_work_completion(void) { return UACPI_STATUS_OK; }
+
+uacpi_thread_id uacpi_kernel_get_thread_id(void) { return (uacpi_thread_id)1; }
+void uacpi_kernel_stall(uacpi_u8 usec) {
+    for (uint32_t i = 0; i < (uint32_t)usec * 100; i++) {
+        __asm__ volatile("pause");
+    }
+}
+
+void uacpi_kernel_sleep(uacpi_u64 msec) {
+    sleep(msec);
+}
+
+uacpi_status uacpi_kernel_get_rsdp(uacpi_phys_addr *out_rsdp) {
+    // Assuming your HHDM offset is 0xffff800000000000
+    uintptr_t virt_addr = (uintptr_t)rsdp_request->response->address;
+    
+    // Convert Virtual to Physical
+    *out_rsdp = (uacpi_phys_addr)(virt_addr - 0xffff800000000000);
+    
+    debugln("[uACPI] Handing over RSDP Phys: %p", (void*)*out_rsdp);
+    return UACPI_STATUS_OK;
+}
+
+uacpi_status uacpi_kernel_handle_firmware_request(uacpi_firmware_request *req) { return UACPI_STATUS_UNIMPLEMENTED; }
+
+void uacpi_kernel_log(uacpi_log_level lvl, const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    vdebugprintf(fmt, args); // Reuse your existing vdebugprintf
+    va_end(args);
+}
+
+uacpi_bool uacpi_kernel_wait_for_event(uacpi_handle event, uacpi_u16 timeout) {
+    (void)event; 
+    (void)timeout; 
+    return true; 
+}
+// uACPI wants the current EFLAGS so it can restore them later
+uacpi_interrupt_state uacpi_kernel_disable_interrupts(void) {
+    uacpi_interrupt_state flags;
+    __asm__ volatile("pushf; pop %0; cli" : "=rm"(flags) : : "memory");
+    return flags;
+}
+
+// Ensure restore uses the flags passed back
+void uacpi_kernel_restore_interrupts(uacpi_interrupt_state flags) {
+    __asm__ volatile("push %0; popf" : : "rm"(flags) : "memory", "cc");
+}
+
+// uACPI initializes in stages (early, subsystems, etc)
+uacpi_status uacpi_kernel_initialize(uacpi_init_level current_init_lvl) {
+    (void)current_init_lvl;
+    return UACPI_STATUS_OK; 
+}
+
+uacpi_status uacpi_kernel_pci_write32(uacpi_handle device, uacpi_size offset, uacpi_u32 val) {
+    outd(0xCF8, pci_get_addr(device, offset));
+    outd(0xCFC, val);
+    return UACPI_STATUS_OK;
+}
+
+uacpi_status uacpi_kernel_pci_write16(uacpi_handle device, uacpi_size offset, uacpi_u16 val) {
+    outd(0xCF8, pci_get_addr(device, offset));
+    outw(0xCFC + (offset & 2), val);
+    return UACPI_STATUS_OK;
+}
+
+uacpi_status uacpi_kernel_pci_write8(uacpi_handle device, uacpi_size offset, uacpi_u8 val) {
+    outd(0xCF8, pci_get_addr(device, offset));
+    outb(0xCFC + (offset & 3), val);
+    return UACPI_STATUS_OK;
+}
+
+// Final cleanup stub
+void uacpi_kernel_deinitialize(void) {
+    // Nothing to do here yet
+}
+
+// Ensure these names match the undefined references exactly
+uacpi_status uacpi_kernel_pci_read8(uacpi_handle device, uacpi_size offset, uacpi_u8 *out) {
+    outd(0xCF8, pci_get_addr(device, offset));
+    *out = inb(0xCFC + (offset & 3));
+    return UACPI_STATUS_OK;
+}
+
+uacpi_status uacpi_kernel_pci_read16(uacpi_handle device, uacpi_size offset, uacpi_u16 *out) {
+    outd(0xCF8, pci_get_addr(device, offset));
+    *out = inw(0xCFC + (offset & 2));
+    return UACPI_STATUS_OK;
+}
+
+uacpi_status uacpi_kernel_pci_read32(uacpi_handle device, uacpi_size offset, uacpi_u32 *out) {
+    outd(0xCF8, pci_get_addr(device, offset));
+    *out = ind(0xCFC);
+    return UACPI_STATUS_OK;
+}
