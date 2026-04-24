@@ -87,8 +87,8 @@ endif # ifeq ($(KBUILD_SRC),)
 # We process the rest of the Makefile if this is the final invocation of make
 ifeq ($(skip-makefile),)
 
-TARGET       := oxus
-STARGET      := ox
+TARGET       := znus
+STARGET      := znu
 ISOIMAGE     := image.iso
 # ---------------------------------------------------------------
 

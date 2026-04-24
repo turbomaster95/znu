@@ -81,6 +81,7 @@ static inline uint64_t read_cr3(void) {
 }
 
 uint64_t* kernel_pml4;
+struct limine_rsdp_response *rsdp_response = NULL;
 
 // The following will be our kernel's entry point.
 // If renaming kmain() to something else, make sure to change the
@@ -100,9 +101,12 @@ void kmain(void) {
         debugln("Got RSDP from Limine!");
     }
 
-    // 2. Initialize your PMM (Bump Allocator) using the memmap
     if (memmap_request.response != NULL) {
         init_pmm(memmap_request.response);
+        // Initializing VMM :)
+        init_vmm(memmap_request.response);
+        kernel_pml4 = vmm_get_kernel_pml4();
+        init_slab();
     } else {
         debugln("CRITICAL: Memmap request response is NULL!");
         hcf();
@@ -148,14 +152,12 @@ void kmain(void) {
     idt_init();
     debugln("IDT initialized.");
 
-    debugln("HHDM Offset: %p\n", hhdm_request.response->offset);
+    debugln("HHDM Offset: %p", hhdm_request.response->offset);
     debugln("RSDP Address: %p", rsdp_request.response->address);
 
     debugln("About to map page");
-    uint64_t* pml4 = (uint64_t*)(read_cr3() + hhdm_offset);
-    debugln("PML4[511] is: %p", pml4[511]);
-    map_page(pml4, 0xffff8000fee00000, 0xfee00000, PTE_WRITABLE | PTE_CACHE_DISABLE);
-    uint64_t* kernel_pml4 = pml4;
+    debugln("PML4[511] is: %p", kernel_pml4[511]);
+    map_page(kernel_pml4, 0xffff8000fee00000, 0xfee00000, PTE_WRITABLE | PTE_CACHE_DISABLE);
     debugln("Mapped page!");
 
     // Initialize LAPIC first
@@ -178,12 +180,14 @@ void kmain(void) {
     uint64_t s_end = timer_ticks;
     debugln("sleep(2000) finished. PIT ticks elapsed: %d", s_end - s_start);
 
+    rsdp_response = rsdp_request.response;
     uacpi_status status = init_acpi();
     if (uacpi_likely_error(status)) {
         debugln("ACPI initialization failed!");
     }
 
-    debug_ram_map(memmap_request.response);
+    debugln("DONE!!");
+    //debug_ram_map(memmap_request.response);
 
     hcf(); // Halt
 }

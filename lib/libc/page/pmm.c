@@ -21,7 +21,7 @@ void init_pmm(struct limine_memmap_response* memmap) {
         if (entry->type == LIMINE_MEMMAP_USABLE) {
             if (entry->base + entry->length > top_address)
                 top_address = entry->base + entry->length;
-            
+
             if (entry->length > biggest_chunk_len) {
                 biggest_chunk_len = entry->length;
                 biggest_chunk_base = entry->base;

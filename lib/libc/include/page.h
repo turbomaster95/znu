@@ -30,10 +30,15 @@ extern uint64_t hhdm_offset;
 void  init_pmm(struct limine_memmap_response* memmap);
 void* palloc_zero(void);
 void  pfree(void* phys_addr);
+void  init_slab(void);
 void  map_page(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t flags);
 void  debug_ram_map(struct limine_memmap_response* memmap);
 void* kmalloc(uint64_t size);
 void  kfree(void* ptr);
+void  vmm_switch(uint64_t* pml4_virt);
+void  vmm_map_region(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t size, uint64_t flags);
+void  init_vmm(struct limine_memmap_response* memmap);
+uint64_t* vmm_get_kernel_pml4(void);
 
 #endif
 #endif

@@ -9,9 +9,9 @@ if [ -z "$SRCTREE" ]; then
     exit 1
 fi
 
-llvm-objcopy --strip-all --strip-unneeded --strip-debug --strip-all-gnu oxus ox
+llvm-objcopy --strip-all --strip-unneeded --strip-debug --strip-all-gnu znus znu
 
-cp ox "$SRCTREE/configs/iso_root/boot/kernel.bin"
+cp znu "$SRCTREE/configs/iso_root/boot/kernel.bin"
 
 xorriso -as mkisofs \
   -b boot/limine/limine-bios-cd.bin \
