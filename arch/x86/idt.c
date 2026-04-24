@@ -67,10 +67,12 @@ void idt_init() {
 
     // Override specific ones
     idt_set_gate(0,  isr0);
+    debugln("[idt] Set all idt gates");
 
     idtr_instance.limit = (sizeof(struct idt_entry) * 256) - 1;
     idtr_instance.base  = (uint64_t)&idt;
     asm volatile ("lidt %0" : : "m"(idtr_instance));
+    debugln("[idt] Ran lidt!");
 
     pic_remap();
 

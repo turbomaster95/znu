@@ -15,6 +15,7 @@
 extern uacpi_status init_acpi(void);
 extern void draw_kernel_gui(void);
 extern void gdt_init(void);
+extern void kernel_reboot(void);
 extern void lapic_timer_test(void);
 extern void lapic_timer_test(void);
 extern void gdt_reload_segments(void);
@@ -58,6 +59,7 @@ volatile struct limine_rsdp_request rsdp_request = {
 
 // Define the global variable that mappage.c is looking for
 uint64_t hhdm_offset = 0;
+uint64_t rsdp_addr = 0;
 
 // Finally, define the start and end markers for the Limine requests.
 // These can also be moved anywhere, to any .c file, as seen fit.
@@ -99,7 +101,8 @@ void kmain(void) {
 
 
     if (rsdp_request.response) {
-        debugln("Got RSDP from Limine!");
+        debugln("[kernel] Got RSDP from Limine!");
+        rsdp_addr = (uintptr_t)rsdp_request.response->address;
     }
 
     if (memmap_request.response != NULL) {
@@ -133,7 +136,7 @@ void kmain(void) {
     terminal_initialize();
     printf("Hello Kernel World!\n");
     printf("By Deva\n");
-    debugln("Hello");
+    debugln("[kernel] Welcome to znu!");
 
 
     #ifdef CONFIG_EG_GUI
@@ -142,69 +145,72 @@ void kmain(void) {
 
     uint16_t cs_reg;
     __asm__ volatile("mov %%cs, %0" : "=r"(cs_reg));
-    debugln("Current CS: 0x%x", cs_reg);
+    debugln("[kernel] Current CS: 0x%x", cs_reg);
 
     gdt_init();
     gdt_reload_segments();
-    debugln("GDT initialized");
+    debugln("[gdt] GDT initialized");
 
-    debugln("CS after GDT Init: 0x%x", cs_reg);
+    debugln("[kernel] CS after GDT Init: 0x%x", cs_reg);
 
     idt_init();
-    debugln("IDT initialized.");
+    debugln("[idt] IDT initialized.");
 
-    debugln("HHDM Offset: %p", hhdm_request.response->offset);
-    debugln("RSDP Address: %p", rsdp_request.response->address);
+    debugln("[kernel] HHDM Offset: %p", hhdm_request.response->offset);
+    debugln("[kernel] RSDP Address: %p", rsdp_request.response->address);
 
-    debugln("About to map page");
-    debugln("PML4[511] is: %p", kernel_pml4[511]);
+    debugln("[kernel] About to map page");
+    debugln("[kernel_debug] PML4[511] is: %p", kernel_pml4[511]);
     map_page(kernel_pml4, 0xffff8000fee00000, 0xfee00000, PTE_WRITABLE | PTE_CACHE_DISABLE);
-    debugln("Mapped page!");
+    debugln("[SUCCESS] Mapped page!");
 
     // Initialize LAPIC first
     lapic_init();
-    debugln("LAPIC initialized.");
+    debugln("[lapic] LAPIC initialized.");
 
     // Initialize PIT (or LAPIC timer later)
     pit_init(1000); // Use PIT for now, will switch to LAPIC timer
-    debugln("PIT initialized for calibration.");
+    debugln("[pit] PIT initialized for calibration.");
 
     __asm__ volatile("sti");
-    debugln("Interupts Enabled.");
+    debugln("[kernel] Interupts Enabled.");
 
     calibrate_lapic_timer();
-    debugln("LAPIC calibrated: %u ticks/ms", lapic_ticks_per_ms);
+    debugln("[lapic] LAPIC calibrated: %u ticks/ms", lapic_ticks_per_ms);
 
-    debugln("Testing sleep(2000)...");
+    debugln("[ktest] Testing sleep(1000)...");
     uint64_t s_start = timer_ticks;
-    sleep(2000);
+    sleep(1000);
     uint64_t s_end = timer_ticks;
-    debugln("sleep(2000) finished. PIT ticks elapsed: %d", s_end - s_start);
+    debugln("[ktest] sleep(2000) finished. PIT ticks elapsed: %d", s_end - s_start);
 
     rsdp_response = rsdp_request.response;
 
-    debugln("DONE!!");
-    debugln("Starting uACPI...");
+    debugln("[kernel] Basic System Initialization done!");
+    debugln("[kernel] Starting uACPI...");
 
     // Stage 1: Table initialization
     uacpi_status status = uacpi_initialize(UACPI_LOG_DEBUG);
     if (status != UACPI_STATUS_OK) {
-        debugerr("uACPI init failed: %s", uacpi_status_to_string(status));
+        debugerr("[ERROR] uACPI init failed: %s", uacpi_status_to_string(status));
         hcf();
     }
-    debugln("uACPI Initialized!");
+    debugln("[kernel] uACPI Initialized!");
 
     // Stage 2: Load the AML namespace
     status = uacpi_namespace_load();
     if (status != UACPI_STATUS_OK) {
-        debugerr("Namespace load failed!");
+        debugerr("[ERROR] Namespace load failed!");
     }
-    debugln("uACPI Namespace Loaded!");
+    debugln("[kernel] uACPI Namespace Loaded!");
 
     // Stage 3: Initialize devices
-    debugln("About to initialize namespace..");
+    debugln("[kernel_debug] About to initialize namespace..");
     status = uacpi_namespace_initialize();
-    debugln("uACPI is live.");
+    debugln("[SUCCESS] uACPI is live.");
+
+    sleep(2000);
+    kernel_reboot();
 
     hcf(); // Halt
 }

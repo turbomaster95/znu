@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdlib.h>
 
 struct gdt_entry {
     uint16_t limit_low;
@@ -31,6 +32,7 @@ void gdt_init() {
     gdt_ptr.limit = (sizeof(struct gdt_entry) * 5) - 1;
     gdt_ptr.base  = (uintptr_t)&gdt;
 
+    debugln("[gdt] Initializing..");
     gdt_set_gate(0, 0, 0, 0, 0);                // Null segment
     gdt_set_gate(1, 0, 0xFFFFFFFF, 0x9A, 0xAF); // Kernel Code (0x08)
     gdt_set_gate(2, 0, 0xFFFFFFFF, 0x92, 0xCF); // Kernel Data (0x10)
@@ -38,5 +40,6 @@ void gdt_init() {
     gdt_set_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xCF); // User Data   (0x20)
 
     asm volatile("lgdt %0" : : "m"(gdt_ptr));
+    debugln("[gdt] Initialized!");
 }
 

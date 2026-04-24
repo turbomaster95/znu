@@ -14,8 +14,11 @@
 #include <stdio.h>
 #include <lapic.h>
 #include <timekeeper.h>
+#include <uacpi/sleep.h>
 
 extern struct limine_rsdp_request *rsdp_request;
+extern void hcf(void);
+extern uint64_t rsdp_addr;
 
 static uint32_t pci_get_addr(uacpi_handle device, uacpi_size offset) {
     uint64_t addr = (uint64_t)device;
@@ -36,7 +39,7 @@ void uacpi_kernel_vlog(uacpi_log_level lvl, const char *fmt, va_list args) {
 
 void *uacpi_kernel_alloc(uacpi_size size) {
     void *p = kmalloc(size);
-    debugln("[uACPI Alloc] %d bytes at %p", (uint32_t)size, p);
+    debugln("[uACPI] Allocated  %d bytes at %p", (uint32_t)size, p);
     return p;
 }
 
@@ -251,19 +254,18 @@ void uacpi_kernel_sleep(uacpi_u64 msec) {
 }
 
 uacpi_status uacpi_kernel_get_rsdp(uacpi_phys_addr *out_rsdp) {
-    debugln("Called get_rsdp!");
-    
-    /* * From your logs: 
-     * [KERNEL LOG] RSDP Address: 0xffff8000000f52e0
-     * HHDM Offset is: 0xffff800000000000
-     * Physical address = Virtual - Offset = 0xF52E0
-     */
-    
-    *out_rsdp = (uacpi_phys_addr)0xF52E0;
+    // We already have the 64-bit virtual address from Limine in rsdp_addr.
+    // Subtract the HHDM offset to get the physical address.
+    uint64_t physical_address = rsdp_addr - hhdm_offset;
 
-    debugln("[uACPI] Hardcoded RSDP Phys: 0x%x", *out_rsdp);
+    *out_rsdp = (uacpi_phys_addr)physical_address;
+
+    // Use %lx for the physical address to ensure it prints correctly
+    debugln("[uACPI] RSDP Phys Corrected: 0x%lx", (uint64_t)*out_rsdp);
+    
     return UACPI_STATUS_OK;
 }
+
 
 
 uacpi_status uacpi_kernel_handle_firmware_request(uacpi_firmware_request *req) { return UACPI_STATUS_UNIMPLEMENTED; }
@@ -339,3 +341,64 @@ uacpi_status uacpi_kernel_pci_read32(uacpi_handle device, uacpi_size offset, uac
     *out = ind(0xCFC);
     return UACPI_STATUS_OK;
 }
+
+void kernel_shutdown(void) {
+    debugln("Shutting down...");
+
+    // 1. Tell uACPI to prepare for the S5 (Power Off) state.
+    // This executes the _PTS (Prepare To Sleep) method in AML.
+    uacpi_status status = uacpi_prepare_for_sleep_state(UACPI_SLEEP_STATE_S5);
+    if (status != UACPI_STATUS_OK) {
+        debugerr("Failed to prepare for sleep: %s", uacpi_status_to_string(status));
+    }
+
+    // 2. Disable interrupts. 
+    // You don't want a timer tick or keyboard hit waking the CPU 
+    // while the chipset is mid-power-transition.
+    __asm__ volatile("cli");
+
+    // 3. Enter the sleep state.
+    // This writes the magic values to the PM1a/PM1b control registers.
+    status = uacpi_enter_sleep_state(UACPI_SLEEP_STATE_S5);
+
+    // If we reach this point, the shutdown failed.
+    debugerr("Shutdown failed: %s", uacpi_status_to_string(status));
+    
+    // Fallback for QEMU/VirtualBox if ACPI failed
+    // This is the "Bochs/QEMU Poweroff" port
+    outw(0x604, 0x2000);
+
+    // Ultimate fallback: Halt
+    hcf();
+}
+
+void kernel_reboot(void) {
+    debugln("Attempting System Reboot...");
+
+    // This function checks the FADT for the 'RESET_REG' and 'RESET_VALUE'.
+    // It handles both I/O port and Memory-Mapped I/O resets.
+    uacpi_status status = uacpi_reboot();
+
+    if (status != UACPI_STATUS_OK) {
+        debugerr("uACPI reboot failed: %s", uacpi_status_to_string(status));
+    }
+
+    // --- FALLBACKS ---
+    // If ACPI reboot fails (common on older or specific virtual hardware), 
+    // we try the classic keyboard controller (PS/2) pulse.
+    debugln("Falling back to PS/2 controller reset...");
+
+    // Command 0xFE: Pulse Reset Line (Standard x86 reboot)
+    outb(0x64, 0xFE);
+
+    // If we are still here, try the "Triple Fault" method.
+    // We load a null IDT and trigger an interrupt.
+    debugln("Falling back to Triple Fault...");
+    uint16_t idt_limit = 0;
+    __asm__ volatile("lidt (%0)" : : "r"(&idt_limit));
+    __asm__ volatile("int $3");
+
+    // Ultimate Halt
+    hcf();
+}
+

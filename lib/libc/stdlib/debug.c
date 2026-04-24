@@ -22,10 +22,10 @@ void debug_write(const char* data) {
 
 // Internal helper to handle the colored logging logic
 static void _debug_vlog_colored(const char* color, const char* prefix, const char* format, va_list args) {
-    debug_write(color);
-    debug_write("[");
-    debug_write(prefix);
-    debug_write("] ");
+//    debug_write(color);
+//    debug_write("[");
+//    debug_write(prefix);
+//    debug_write("] ");
     debug_write(ANSI_RESET);
 
     // FIX: Use vdebugprintf so text goes to Port 0xe9, not the screen
