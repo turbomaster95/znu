@@ -20,7 +20,14 @@ extern void lapic_timer_test(void);
 extern void lapic_timer_test(void);
 extern void gdt_reload_segments(void);
 extern uint32_t lapic_ticks_per_ms;
+extern void jump_to_usermode(uintptr_t entry, uintptr_t stack);
+uintptr_t vmm_virt_to_phys(uint64_t* pml4, uintptr_t virt);
 
+void user_function() {
+    while (1) {
+     printf("h");
+    }
+}
 // Set the base revision to 5, this is recommended as this is the latest
 // base revision described by the Limine boot protocol specification.
 // See specification for further info.
@@ -147,6 +154,7 @@ void kmain(void) {
     __asm__ volatile("mov %%cs, %0" : "=r"(cs_reg));
     debugln("[kernel] Current CS: 0x%x", cs_reg);
 
+    __asm__ volatile("cli");
     gdt_init();
     gdt_reload_segments();
     debugln("[gdt] GDT initialized");
@@ -210,7 +218,22 @@ void kmain(void) {
     debugln("[SUCCESS] uACPI is live.");
 
     sleep(2000);
-    kernel_reboot();
+    uint8_t* user_stack = (uint8_t*)kmalloc(4096);
+    uintptr_t user_stack_top = (uintptr_t)user_stack + 4096;
 
+    map_page(kernel_pml4, (uintptr_t)user_function & ~0xFFF, 
+         vmm_virt_to_phys(kernel_pml4, (uintptr_t)user_function & ~0xFFF), 
+         PTE_PRESENT | PTE_USER);
+
+    map_page(kernel_pml4, (uintptr_t)outb & ~0xFFF,
+         vmm_virt_to_phys(kernel_pml4, (uintptr_t)outb & ~0xFFF),
+         PTE_PRESENT | PTE_USER);
+    map_page(kernel_pml4, (uintptr_t)user_stack & ~0xFFF, 
+         vmm_virt_to_phys(kernel_pml4, (uintptr_t)user_stack & ~0xFFF), 
+         PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+
+    debugln("[kernel] User func phys: %p", vmm_virt_to_phys(kernel_pml4, (uintptr_t)user_function));
+    debugln("[kernel] Jumping to Ring 3...");
+    jump_to_usermode((uintptr_t)user_function, user_stack_top);
     hcf(); // Halt
 }

@@ -13,6 +13,7 @@ extern uint64_t hhdm_offset;
 #define PTE_PRESENT (1ULL << 0)
 #define PTE_WRITABLE (1ULL << 1)
 #define PTE_CACHE_DISABLE (1ULL << 4)
+#define PTE_USER     (1ULL << 2)
 
 // Extract indices from a virtual address
 #define PML4_IDX(addr) (((addr) >> 39) & 0x1FF)

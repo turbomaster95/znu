@@ -30,6 +30,40 @@ void vmm_map_region(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t size,
     debugln("[VMM] Region mapping complete.");
 }
 
+uintptr_t vmm_virt_to_phys(uint64_t* pml4, uintptr_t virt) {
+    // 1. Extract indices for each level
+    uint64_t pml4_idx = (virt >> 39) & 0x1FF;
+    uint64_t pdpt_idx = (virt >> 30) & 0x1FF;
+    uint64_t pd_idx   = (virt >> 21) & 0x1FF;
+    uint64_t pt_idx   = (virt >> 12) & 0x1FF;
+    uint64_t offset   = virt & 0xFFF;
+
+    // 2. Walk the PML4 to find the PDPT
+    if (!(pml4[pml4_idx] & PTE_PRESENT)) return 0;
+    uint64_t* pdpt = (uint64_t*)PHYS_TO_VIRT(pml4[pml4_idx] & ~0xFFF);
+
+    // 3. Walk the PDPT to find the Page Directory
+    if (!(pdpt[pdpt_idx] & PTE_PRESENT)) return 0;
+    // Check if it's a 1GB huge page (Bit 7: PS)
+    if (pdpt[pdpt_idx] & (1ULL << 7)) {
+        return (pdpt[pdpt_idx] & ~0x3FFFFFFF) + (virt & 0x3FFFFFFF);
+    }
+    uint64_t* pd = (uint64_t*)PHYS_TO_VIRT(pdpt[pdpt_idx] & ~0xFFF);
+
+    // 4. Walk the Page Directory to find the Page Table
+    if (!(pd[pd_idx] & PTE_PRESENT)) return 0;
+    // Check if it's a 2MB large page (Bit 7: PS)
+    if (pd[pd_idx] & (1ULL << 7)) {
+        return (pd[pd_idx] & ~0x1FFFFF) + (virt & 0x1FFFFF);
+    }
+    uint64_t* pt = (uint64_t*)PHYS_TO_VIRT(pd[pd_idx] & ~0xFFF);
+
+    // 5. Walk the Page Table to find the Physical Frame
+    if (!(pt[pt_idx] & PTE_PRESENT)) return 0;
+    uintptr_t phys = (pt[pt_idx] & ~0xFFF);
+
+    return phys + offset;
+}
 
 /**
  * init_vmm: Initializes the kernel's virtual memory space

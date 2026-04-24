@@ -6,3 +6,4 @@ obj-y += pit.o
 obj-y += pic.o
 obj-y += lapic.o
 obj-y += timekeeper.o
+obj-y += usermode.o
