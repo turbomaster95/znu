@@ -19,7 +19,7 @@ if [ -z "$JOBS" ]; then
 fi
 
 # 1. Check if the submodule is actually there
-if [ ! -f "$LIMINE_DIR/Makefile" ]; then
+if [ ! -f "$LIMINE_DIR/bootstrap" ]; then
     echo "Limine submodule not found at $LIMINE_DIR."
     echo "Attempting to initialize..."
     git submodule update --init --recursive
@@ -29,8 +29,12 @@ fi
 # We use -C to run make inside the directory
 echo "Building Limine binaries..."
 pushd "$LIMINE_DIR"
-./bootstrap
-./configure --enable-bios --enable-bios-cd --enable-bios-pxe
+if [ ! -f "$LIMINE_DIR/Makefile" ]; then
+    ./bootstrap
+fi
+unset LDFLAGS
+unset CFLAGS
+./configure --enable-bios --enable-bios-cd --enable-bios-pxe --host=x86_64-elf CC="gcc" TOOLCHAIN_FOR_TARGET="x86_64-elf-" LD_FOR_TARGET="x86_64-elf-ld"
 
 if [ -n "$JOBS" ]; then
     make -j"$JOBS" > /dev/null

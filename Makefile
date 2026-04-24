@@ -368,7 +368,7 @@ quiet_cmd_strip = STRIP   $@ -> $(STARGET)
       cmd_strip = $(OBJCOPY) --strip-all --strip-unneeded --strip-debug $@ $(STARGET)
 
 quiet_cmd_build_limine = LIMINE  scripts/limine
-      cmd_build_limine = $(MAKE) -C $(srctree)/scripts/limine > /dev/null
+      cmd_build_limine = $(srctree)/scripts/mklimine.sh $(srctree) "$(MAKEFLAGS)"
 
 quiet_cmd_mkiso = MKISO   $(STARGET) -> $(ISOIMAGE)
       cmd_mkiso = $(srctree)/scripts/iso.sh $(srctree) $(ISOIMAGE) > /dev/null 2>&1
@@ -377,6 +377,7 @@ $(TARGET): $($(TARGET)-all) FORCE
 	$(call if_changed,$(TARGET))
 	$(call if_changed,strip)
 ifeq ($(CONFIG_GENERATE_ISO),y)
+	$(call if_changed,build_limine)
 	$(call if_changed,mkiso)
 endif
 
@@ -409,7 +410,7 @@ CLEAN_DIRS  += lib/uacpi/uacpi_out
 CLEAN_FILES +=	$(TARGET) image.iso $(STARGET)
 
 # Directories & files removed with 'make mrproper'
-MRPROPER_DIRS  += include/config include/generated lib/uacpi build/ $(CLEAN_DIRS)
+MRPROPER_DIRS  += include/config include/generated lib/uacpi scripts/limine build/ $(CLEAN_DIRS)
 MRPROPER_FILES += .config .config.old tags TAGS cscope* GPATH GTAGS GRTAGS GSYMS $(CLEAN_FILES)
 
 # clean - Delete most, but leave enough to build external modules
