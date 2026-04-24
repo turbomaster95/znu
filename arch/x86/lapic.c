@@ -152,10 +152,10 @@ void calibrate_lapic_timer() {
     // 3. Wait for the PIT to tick N times.
     //    This busy-wait using HLT is acceptable for calibration itself.
     uint64_t current_pit_ticks;
-    do {
-        current_pit_ticks = timer_ticks; // Read timer_ticks inside loop
-        __asm__ volatile("hlt"); // Pause CPU, wait for PIT interrupt
-    } while (current_pit_ticks < pit_start_ticks + pit_wait_duration_ticks);
+    // Replace the loop with this:
+    while (timer_ticks < pit_start_ticks + pit_wait_duration_ticks) {
+        __asm__ volatile("pause"); // Hints to the CPU we are in a spin-loop
+    }
 
 
     // 4. Read LAPIC timer's current count *after* waiting.
