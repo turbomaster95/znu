@@ -43,6 +43,7 @@ void  vmm_map_region(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t size
 void  init_vmm(struct limine_memmap_response* memmap);
 void* heap_extend(uint64_t pages);
 uint64_t* vmm_get_kernel_pml4(void);
+uintptr_t vmm_virt_to_phys(uint64_t* pml4, uintptr_t virt);
 
 #endif
 #endif

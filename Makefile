@@ -207,8 +207,6 @@ KBUILD_CFLAGS   := -Wall -Wno-unused-variable -Wundef -Wstrict-prototypes -Wno-t
 
 LDFLAGS += -nostdlib
 
-KBUILD_LDFLAGS := -T $(srctree)/scripts/linker.ld
-
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
 KBUILD_AFLAGS   := -D__ASSEMBLY__ -Xpreprocessor -P
@@ -361,14 +359,14 @@ $(TARGET)-all	:= $($(TARGET)-objs) $($(TARGET)-libs)
 # Do modpost on a prelinked vmlinux. The finally linked vmlinux has
 # relevant sections renamed as per the linker script.
 quiet_cmd_$(TARGET) = KRNLD   $@
-      cmd_$(TARGET) = $(CC) $(LDFLAGS) $(KBUILD_LDFLAGS) -o $@                          \
-      -Wl,--start-group $($(TARGET)-libs) $($(TARGET)-objs) -Wl,--end-group
+      cmd_$(TARGET) = $(CC) $(LDFLAGS) $(KBUILD_LDFLAGS) -o $@    \
+      -Wl,--start-group $($(TARGET)-libs) $($(TARGET)-objs) -Wl,--end-group -T $(srctree)/scripts/linker.ld
 
 quiet_cmd_strip = STRIP   $@ -> $(STARGET)
       cmd_strip = $(OBJCOPY) --strip-all --strip-unneeded --strip-debug $@ $(STARGET)
 
 quiet_cmd_build_limine = LIMINE  scripts/limine
-      cmd_build_limine = echo # $(srctree)/scripts/mklimine.sh $(srctree) "$(MAKEFLAGS)" > /dev/null 2>&1
+      cmd_build_limine = echo &>/dev/null # $(srctree)/scripts/mklimine.sh $(srctree) "$(MAKEFLAGS)" > /dev/null 2>&1
 
 quiet_cmd_mkiso = MKISO   $(STARGET) -> $(ISOIMAGE)
       cmd_mkiso = $(srctree)/scripts/iso.sh $(srctree) $(ISOIMAGE) > /dev/null 2>&1

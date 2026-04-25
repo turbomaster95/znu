@@ -45,7 +45,7 @@ struct gdt_ptr gdt_ptr;
 struct tss kernel_tss;
 
 __attribute__((aligned(16)))
-static uint8_t kernel_stack[16384];
+uint8_t kernel_stack[16384];
 
 void gdt_set_gate(int num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran) {
     gdt[num].base_low    = (base & 0xFFFF);
@@ -78,8 +78,8 @@ void gdt_init() {
     gdt_set_gate(0, 0, 0, 0, 0);                // Null segment
     gdt_set_gate(1, 0, 0xFFFFFFFF, 0x9A, 0xAF); // Kernel Code (0x08)
     gdt_set_gate(2, 0, 0xFFFFFFFF, 0x92, 0xCF); // Kernel Data (0x10)
-    gdt_set_gate(3, 0, 0xFFFFFFFF, 0xFA, 0xAF); // User Code   (0x18)
-    gdt_set_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xCF); // User Data   (0x20)
+    gdt_set_gate(3, 0, 0xFFFFFFFF, 0xF2, 0xCF); // User Data   (0x18)
+    gdt_set_gate(4, 0, 0xFFFFFFFF, 0xFA, 0xAF); // User Code   (0x20)
 
     for(int i=0; i<sizeof(struct tss); i++) ((uint8_t*)&kernel_tss)[i] = 0;
     kernel_tss.rsp0 = (uintptr_t)kernel_stack + sizeof(kernel_stack);

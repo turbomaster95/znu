@@ -11,6 +11,8 @@
 #include <page.h>
 #include <uacpi/uacpi.h>
 #include <timekeeper.h>
+#include <elf.h>
+#include <syscall.h>
 
 extern uacpi_status init_acpi(void);
 extern void draw_kernel_gui(void);
@@ -21,7 +23,7 @@ extern void lapic_timer_test(void);
 extern void gdt_reload_segments(void);
 extern uint32_t lapic_ticks_per_ms;
 extern void jump_to_usermode(uintptr_t entry, uintptr_t stack);
-uintptr_t vmm_virt_to_phys(uint64_t* pml4, uintptr_t virt);
+extern uint8_t kernel_stack;
 
 void user_function() {
     while (1) {
@@ -62,6 +64,13 @@ __attribute__((used, section(".limine_requests")))
 volatile struct limine_rsdp_request rsdp_request = {
     .id = LIMINE_RSDP_REQUEST_ID,
     .revision = 0
+};
+
+__attribute__((section(".limine_requests")))
+static volatile struct limine_module_request module_request = {
+    .id = LIMINE_MODULE_REQUEST_ID,
+    .revision = 0,
+    .response = NULL
 };
 
 // Define the global variable that mappage.c is looking for
@@ -126,6 +135,11 @@ void kmain(void) {
     // Ensure we got a framebuffer.
     if (framebuffer_request.response == NULL
      || framebuffer_request.response->framebuffer_count < 1) {
+        hcf();
+    }
+
+    if (module_request.response == NULL || module_request.response->module_count == 0) {
+        debugln("Error: No modules found! Did you add init.elf to limine.conf?");
         hcf();
     }
 
@@ -218,22 +232,11 @@ void kmain(void) {
     debugln("[SUCCESS] uACPI is live.");
 
     sleep(2000);
-    uint8_t* user_stack = (uint8_t*)kmalloc(4096);
-    uintptr_t user_stack_top = (uintptr_t)user_stack + 4096;
-
-    map_page(kernel_pml4, (uintptr_t)user_function & ~0xFFF, 
-         vmm_virt_to_phys(kernel_pml4, (uintptr_t)user_function & ~0xFFF), 
-         PTE_PRESENT | PTE_USER);
-
-    map_page(kernel_pml4, (uintptr_t)outb & ~0xFFF,
-         vmm_virt_to_phys(kernel_pml4, (uintptr_t)outb & ~0xFFF),
-         PTE_PRESENT | PTE_USER);
-    map_page(kernel_pml4, (uintptr_t)user_stack & ~0xFFF, 
-         vmm_virt_to_phys(kernel_pml4, (uintptr_t)user_stack & ~0xFFF), 
-         PTE_PRESENT | PTE_WRITABLE | PTE_USER);
-
-    debugln("[kernel] User func phys: %p", vmm_virt_to_phys(kernel_pml4, (uintptr_t)user_function));
+    syscall_init();
+    gs_init(kernel_stack);
     debugln("[kernel] Jumping to Ring 3...");
-    jump_to_usermode((uintptr_t)user_function, user_stack_top);
+    struct limine_file *init_file = module_request.response->modules[0];
+    load_elf(init_file->address);
+
     hcf(); // Halt
 }

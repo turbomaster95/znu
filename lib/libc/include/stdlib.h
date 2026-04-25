@@ -49,7 +49,8 @@ void debug_putchar(char c);
 void debugerr(const char* format, ...);
 void debugwarn(const char* format, ...);
 void debugln(const char* format, ...);
-
+void wrmsr(uint32_t msr, uint32_t lo, uint32_t hi);
+uint64_t rdmsr(uint32_t msr);
 int vdebugprintf(const char* format, va_list args);
 
 #endif

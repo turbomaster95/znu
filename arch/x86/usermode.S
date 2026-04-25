@@ -25,7 +25,7 @@ jump_to_usermode:
     ; interrupts are re-enabled when we land in Ring 3.
     pushfq
     pop rax
-    or rax, 0x3000
+    ; or rax, 0x3000      ; Sets IOPL bit
     or rax, 0x200       ; Set IF bit
     push rax            ; RFLAGS
 
