@@ -3,19 +3,10 @@ global syscall_entry
 extern syscall_handler
 
 syscall_entry:
-    ; MARKER 1: Entry
-    mov dx, 0xe9
-    mov al, '1'
-    out dx, al
-
     swapgs
-
-    ; MARKER 2: GS Swapped
-    mov al, '2'
-    out dx, al
-
     mov [gs:8], rsp     ; Save user stack to scratch
     mov rsp, [gs:0]     ; Load kernel stack
+    push rax
 
     ; MARKER 3: Stack Swapped
     mov al, '3'
@@ -31,7 +22,6 @@ syscall_entry:
     push rdi
     push rsi
     push rdx
-    push rax            ; Syscall number
 
     ; MARKER 4: Stack Aligned & Ready
     mov al, '4'
@@ -39,8 +29,10 @@ syscall_entry:
 
     ; Pass arguments to: void syscall_handler(uint64_t num, uint64_t arg1, ...)
     ; In SysV ABI: RDI, RSI, RDX, RCX, R8, R9
-    mov rdi, rax        ; 1st param: syscall number
-    
+    mov rdi, [rsp + 56] ; Syscall Number
+    mov rsi, [rsp + 16] ; User RDI ('Z')
+    mov rdx, [rsp + 8]  ; User RSI
+
     call syscall_handler
 
     ; Restore registers

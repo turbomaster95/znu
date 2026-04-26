@@ -82,20 +82,18 @@ void syscall_init() {
     debugln("[SYS] Syscall MSRs initialized.");
 }
 
-void syscall_handler(uint64_t rdi, uint64_t rsi, uint64_t rdx, uint64_t rcx, uint64_t r8, uint64_t r9) {
-    debugln("[SYS] Handler reached, RDI: %p", rdi);
-    switch (r9) {
+void syscall_handler(uint64_t num, uint64_t arg1, uint64_t arg2) {
+    debugln("[SYS] Handler reached, Number: %d, Arg1: %c", num, (char)arg1);
+    
+    switch (num) {
         case 1: // print_char
-            debug_putchar((char)rdi);
+            debugln("[USER] %c", (char)arg1); 
             break;
-
-        case 2: // exit
-            debugln("\n[SYS] User process requested exit.");
+        case 2:
             hcf();
             break;
-
         default:
-            debugln("[SYS] Unknown syscall %d from user!", r9);
+            debugln("[SYS] Unknown syscall %d", num);
             break;
     }
 }

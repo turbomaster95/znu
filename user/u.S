@@ -3,9 +3,11 @@ section .text
 global _start
 
 _start:
-    mov rax, 1          ; Syscall #1: print_char
-    mov rdi, 'Z'        ; Argument 1: The character to print
-    syscall             ; Trigger the kernel!
-
+    xor rax, rax
+    mov rax, 1          ; Clear rax and set to 1
+    mov rdi, 90         ; ASCII 'Z'
+    syscall
 .loop:
+    pause               ; Better for the CPU than a raw jmp
     jmp .loop
+
