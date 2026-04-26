@@ -2,7 +2,7 @@
 OUTPUT_FORMAT(elf64-x86-64)
 
 /* We want the symbol kmain to be our entry point */
-ENTRY(kmain)
+ENTRY(_start)
 
 /* Define the program headers we want so the bootloader gives us the right */
 /* MMU permissions; this also allows us to exert more control over the linking */
@@ -57,13 +57,13 @@ SECTIONS
         *(.data .data.*)
     } :data
 
-    /* NOTE: .bss needs to be the last thing mapped to :data, otherwise lots of */
-    /* unnecessary zeros will be written to the binary. */
-    /* If you need, for example, .init_array and .fini_array, those should be placed */
-    /* above this. */
     .bss : {
         *(.bss .bss.*)
         *(COMMON)
+        . = ALIGN(16);
+        stack_bottom = .;
+        . += 0x4000; /* 16 KiB stack */
+        stack_top = .;
     } :data
 
     /* Discard .note.* and .eh_frame* since they may cause issues on some hosts. */

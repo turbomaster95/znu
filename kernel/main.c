@@ -13,17 +13,16 @@
 #include <timekeeper.h>
 #include <elf.h>
 #include <syscall.h>
+#include <gdt.h>
 
 extern uacpi_status init_acpi(void);
 extern void draw_kernel_gui(void);
-extern void gdt_init(void);
 extern void kernel_reboot(void);
 extern void lapic_timer_test(void);
 extern void lapic_timer_test(void);
-extern void gdt_reload_segments(void);
 extern uint32_t lapic_ticks_per_ms;
 extern void jump_to_usermode(uintptr_t entry, uintptr_t stack);
-extern uint8_t kernel_stack;
+extern uintptr_t stack_top;
 
 void user_function() {
     while (1) {
@@ -115,7 +114,6 @@ void kmain(void) {
         hhdm_offset = hhdm_request.response->offset;
     }
 
-
     if (rsdp_request.response) {
         debugln("[kernel] Got RSDP from Limine!");
         rsdp_addr = (uintptr_t)rsdp_request.response->address;
@@ -204,7 +202,7 @@ void kmain(void) {
     uint64_t s_start = timer_ticks;
     sleep(1000);
     uint64_t s_end = timer_ticks;
-    debugln("[ktest] sleep(2000) finished. PIT ticks elapsed: %d", s_end - s_start);
+    debugln("[ktest] sleep(1000) finished. PIT ticks elapsed: %d", s_end - s_start);
 
     rsdp_response = rsdp_request.response;
 
@@ -231,12 +229,13 @@ void kmain(void) {
     status = uacpi_namespace_initialize();
     debugln("[SUCCESS] uACPI is live.");
 
-    sleep(2000);
+    enable_syscalls();
     syscall_init();
-    gs_init(kernel_stack);
+    gs_init(stack_top);
     debugln("[kernel] Jumping to Ring 3...");
     struct limine_file *init_file = module_request.response->modules[0];
     load_elf(init_file->address);
 
+    abort();
     hcf(); // Halt
 }

@@ -6,7 +6,7 @@
 #include <lapic.h>
 #include <timekeeper.h>
 
-
+extern void hcf(void);
 struct idt_entry idt[256] __attribute__((aligned(16)));
 struct idtr idtr_instance;
 
@@ -30,8 +30,22 @@ void idt_set_gate(uint8_t vector, void *isr) {
 }
 
 void k_exception_handler(registers_t *regs) {
+    // 1. Catch Critical CPU Exceptions (Page Faults, GPFs, etc.)
+    if (regs->int_no < 32) {
+        uint64_t cr2;
+        __asm__ volatile("mov %%cr2, %0" : "=r"(cr2));
+        
+        debugln("\n--- CRITICAL CPU EXCEPTION ---");
+        debugln("Interrupt Number : %d", regs->int_no);
+        debugln("Error Code       : 0x%x", regs->err_code);
+        if (regs->int_no == 14) { // Page Fault
+            debugln("Faulting Address : %p", (void*)cr2);
+        }
+        hcf(); // Stop the silent loop
+    }
+
+    // 2. Hardware Interrupts
     if (regs->int_no >= 32 && regs->int_no < 48) {
-        // PIC EOI
         if (regs->int_no >= 40) outb(0xA0, 0x20);
         outb(0x20, 0x20);
     }
@@ -41,11 +55,9 @@ void k_exception_handler(registers_t *regs) {
     }
 
     if (regs->int_no == 32) {
-	timekeeper_on_tick();
+        timekeeper_on_tick();
         timer_ticks++;
-        if (timer_ticks % 1000 == 0) { // Log every 1000 ticks to avoid spam
-            debugln("Tick! %d", timer_ticks);
-        }
+        if (timer_ticks % 1000 == 0) debugln("Tick! %d", timer_ticks);
         return;
     }
 
@@ -53,8 +65,6 @@ void k_exception_handler(registers_t *regs) {
         lapic_timer_fired = true;
         return;
     }
-    // debugln("Received interrupt: %d\n", regs->int_no);
-    outb(0x20, 0x20); // Send EOI just in case
 }
 
 void idt_init() {

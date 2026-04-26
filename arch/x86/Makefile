@@ -1,3 +1,4 @@
+obj-y += start.o
 obj-y += gdt.o
 obj-y += gdt_flush.o
 obj-y += idt.o

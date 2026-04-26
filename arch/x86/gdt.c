@@ -1,5 +1,7 @@
 #include <stdint.h>
 #include <stdlib.h>
+#include <stddef.h>
+#include <page.h>
 
 extern void gdt_reload_segments(void);
 
@@ -40,7 +42,7 @@ struct tss {
     uint16_t iopb_offset;
 } __attribute__((packed));
 
-struct gdt_entry gdt[7];
+struct gdt_entry gdt[8];
 struct gdt_ptr gdt_ptr;
 struct tss kernel_tss;
 
@@ -82,6 +84,7 @@ void gdt_init() {
     gdt_set_gate(4, 0, 0xFFFFFFFF, 0xFA, 0xAF); // User Code   (0x20)
 
     for(int i=0; i<sizeof(struct tss); i++) ((uint8_t*)&kernel_tss)[i] = 0;
+
     kernel_tss.rsp0 = (uintptr_t)kernel_stack + sizeof(kernel_stack);
     kernel_tss.iopb_offset = sizeof(struct tss);
     gdt_set_tss(5, (uintptr_t)&kernel_tss, sizeof(struct tss) - 1);
@@ -93,4 +96,3 @@ void gdt_init() {
     asm volatile("ltr %%ax" : : "a"(0x28));
     debugln("[gdt] Initialized!");
 }
-

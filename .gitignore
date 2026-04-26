@@ -86,3 +86,4 @@ znu
 znus
 configs/iso_root/boot
 lib/.uacpi_out
+user/user

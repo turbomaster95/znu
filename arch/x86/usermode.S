@@ -4,17 +4,9 @@ section .text
 global jump_to_usermode
 
 jump_to_usermode:
-    ; RDI contains the target function address (RIP)
-    ; RSI contains the user stack pointer (RSP)
-    
-    ; 1. Disable interrupts during transition
     cli
 
-    ; 2. Set up the stack frame for IRETQ
-    ; The hardware expects: SS, RSP, RFLAGS, CS, RIP (in this order)
-    
-    ; Push User Data Selector (Selector 0x20 | RPL 3 = 0x23)
-    mov ax, 0x23
+    mov ax, 0x1B
     push rax            ; SS
 
     ; Push User Stack Pointer
@@ -25,12 +17,12 @@ jump_to_usermode:
     ; interrupts are re-enabled when we land in Ring 3.
     pushfq
     pop rax
-    ; or rax, 0x3000      ; Sets IOPL bit
+    or rax, 0x3000      ; Sets IOPL bit
     or rax, 0x200       ; Set IF bit
     push rax            ; RFLAGS
 
     ; Push User Code Selector (Selector 0x18 | RPL 3 = 0x1B)
-    mov rax, 0x1B
+    mov rax, 0x23
     push rax            ; CS
 
     ; Push the target RIP (from RDI)

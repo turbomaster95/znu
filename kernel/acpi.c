@@ -39,7 +39,7 @@ void uacpi_kernel_vlog(uacpi_log_level lvl, const char *fmt, va_list args) {
 
 void *uacpi_kernel_alloc(uacpi_size size) {
     void *p = kmalloc(size);
-    debugln("[uACPI] Allocated  %d bytes at %p", (uint32_t)size, p);
+//    debugln("[uACPI] Allocated  %d bytes at %p", (uint32_t)size, p);
     return p;
 }
 
@@ -61,7 +61,7 @@ void uacpi_kernel_free(void *ptr) {
 }
 
 void *uacpi_kernel_map(uacpi_phys_addr physical, uacpi_size length) {
-    debugln("[VMM] uACPI requesting map: Phys %p (len %d)", (void*)physical, length);
+//    debugln("[VMM] uACPI requesting map: Phys %p (len %d)", (void*)physical, length);
     (void)length;
 
     return (void*)(physical + 0xffff800000000000);
@@ -75,8 +75,8 @@ void uacpi_kernel_unmap(void *ptr, uacpi_size length) {
 }
 
 uacpi_status uacpi_kernel_raw_memory_read(uacpi_phys_addr address, uacpi_u8 byte_width, uacpi_u64 *out_value) {
-    debugln("acpi raw mem read addr: %s", address);
-    debugln("acpi raw mem read byte_width: %s", byte_width);
+//    debugln("acpi raw mem read addr: %s", address);
+//    debugln("acpi raw mem read byte_width: %s", byte_width);
     // You MUST map the address before reading if it's not in your HHDM
     void* virt = (void*)((uintptr_t)address + 0xffff800000000000);
     
@@ -89,8 +89,8 @@ uacpi_status uacpi_kernel_raw_memory_read(uacpi_phys_addr address, uacpi_u8 byte
 }
 
 uacpi_status uacpi_kernel_raw_memory_write(uacpi_phys_addr address, uacpi_u8 byte_width, uacpi_u64 value) {
-    debugln("acpi raw mem write addr: %s", address);
-    debugln("acpi raw mem write byte_width: %s", byte_width);
+//    debugln("acpi raw mem write addr: %s", address);
+//    debugln("acpi raw mem write byte_width: %s", byte_width);
     uintptr_t virt = address + hhdm_offset;
     // Ensure you are using 'volatile' so the compiler doesn't optimize the write away!
     if (byte_width == 1) *(volatile uint8_t*)virt = (uint8_t)value;
@@ -261,8 +261,8 @@ uacpi_status uacpi_kernel_get_rsdp(uacpi_phys_addr *out_rsdp) {
     *out_rsdp = (uacpi_phys_addr)physical_address;
 
     // Use %lx for the physical address to ensure it prints correctly
-    debugln("[uACPI] RSDP Phys Corrected: 0x%lx", (uint64_t)*out_rsdp);
-    
+//    debugln("[uACPI] RSDP Phys Corrected: 0x%lx", (uint64_t)*out_rsdp);
+
     return UACPI_STATUS_OK;
 }
 

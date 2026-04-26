@@ -2,20 +2,33 @@
 #include <stdlib.h>
 #include <kernel/tty.h>
 
+#define PANIC_BG_COLOR 0xff0000
 
-#define BG color_hex(0xff0000)
-
+/**
+ * panic: Unrecoverable kernel error.
+ * This is only compiled into the kernel (libk).
+ */
 __attribute__((__noreturn__))
-void panic(void) {
+void panic(const char* reason) {
 #if defined(__is_libk)
-        // TODO: Add proper kernel panic.
-        draw_rect(0, 0, 1920, 1080, BG);
-        printf("!!!![KERNEL PANIC]!!!!\n");
-	debugerr("KERNEL PANIC!!");
+    draw_rect(0, 0, 1920, 1080, PANIC_BG_COLOR);
+
+    printf("\n!!!! [KERNEL PANIC] !!!!\n");
+    if (reason) {
+        printf("REASON: %s\n", reason);
+    }
+    printf("\nSystem Halted.\n");
+
+    debugerr("KERNEL PANIC: %s", reason ? reason : "No reason provided");
+
+    asm volatile("cli");
+    for (;;) {
         asm volatile("hlt");
+    }
 #else
-        printf("Kernel Function tried to be called from non libk\n");
+    printf("User-space attempted to call kernel panic().\n");
+    abort();
 #endif
-        while (1) { }
-        __builtin_unreachable();
+    __builtin_unreachable();
 }
+

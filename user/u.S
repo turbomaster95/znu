@@ -8,6 +8,4 @@ _start:
     syscall             ; Trigger the kernel!
 
 .loop:
-    pause
     jmp .loop
-

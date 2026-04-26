@@ -89,7 +89,7 @@ ifeq ($(skip-makefile),)
 
 TARGET       := znus
 STARGET      := znu
-ISOIMAGE     := image.iso
+ISOIMAGE     := Znu.iso
 # ---------------------------------------------------------------
 
 # If building an external module we do not care about the all: rule
@@ -404,8 +404,8 @@ $($(TARGET)-dirs): scripts_basic
 # make distclean Remove editor backup files, patch leftover files and the like
 
 # Directories & files removed with 'make clean'
-CLEAN_DIRS  += lib/uacpi/uacpi_out
-CLEAN_FILES +=	$(TARGET) image.iso $(STARGET)
+CLEAN_DIRS  += lib/uacpi/.uacpi_out
+CLEAN_FILES +=	$(TARGET) $(STARGET) $(ISOIMAGE)
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include/generated lib/uacpi scripts/limine build/ $(CLEAN_DIRS)

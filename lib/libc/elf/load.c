@@ -6,57 +6,72 @@
 
 extern void jump_to_usermode(uintptr_t entry, uintptr_t stack);
 extern uint64_t* kernel_pml4;
+extern uint64_t hhdm_offset;
+extern uintptr_t vmm_virt_to_phys(uint64_t* pml4, uintptr_t virt);
+
 void load_elf(uint8_t* elf_data) {
     Elf64_Ehdr* header = (Elf64_Ehdr*)elf_data;
 
-    // 1. Validation
-    if (header->e_ident[0] != ELFMAG0 || header->e_ident[1] != ELFMAG1) {
+    if (header->e_ident[0] != ELFMAG0 || header->e_ident[1] != ELFMAG1 ||
+        header->e_ident[2] != ELFMAG2 || header->e_ident[3] != ELFMAG3) {
         debugln("[ELF] Invalid Magic!");
         return;
     }
 
-    // 2. Iterate Program Headers
     Elf64_Phdr* phdr = (Elf64_Phdr*)(elf_data + header->e_phoff);
+    debugln("[elf] Got PHDR's");
 
     for (int i = 0; i < header->e_phnum; i++) {
         if (phdr[i].p_type == PT_LOAD) {
-            debugln("[ELF] Loading segment at %p, size: %d", phdr[i].p_vaddr, phdr[i].p_memsz);
+            uintptr_t start_page = phdr[i].p_vaddr & ~0xFFFULL;
+            uintptr_t end_page = (phdr[i].p_vaddr + phdr[i].p_memsz + 0xFFF) & ~0xFFFULL;
 
-            // Calculate how many pages we need
-            uint64_t pages = (phdr[i].p_memsz + 0xFFF) / 0x1000;
-            
-            // 3. Allocate and Map for User
-            for (uint64_t j = 0; j < pages; j++) {
-                uintptr_t virt = phdr[i].p_vaddr + (j * 0x1000);
-                void* phys = palloc_zero(); // Allocate a fresh physical frame
-                
-                // Use your fixed map_page that propagates PTE_USER!
-                map_page(kernel_pml4, virt, (uintptr_t)phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+            // 1. Map the pages for the segment
+            for (uintptr_t page = start_page; page < end_page; page += 0x1000) {
+                if (vmm_virt_to_phys(kernel_pml4, page) == 0) {
+                    void* phys = palloc_zero();
+		    debugln("Mapping page phys: %p, page: %p, kernel_pm4: %p", (uintptr_t)phys, page, kernel_pml4);
+                    map_page(kernel_pml4, page, (uintptr_t)phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+                }
             }
 
-            // 4. Copy data from the file into the newly mapped virtual memory
-            // Note: Since we are in the kernel, we can access phdr[i].p_vaddr 
-            // if we are using the same PML4.
-            memcpy((void*)phdr[i].p_vaddr, elf_data + phdr[i].p_offset, phdr[i].p_filesz);
+            debugln("[elf] Pages Mapped");
+            // 2. Copy data via HHDM to bypass SMAP
+            // Note: BSS is automatically zeroed because palloc_zero provides clean pages.
+            uint64_t remaining = phdr[i].p_filesz;
+            uint64_t current_vaddr = phdr[i].p_vaddr;
+            uint64_t src_offset = phdr[i].p_offset;
 
-            // 5. Zero out the BSS (if memsz > filesz)
-            if (phdr[i].p_memsz > phdr[i].p_filesz) {
-                memset((void*)(phdr[i].p_vaddr + phdr[i].p_filesz), 0, phdr[i].p_memsz - phdr[i].p_filesz);
+            while (remaining > 0) {
+                uintptr_t phys = vmm_virt_to_phys(kernel_pml4, current_vaddr);
+                uint64_t page_offset = current_vaddr & 0xFFF;
+                uint64_t to_copy = 0x1000 - page_offset;
+                if (to_copy > remaining) to_copy = remaining;
+
+                // Write directly to physical memory via the higher-half map
+                void* dest = (void*)(phys + hhdm_offset);
+		debugln("Remaining abt to be memcpy'd. dest: %p, elf + src_offset: %p, to_copy: %p", dest, elf_data + src_offset, to_copy);
+                memcpy(dest, elf_data + src_offset, to_copy);
+
+                current_vaddr += to_copy;
+                src_offset += to_copy;
+                remaining -= to_copy;
+		debugln("[elf] memcpy'd done!");
             }
         }
     }
 
-    // 6. Set up User Stack and Jump
-    uint8_t* user_stack = (uint8_t*)kmalloc(16384); 
-    uintptr_t user_stack_top = (uintptr_t)user_stack + 16384;
-    
-    // Map the stack as user too!
-    for(int i=0; i<4; i++) { // 16KB stack
-        uintptr_t s_virt = (uintptr_t)user_stack + (i * 0x1000);
-        map_page(kernel_pml4, s_virt, vmm_virt_to_phys(kernel_pml4, s_virt), PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+    uintptr_t user_stack_base = 0x00007ffff0000000;
+    uint64_t stack_pages = 4; // 16 KiB
+
+    for (uint64_t i = 0; i < stack_pages; i++) {
+        void* phys = palloc_zero();
+	debugln("Map page phys: %p, ustackbase: %p, kernel_pm4: %p", (uintptr_t)phys, user_stack_base + (i * 0x1000), kernel_pml4);
+        map_page(kernel_pml4, user_stack_base + (i * 0x1000), (uintptr_t)phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
     }
 
-    debugln("[ELF] Entry Point: %p. Jumping...", header->e_entry);
+    uintptr_t user_stack_top = user_stack_base + (stack_pages * 0x1000);
+    debugln("[elf] About to jmp to userspace, hdr=> %s, ustacktop: %p", header->e_entry, user_stack_top);
     jump_to_usermode(header->e_entry, user_stack_top);
 }
 

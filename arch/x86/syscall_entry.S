@@ -3,40 +3,40 @@ global syscall_entry
 extern syscall_handler
 
 syscall_entry:
+    swapgs
+
+    ; Corrected offset: 0x08 matches cpu_context_t.user_stack_scratch
+    mov [gs:0x08], rsp
+    mov rsp, [gs:0x00]
+
     push rax
+    push r11
+    push rcx
     push rdx
+    push rsi
+    push rdi
+
     mov dx, 0xe9
     mov al, '!'
     out dx, al
-    pop rdx
-    pop rax
 
-    swapgs                  ; Swap User GS with Kernel GS
-    mov [gs:0x10], rsp      ; Save User RSP in a scratch area (in TSS or GS)
-    mov rsp, [gs:0x00]      ; Load Kernel RSP
-
-    ; Save user state (except RCX and R11 which are handled by sysret)
-    push r11 ; User RFLAGS
-    push rcx ; User RIP
-    push rbp
-    push rdi ; Syscall Arg 1
-    push rsi ; Syscall Arg 2
-    push rdx ; Syscall Arg 3
-    ; ... save others if needed ...
-
-    ; Call the C handler
-    ; RAX = syscall number, RDI = Arg 1, RSI = Arg 2, RDX = Arg 3
+    ; System V ABI mapping: 
+    ; Arg 5 needs to be in R8 (User RFLAGS from R11)
+    ; Arg 6 needs to be in R9 (Syscall num from RAX)
+    mov r8, r11
+    mov r9, rax
     call syscall_handler
 
-    ; Restore user state
-    pop rdx
-    pop rsi
     pop rdi
-    pop rbp
+    pop rsi
+    pop rdx
     pop rcx
     pop r11
+    pop rax
 
-    mov rsp, [gs:0x10]      ; Restore User RSP
+    ; Corrected offset
+    mov rsp, [gs:0x08]
     swapgs
+
     o64 sysret
 

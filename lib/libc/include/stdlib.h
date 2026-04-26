@@ -6,7 +6,7 @@
 #include <stdarg.h>
 
 __attribute__((__noreturn__))
-void panic(void);
+void panic(const char* reason);
 void abort(void);
 
 #if defined(__is_libk)
