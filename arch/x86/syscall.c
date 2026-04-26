@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
+#include <syscall.h>
 
 extern void hcf(void);
 extern void syscall_entry(void);
@@ -11,6 +12,12 @@ extern void syscall_entry(void);
 #define MSR_KERNEL_GS_BASE 0xC0000102
 #define EFER_MSR 0xC0000080
 #define EFER_SCE (1 << 0) // System Call Enable
+
+static inline uint64_t read_rsp() {
+    uint64_t rsp;
+    asm volatile("mov %%rsp, %0" : "=r"(rsp));
+    return rsp;
+}
 
 void enable_syscalls() {
     uint32_t low, high;
@@ -24,13 +31,8 @@ void enable_syscalls() {
     asm volatile("wrmsr" : : "a"(low), "d"(high), "c"(EFER_MSR));
 }
 
-// This structure is what GS points to for stack switching
-typedef struct {
-    uint64_t kernel_stack;
-    uint64_t user_stack_scratch;
-} cpu_context_t;
 
-static cpu_context_t main_cpu_context;
+cpu_context_t main_cpu_context;
 
 void gs_init(uintptr_t kernel_stack_top) {
     main_cpu_context.kernel_stack = kernel_stack_top;
@@ -38,13 +40,18 @@ void gs_init(uintptr_t kernel_stack_top) {
 
     uintptr_t addr = (uintptr_t)&main_cpu_context;
 
-    // Set the GS base so the CPU knows where our context struct is.
-    // We set BOTH so that swapgs has a valid target to swap with.
-    wrmsr(MSR_GS_BASE, (uint32_t)addr, (uint32_t)(addr >> 32));
+    // IMPORTANT: In Ring 0 (now), GS_BASE is active.
+    // But for SYSCALL from Ring 3, we need the address in KERNEL_GS_BASE
+    // so that 'swapgs' can pull it into the active slot.
+    
     wrmsr(MSR_KERNEL_GS_BASE, (uint32_t)addr, (uint32_t)(addr >> 32));
     
-    debugln("[SYS] GS Base initialized to %p", (void*)addr);
+    // Set active GS to 0 for now, so we know swapgs actually does something later
+    wrmsr(MSR_GS_BASE, 0, 0); 
+
+    debugln("[SYS] GS Shadow initialized to %p", (void*)addr);
 }
+
 
 void syscall_init() {
     uint32_t lo, hi;
@@ -76,6 +83,7 @@ void syscall_init() {
 }
 
 void syscall_handler(uint64_t rdi, uint64_t rsi, uint64_t rdx, uint64_t rcx, uint64_t r8, uint64_t r9) {
+    debugln("[SYS] Handler reached, RDI: %p", rdi);
     switch (r9) {
         case 1: // print_char
             debug_putchar((char)rdi);

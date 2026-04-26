@@ -2,10 +2,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syscall.h>
 #include <limine.h>
 
 extern uint64_t hhdm_offset;
 static uint64_t* kernel_pml4 = NULL;
+extern cpu_context_t main_cpu_context;
 
 /**
  * vmm_switch: Activates a PML4 by loading its physical address into CR3
@@ -91,6 +93,30 @@ void init_vmm(struct limine_memmap_response* memmap) {
             kernel_pml4[i] = boot_pml4[i];
         }
     }
+
+    extern void syscall_entry(void);
+    uintptr_t entry_phys = vmm_virt_to_phys(boot_pml4, (uintptr_t)syscall_entry);
+    uintptr_t ctx_phys = vmm_virt_to_phys(boot_pml4, (uintptr_t)&main_cpu_context);
+
+    extern void syscall_handler(uint64_t);
+    uintptr_t handler_phys = vmm_virt_to_phys(boot_pml4, (uintptr_t)syscall_handler);
+
+    uintptr_t stack_phys = vmm_virt_to_phys(boot_pml4, (uintptr_t)main_cpu_context.kernel_stack - 8);
+
+    map_page(kernel_pml4, 
+         PAGE_ALIGN_DOWN(main_cpu_context.kernel_stack - 8), 
+         PAGE_ALIGN_DOWN(stack_phys), 
+         PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+
+    debugln("[VMM] Explicitly mapped kernel stack at %p (Phys: %p)", 
+        main_cpu_context.kernel_stack, stack_phys);
+
+    map_page(kernel_pml4, (uintptr_t)syscall_handler, handler_phys, PTE_PRESENT | PTE_USER);
+    map_page(kernel_pml4, (uintptr_t)syscall_entry, entry_phys, PTE_PRESENT | PTE_USER);
+    map_page(kernel_pml4, (uintptr_t)&main_cpu_context, ctx_phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+
+    // uintptr_t stack_phys = vmm_virt_to_phys(boot_pml4, stack_top_address);
+    // map_page(kernel_pml4, stack_top_address, stack_phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
 
     // 3. Re-map the HHDM based on the Memory Map
     // This ensures our new PML4 has full coverage of all physical RAM chunks

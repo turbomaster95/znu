@@ -71,7 +71,7 @@ void load_elf(uint8_t* elf_data) {
     }
 
     uintptr_t user_stack_top = user_stack_base + (stack_pages * 0x1000);
-    debugln("[elf] About to jmp to userspace, hdr=> %s, ustacktop: %p", header->e_entry, user_stack_top);
+    debugln("[elf] About to jmp to userspace, hdr=> %lx, ustacktop: %p", header->e_entry, user_stack_top);
     jump_to_usermode(header->e_entry, user_stack_top);
 }
 
