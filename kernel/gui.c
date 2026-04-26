@@ -30,13 +30,10 @@ void draw_kernel_gui() {
 
     // 5. Add Text using TTY
     // Note: You may need a function to manually set cursor_x/y
-    set_cursor(win_x + 10, win_y + 7);
     terminal_writestring("DevaOS System Console");
 
-    set_cursor(win_x + 20, win_y + 50);
     terminal_writestring("Kernel: v0.0.1-alpha");
     
-    set_cursor(win_x + 20, win_y + 80);
     terminal_writestring("Status: Memory OK");
 
     // 6. Draw a decorative "CPU Load" separator line

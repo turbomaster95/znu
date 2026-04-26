@@ -3,11 +3,17 @@ section .text
 global _start
 
 _start:
-    xor rax, rax
-    mov rax, 1          ; Clear rax and set to 1
-    mov rdi, 90         ; ASCII 'Z'
+    ; Syscall 1: Print 'Z'
+    mov rax, 1          
+    mov rdi, 'Z'        
+    syscall             ; After this, rax should be 0x42
+
+    ; Syscall 2: Print the return value we just got
+    mov rdi, rax        ; Move return value (0x42) into rdi
+    mov rax, 2          ; Call our new "print hex" syscall
     syscall
+
 .loop:
-    pause               ; Better for the CPU than a raw jmp
+    pause
     jmp .loop
 

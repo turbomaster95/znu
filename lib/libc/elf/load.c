@@ -14,7 +14,7 @@ void load_elf(uint8_t* elf_data) {
 
     if (header->e_ident[0] != ELFMAG0 || header->e_ident[1] != ELFMAG1 ||
         header->e_ident[2] != ELFMAG2 || header->e_ident[3] != ELFMAG3) {
-        debugln("[ELF] Invalid Magic!");
+        debugln("[elf] Invalid Magic!");
         return;
     }
 
@@ -50,7 +50,7 @@ void load_elf(uint8_t* elf_data) {
 
                 // Write directly to physical memory via the higher-half map
                 void* dest = (void*)(phys + hhdm_offset);
-		debugln("Remaining abt to be memcpy'd. dest: %p, elf + src_offset: %p, to_copy: %p", dest, elf_data + src_offset, to_copy);
+		debugln("[elf] Remaining abt to be memcpy'd. dest: %p, elf + src_offset: %p, to_copy: %p", dest, elf_data + src_offset, to_copy);
                 memcpy(dest, elf_data + src_offset, to_copy);
 
                 current_vaddr += to_copy;
@@ -66,7 +66,7 @@ void load_elf(uint8_t* elf_data) {
 
     for (uint64_t i = 0; i < stack_pages; i++) {
         void* phys = palloc_zero();
-	debugln("Map page phys: %p, ustackbase: %p, kernel_pm4: %p", (uintptr_t)phys, user_stack_base + (i * 0x1000), kernel_pml4);
+	debugln("[elf] Map page phys: %p, ustackbase: %p, kernel_pm4: %p", (uintptr_t)phys, user_stack_base + (i * 0x1000), kernel_pml4);
         map_page(kernel_pml4, user_stack_base + (i * 0x1000), (uintptr_t)phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
     }
 

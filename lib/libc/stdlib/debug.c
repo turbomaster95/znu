@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <kernel/tty.h>
 
 // ANSI Color Codes
 #define ANSI_RED     "\x1b[31m"
@@ -9,9 +10,13 @@
 #define ANSI_YELLOW  "\x1b[33m"
 #define ANSI_BLUE    "\x1b[34m"
 #define ANSI_RESET   "\x1b[0m"
+bool vmm_ready = false;
 
 void debug_putchar(char c) {
     outb(0xe9, c);
+    if (vmm_ready) {
+       terminal_putchar(c);
+    }
 }
 
 void debug_write(const char* data) {
@@ -26,7 +31,7 @@ static void _debug_vlog_colored(const char* color, const char* prefix, const cha
 //    debug_write("[");
 //    debug_write(prefix);
 //    debug_write("] ");
-    debug_write(ANSI_RESET);
+//    debug_write(ANSI_RESET);
 
     // FIX: Use vdebugprintf so text goes to Port 0xe9, not the screen
     vdebugprintf(format, args); 
@@ -45,6 +50,7 @@ void debugln(const char* format, ...) {
     va_list args;
     va_start(args, format);
     _debug_vlog_colored(ANSI_GREEN, "KERNEL LOG", format, args);
+    printf("%s", args);
     va_end(args);
 }
 

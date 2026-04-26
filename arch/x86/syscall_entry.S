@@ -36,14 +36,15 @@ syscall_entry:
     call syscall_handler
 
     ; Restore registers
-    pop rax
-    pop rdx
-    pop rsi
-    pop rdi
-    pop rbx
-    pop rbp
-    pop rcx
-    pop r11
+    pop rdx             ; Was pushed last
+    pop rsi             ; Was pushed 7th
+    pop rdi             ; Was pushed 6th
+    pop rbx             ; Was pushed 5th
+    pop rbp             ; Was pushed 4th
+    pop rcx             ; Was pushed 3rd (User RIP - CRITICAL)
+    pop r11             ; Was pushed 2nd (User RFLAGS)
+
+    add rsp, 8
 
     mov rsp, [gs:8]     ; Restore user stack
     swapgs

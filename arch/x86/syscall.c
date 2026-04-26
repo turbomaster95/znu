@@ -49,7 +49,7 @@ void gs_init(uintptr_t kernel_stack_top) {
     // Set active GS to 0 for now, so we know swapgs actually does something later
     wrmsr(MSR_GS_BASE, 0, 0); 
 
-    debugln("[SYS] GS Shadow initialized to %p", (void*)addr);
+    debugln("[sys] GS Shadow initialized to %p", (void*)addr);
 }
 
 
@@ -79,22 +79,21 @@ void syscall_init() {
     // Clear Interrupts (0x200), Trap (0x100), and Direction (0x400)
     wrmsr(MSR_SFMASK, 0x700, 0);
 
-    debugln("[SYS] Syscall MSRs initialized.");
+    debugln("[sys] Syscall MSRs initialized.");
 }
 
-void syscall_handler(uint64_t num, uint64_t arg1, uint64_t arg2) {
-    debugln("[SYS] Handler reached, Number: %d, Arg1: %c", num, (char)arg1);
-    
+uint64_t syscall_handler(uint64_t num, uint64_t arg1, uint64_t arg2) {
     switch (num) {
         case 1: // print_char
-            debugln("[USER] %c", (char)arg1); 
-            break;
-        case 2:
-            hcf();
-            break;
+            debug_putchar((char)arg1);
+            return 0x42;
+
+        case 2: // print_hex_byte
+            debugln("\n[sys] User returned value: %x", arg1);
+            return 0;
+
         default:
-            debugln("[SYS] Unknown syscall %d", num);
-            break;
+            return -1;
     }
 }
 

@@ -3,6 +3,11 @@
 #include <limine.h>
 #include <kernel/tty.h>
 #include <kernel/font8x8.h>
+#include <flanterm.h>
+#include <flanterm_backends/fb.h>
+
+// Declare the context so it's visible to all functions in this file
+struct flanterm_context *ft_ctx = NULL;
 
 #if defined(__is_libk)
 // Link to the request defined in your main.c
@@ -16,61 +21,47 @@ static uint32_t color_fg = 0xFFFFFF; // White
 // Each byte is a row (8 bits). 
 
 void terminal_initialize(void) {
-    cursor_x = 0;
-    cursor_y = 0;
-}
-
-void set_cursor(uint32_t x, uint32_t y) {
-    cursor_x = x;
-    cursor_y = y;
-}
-
-
-
-void draw_char(char c, uint32_t x, uint32_t y, uint32_t fg) {
     struct limine_framebuffer *fb = framebuffer_request.response->framebuffers[0];
-    volatile uint32_t *fb_ptr = fb->address;
 
-    // Use a pointer to the 8-byte sequence for this character
-    char *glyph = font8x8_basic[(uint8_t)c];
-
-    for (int row = 0; row < 8; row++) {
-        for (int col = 0; col < 8; col++) {
-            // Check if the bit at 'col' is set in 'row'
-            // We shift 1 by 'col' to create a mask
-            if ((glyph[row] >> col) & 1) {
-                // Drawing at 2x scale so it's readable on high-res screens
-                for (int py = 0; py < 2; py++) {
-                    for (int px = 0; px < 2; px++) {
-                        uint64_t pix_x = x + (col * 2) + px;
-                        uint64_t pix_y = y + (row * 2) + py;
-                        fb_ptr[pix_y * (fb->pitch / 4) + pix_x] = fg;
-                    }
-                }
-            }
-        }
-    }
+    ft_ctx = flanterm_fb_init(
+        NULL, NULL,         // malloc, free (NULL uses default if available, or skip)
+        fb->address,        // Framebuffer address
+        fb->width,          // Width
+        fb->height,         // Height
+        fb->pitch,          // Pitch (bytes per line)
+        fb->red_mask_size,  // Red mask size
+        fb->red_mask_shift, // Red mask shift
+        fb->green_mask_size,// Green mask size
+        fb->green_mask_shift,// Green mask shift
+        fb->blue_mask_size, // Blue mask size
+        fb->blue_mask_shift,// Blue mask shift
+        NULL,               // Canvas (NULL for default)
+        NULL,               // ANSI colors
+        NULL,               // Default ANSI colors
+        NULL,               // Selection background
+        NULL,               // Selection foreground
+        NULL,               // Background image
+        0,                  // Background style
+        0,                  // Background opacity
+        0,                  // Foreground opacity
+        0,               // Font (NULL for built-in)
+        0,                  // Font UI width
+        0,                  // Font UI height
+        0,                  // Font spacing
+        0,                  // Margin
+        0                   // Flags
+    );
 }
 
 void terminal_putchar(char c) {
-    struct limine_framebuffer *fb = framebuffer_request.response->framebuffers[0];
+    if (!ft_ctx) return;
 
     if (c == '\n') {
-        cursor_x = 0;
-        cursor_y += 16; // 8 pixels * 2 scale
-    } else if (c == '\r') {
-        cursor_x = 0;
-    } else {
-        draw_char(c, cursor_x, cursor_y, 0xFFFFFF); // White text
-        cursor_x += 16;
+        char cr = '\r';
+        flanterm_write(ft_ctx, &cr, 1);
     }
 
-    // Simple Screen Wrap
-    if (cursor_x + 16 > fb->width) {
-        cursor_x = 0;
-        cursor_y += 16;
-    }
-    // TODO: Add scrolling logic here when cursor_y > fb->height!
+    flanterm_write(ft_ctx, &c, 1);
 }
 
 

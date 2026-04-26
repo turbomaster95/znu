@@ -23,6 +23,7 @@ extern void lapic_timer_test(void);
 extern uint32_t lapic_ticks_per_ms;
 extern void jump_to_usermode(uintptr_t entry, uintptr_t stack);
 extern uintptr_t stack_top;
+extern bool vmm_ready;
 
 void user_function() {
     while (1) {
@@ -144,15 +145,8 @@ void kmain(void) {
     // Fetch the first framebuffer.
     struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
 
-    // Note: we assume the framebuffer model is RGB with 32-bit pixels.
-    for (size_t i = 0; i < 100; i++) {
-        volatile uint32_t *fb_ptr = framebuffer->address;
-        #ifdef CONFIG_FB_TEST
-         fb_ptr[i * (framebuffer->pitch / 4) + i] = 0xffffff;
-        #endif
-    }
-
     terminal_initialize();
+    vmm_ready = true;
     printf("Hello Kernel World!\n");
     printf("By Deva\n");
     debugln("[kernel] Welcome to znu!");
