@@ -25,6 +25,8 @@ extern void jump_to_usermode(uintptr_t entry, uintptr_t stack);
 extern uintptr_t stack_top;
 extern bool vmm_ready;
 
+bool krnl_init_done = false;
+
 void user_function() {
     while (1) {
      printf("h");
@@ -229,7 +231,7 @@ void kmain(void) {
     debugln("[kernel] Jumping to Ring 3...");
     struct limine_file *init_file = module_request.response->modules[0];
     load_elf(init_file->address);
+    krnl_init_done = true;
 
-    abort();
     hcf(); // Halt
 }

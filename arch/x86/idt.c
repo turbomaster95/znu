@@ -17,6 +17,7 @@ extern void* isr_ptr_table[];
 
 extern volatile uint64_t timer_ticks;
 extern volatile bool lapic_timer_fired;
+extern bool krnl_init_done;
 
 void idt_set_gate(uint8_t vector, void *isr) {
     uint64_t addr = (uint64_t)isr;
@@ -57,7 +58,11 @@ void k_exception_handler(registers_t *regs) {
     if (regs->int_no == 32) {
         timekeeper_on_tick();
         timer_ticks++;
-        if (timer_ticks % 1000 == 0) debugln("Tick! %d", timer_ticks);
+        if (timer_ticks % 1000 == 0) {
+           if (!krnl_init_done) {
+		   debugln("Tick! %d", timer_ticks);
+	   }
+	}
         return;
     }
 

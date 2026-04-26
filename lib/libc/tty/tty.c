@@ -1,8 +1,8 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <limine.h>
+#include <page.h>
 #include <kernel/tty.h>
-#include <kernel/font8x8.h>
 #include <flanterm.h>
 #include <flanterm_backends/fb.h>
 
@@ -17,6 +17,16 @@ static uint32_t cursor_x = 0;
 static uint32_t cursor_y = 0;
 static uint32_t color_fg = 0xFFFFFF; // White
 
+void* flanterm_malloc(size_t size) {
+    return kmalloc(size);
+}
+
+// Wrapper for free - we ignore the size if your kfree doesn't need it
+void flanterm_free(void* ptr, size_t size) {
+    (void)size; // Prevent unused parameter warning
+    kfree(ptr);
+}
+
 // Minimal 8x8 Font Data for ASCII 32-126
 // Each byte is a row (8 bits). 
 
@@ -24,7 +34,8 @@ void terminal_initialize(void) {
     struct limine_framebuffer *fb = framebuffer_request.response->framebuffers[0];
 
     ft_ctx = flanterm_fb_init(
-        NULL, NULL,         // malloc, free (NULL uses default if available, or skip)
+        flanterm_malloc,
+        flanterm_free,
         fb->address,        // Framebuffer address
         fb->width,          // Width
         fb->height,         // Height
