@@ -7,12 +7,17 @@
 # command after changing this file, to see if there are
 # any tracked files which get ignored after the change.
 #
+# Exclude rules
+#
+!lib/ulibc/*.uu
+!lib/ulibc/*.uua
+
+#
 # Normal rules
 #
 .*
 *.o
 *.o.*
-*.a
 *.s
 *.ko
 *.so

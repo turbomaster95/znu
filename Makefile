@@ -349,9 +349,10 @@ all: $(TARGET)
 
 objs-y		:= kernel
 objs-y		+= arch
+user-y		:= init
 libs-y		:= lib
 
-$(TARGET)-dirs	:= $(objs-y) $(libs-y)
+$(TARGET)-dirs	:= $(objs-y) $(libs-y) $(user-y)
 $(TARGET)-objs	:= $(patsubst %,%/built-in.o, $(objs-y))
 $(TARGET)-libs	:= $(patsubst %,%/built-in.o, $(libs-y))
 $(TARGET)-all	:= $($(TARGET)-objs) $($(TARGET)-libs)
@@ -394,7 +395,6 @@ $(sort $($(TARGET)-all)): $($(TARGET)-dirs) ;
 PHONY += $($(TARGET)-dirs)
 $($(TARGET)-dirs): scripts_basic
 	$(Q)$(MAKE) $(build)=$@
-
 
 ###
 # Cleaning is done on three levels.

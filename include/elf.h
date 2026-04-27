@@ -2,11 +2,9 @@
 #define _ELF_H
 
 #include <stdint.h>
+#include <proc.h>
 
-#define ELFMAG0 0x7f
-#define ELFMAG1 'E'
-#define ELFMAG2 'L'
-#define ELFMAG3 'F'
+#define ELFMAG "\177ELF"
 
 #define PT_LOAD 1
 
@@ -39,5 +37,7 @@ typedef struct {
 } Elf64_Phdr;
 
 void load_elf(uint8_t* elf_data);
+uint64_t* vmm_create_user_pml4(void);
+process_t* create_init_process(uint8_t* elf_data);
 
 #endif

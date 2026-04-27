@@ -60,7 +60,7 @@ void k_exception_handler(registers_t *regs) {
         timer_ticks++;
         if (timer_ticks % 1000 == 0) {
            if (!krnl_init_done) {
-		   debugln("Tick! %d", timer_ticks);
+//		   debugln("Tick! %d", timer_ticks);
 	   }
 	}
         return;

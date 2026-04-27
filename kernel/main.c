@@ -14,6 +14,7 @@
 #include <elf.h>
 #include <syscall.h>
 #include <gdt.h>
+#include <proc.h>
 
 extern uacpi_status init_acpi(void);
 extern void draw_kernel_gui(void);
@@ -27,11 +28,6 @@ extern bool vmm_ready;
 
 bool krnl_init_done = false;
 
-void user_function() {
-    while (1) {
-     printf("h");
-    }
-}
 // Set the base revision to 5, this is recommended as this is the latest
 // base revision described by the Limine boot protocol specification.
 // See specification for further info.
@@ -230,8 +226,15 @@ void kmain(void) {
     gs_init(stack_top);
     debugln("[kernel] Jumping to Ring 3...");
     struct limine_file *init_file = module_request.response->modules[0];
-    load_elf(init_file->address);
+    process_t* init = create_init_process(init_file->address);
+    if (init) {
+        vmm_switch(init->pml4); // Switch to Init's memory
+        jump_to_usermode(init->entry, init->stack_top);
+    }
+
+//    load_elf(init_file->address);
     krnl_init_done = true;
+    panic("Init binary exited!!!");
 
     hcf(); // Halt
 }
