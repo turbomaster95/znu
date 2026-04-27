@@ -13,12 +13,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <lapic.h>
+#include <pi.h>
 #include <timekeeper.h>
 #include <uacpi/sleep.h>
 
 extern struct limine_rsdp_request *rsdp_request;
 extern void hcf(void);
 extern uint64_t rsdp_addr;
+extern uint32_t lapic_ticks_per_ms;
+static _Atomic uint64_t sub_tick_inc = 0;
 
 static uint32_t pci_get_addr(uacpi_handle device, uacpi_size offset) {
     uint64_t addr = (uint64_t)device;
@@ -102,32 +105,41 @@ uacpi_status uacpi_kernel_raw_memory_write(uacpi_phys_addr address, uacpi_u8 byt
 
 uacpi_status uacpi_kernel_io_read8(uacpi_handle handle, uacpi_size offset, uacpi_u8 *out) {
 	*out = inb((uacpi_io_addr)handle + offset);
+        debugln("read8 called!!!");
+	for(int i = 0; i < 10; i++) outb(0x80, 0);
 	return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_io_read16(uacpi_handle handle, uacpi_size offset, uacpi_u16 *out) {
 	*out = inw((uacpi_io_addr)handle + offset);
+        debugln("read16 called!!!");
+	for(int i = 0; i < 10; i++) outb(0x80, 0);
 	return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_io_read32(uacpi_handle handle, uacpi_size offset, uacpi_u32 *out) {
 	*out = ind((uacpi_io_addr)handle + offset);
-	return UACPI_STATUS_OK;
+	debugln("read32 called!!!");
+	for(int i = 0; i < 10; i++) outb(0x80, 0);
+        return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_io_write8(uacpi_handle handle, uacpi_size offset, uacpi_u8 v) {
 	outb((uacpi_io_addr)handle + offset, v);
+        debugln("write8 called!!!");
 	return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_io_write16(uacpi_handle handle, uacpi_size offset, uacpi_u16 v) {
 	outw((uacpi_io_addr)handle + offset, v);
+        debugln("write16 called!!!");
 	return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_io_write32(uacpi_handle handle, uacpi_size offset, uacpi_u32 v) {
 	outd((uacpi_io_addr)handle + offset, v);
-	return UACPI_STATUS_OK;
+	debugln("write32 called!!!");
+        return UACPI_STATUS_OK;
 }
 
 int __popcountdi2(int64_t a) {
@@ -187,7 +199,9 @@ void uacpi_kernel_pci_device_close(uacpi_handle handle) {
 }
 
 uacpi_u64 uacpi_kernel_get_nanoseconds_since_boot(void) {
-    return (uacpi_u64)timekeeper_timefromboot();
+    uint64_t extra = __atomic_add_fetch(&sub_tick_inc, 100, __ATOMIC_RELAXED);
+    debugln("getnanoseconds called");
+    return (uacpi_u64)timekeeper_timefromboot() + extra;
 }
 
 uacpi_handle uacpi_kernel_create_mutex(void) { return (uacpi_handle)1; }
@@ -200,12 +214,28 @@ uacpi_handle uacpi_kernel_create_spinlock(void) {
 }
 
 void uacpi_kernel_free_spinlock(uacpi_handle spinlock) { (void)spinlock; }
-uacpi_cpu_flags uacpi_kernel_lock_spinlock(uacpi_handle spinlock) { 
-    __asm__ volatile("cli");
+
+uacpi_cpu_flags uacpi_kernel_lock_spinlock(uacpi_handle spinlock) {
+    uacpi_cpu_flags flags;
+    __asm__ volatile(
+        "pushf\n"
+        "pop %0\n"
+        "cli"
+        : "=rm"(flags)
+        :
+        : "memory"
+    );
+    return flags;
 }
+
 void uacpi_kernel_unlock_spinlock(uacpi_handle spinlock, uacpi_cpu_flags flags) {
-   __asm__ volatile("sti");
-   (void)flags;
+    __asm__ volatile(
+        "push %0\n"
+        "popf"
+        :
+        : "rm"(flags)
+        : "memory", "cc"
+    );
 }
 
 uacpi_handle uacpi_kernel_create_event(void) { return (uacpi_handle)1; }
@@ -243,13 +273,17 @@ uacpi_status uacpi_kernel_schedule_work(uacpi_work_type type, uacpi_work_handler
 uacpi_status uacpi_kernel_wait_for_work_completion(void) { return UACPI_STATUS_OK; }
 
 uacpi_thread_id uacpi_kernel_get_thread_id(void) { return (uacpi_thread_id)1; }
+
 void uacpi_kernel_stall(uacpi_u8 usec) {
-    for (uint32_t i = 0; i < (uint32_t)usec * 100; i++) {
-        __asm__ volatile("pause");
+    debugln("stall called");
+    // 0x80 is the standard "POST" port used for IO delays.
+    // Each outb takes roughly ~1 microsecond on real hardware.
+    for (uint32_t i = 0; i < (uint32_t)usec; i++) {
+        outb(0x80, 0);
     }
 }
-
 void uacpi_kernel_sleep(uacpi_u64 msec) {
+    debugln("sleep called");
     sleep(msec);
 }
 
@@ -260,13 +294,8 @@ uacpi_status uacpi_kernel_get_rsdp(uacpi_phys_addr *out_rsdp) {
 
     *out_rsdp = (uacpi_phys_addr)physical_address;
 
-    // Use %lx for the physical address to ensure it prints correctly
-//    debugln("[uACPI] RSDP Phys Corrected: 0x%lx", (uint64_t)*out_rsdp);
-
     return UACPI_STATUS_OK;
 }
-
-
 
 uacpi_status uacpi_kernel_handle_firmware_request(uacpi_firmware_request *req) { return UACPI_STATUS_UNIMPLEMENTED; }
 
@@ -282,6 +311,7 @@ uacpi_bool uacpi_kernel_wait_for_event(uacpi_handle event, uacpi_u16 timeout) {
     (void)timeout; 
     return true; 
 }
+
 // uACPI wants the current EFLAGS so it can restore them later
 uacpi_interrupt_state uacpi_kernel_disable_interrupts(void) {
     uacpi_interrupt_state flags;
@@ -318,9 +348,7 @@ uacpi_status uacpi_kernel_pci_write8(uacpi_handle device, uacpi_size offset, uac
     return UACPI_STATUS_OK;
 }
 
-// Final cleanup stub
 void uacpi_kernel_deinitialize(void) {
-    // Nothing to do here yet
 }
 
 // Ensure these names match the undefined references exactly

@@ -27,6 +27,7 @@ extern uint32_t lapic_ticks_per_ms;
 extern void jump_to_usermode(uintptr_t entry, uintptr_t stack);
 extern uintptr_t stack_top;
 extern bool vmm_ready;
+extern void calibrate_lapic_timer_no_irq(void);
 
 bool krnl_init_done = false;
 
@@ -193,11 +194,11 @@ void kmain(void) {
     calibrate_lapic_timer();
     debugln("[lapic] LAPIC calibrated: %u ticks/ms", lapic_ticks_per_ms);
 
-    debugln("[ktest] Testing sleep(1000)...");
+    debugln("[ktest] Testing sleep(2000)...");
     uint64_t s_start = timer_ticks;
-    sleep(1000);
+    sleep(2000);
     uint64_t s_end = timer_ticks;
-    debugln("[ktest] sleep(1000) finished. PIT ticks elapsed: %d", s_end - s_start);
+    debugln("[ktest] sleep(2000) finished. PIT ticks elapsed: %d", s_end - s_start);
 
     rsdp_response = rsdp_request.response;
 

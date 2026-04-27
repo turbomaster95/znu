@@ -8,7 +8,7 @@ void pit_init(uint32_t frequency) {
     // The PIT internal clock frequency is 1.193182 MHz
     uint32_t divisor = 1193182 / frequency;
 
-    outb(0x43, 0x36);             // Command byte: Square wave, Rate Generator
+    outb(0x43, 0x34);             // Command byte: Square wave, Rate Generator
     outb(0x40, (uint8_t)(divisor & 0xFF));        // Low byte
     outb(0x40, (uint8_t)((divisor >> 8) & 0xFF)); // High byte
 }

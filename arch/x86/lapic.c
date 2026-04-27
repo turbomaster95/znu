@@ -1,4 +1,3 @@
-// arch/x86/lapic.c
 #include <stdint.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -6,6 +5,7 @@
 #include <limine.h> // For limine_lapic_request
 #include <stdio.h>
 #include <pi.h>
+#include <lapic.h>
 
 extern volatile uint64_t timer_ticks;
 
@@ -13,15 +13,6 @@ extern volatile struct limine_hhdm_request hhdm_request;
 
 // LAPIC Base Address (obtained from Limine)
 volatile uint64_t* lapic_base = NULL;
-
-// LAPIC Register Offsets
-#define LAPIC_REG_ID          0x0020
-#define LAPIC_REG_SVR         0x00F0 // Spurious Interrupt Vector Register
-#define LAPIC_REG_LVT_TIMER  0x00320
-#define LAPIC_REG_INITIAL_COUNT 0x00380
-#define LAPIC_REG_CURRENT_COUNT 0x00390
-#define LAPIC_REG_DIVIDE_CONF 0x003E0
-#define LAPIC_REG_EOI         0x00B0
 
 // LAPIC Timer Interrupt Vector.
 #define LAPIC_TIMER_VECTOR 48
@@ -41,11 +32,11 @@ volatile uint32_t lapic_ticks_per_ms = 0;
 volatile bool lapic_timer_fired = false;
 
 // --- Helper functions for LAPIC MMIO access ---
-static inline uint32_t lapic_read(uint32_t offset) {
+uint32_t lapic_read(uint32_t offset) {
     return *(volatile uint32_t*)((uintptr_t)lapic_base + offset);
 }
 
-static inline void lapic_write(uint32_t offset, uint32_t value) {
+void lapic_write(uint32_t offset, uint32_t value) {
     *(volatile uint32_t*)((uintptr_t)lapic_base + offset) = value;
 }
 
@@ -90,7 +81,7 @@ void lapic_init() {
 
     // LINT0: Virtual Wire Mode (ExtINT)
     // Delivery Mode: ExtINT (0x7), Masked: 0 (bit 16)
-    lapic_write(0x350, 0x700);
+    lapic_write(0x350, 32 | (0 << 16));
 }
 
 // --- LAPIC Timer Calibration ---

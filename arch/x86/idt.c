@@ -32,49 +32,44 @@ void idt_set_gate(uint8_t vector, void *isr) {
 }
 
 void k_exception_handler(registers_t *regs) {
-    // 1. Catch Critical CPU Exceptions (Page Faults, GPFs, etc.)
-    if (regs->int_no < 32) {
+    uint8_t int_no = regs->int_no;
+
+    // 1. Handle Critical CPU Exceptions (0-31)
+    if (int_no < 32) {
         uint64_t cr2;
         __asm__ volatile("mov %%cr2, %0" : "=r"(cr2));
+
+        debugln("\n--- CRITICAL CPU EXCEPTION: %d ---", int_no);
+        debugln("Error Code: 0x%x | RIP: %p", regs->err_code, (void*)regs->rip);
         
-        debugln("\n--- CRITICAL CPU EXCEPTION ---");
-        debugln("Interrupt Number : %d", regs->int_no);
-        debugln("Error Code       : 0x%x", regs->err_code);
-        if (regs->int_no == 14) { // Page Fault
-            debugln("Faulting Address : %p", (void*)cr2);
+        if (int_no == 14) {
+            debugln("Faulting Address: %p", (void*)cr2);
         }
-        hcf(); // Stop the silent loop
+        
+        // Block forever - system is unstable
+        hcf();
     }
 
-    // 2. Hardware Interrupts
-    if (regs->int_no >= 32 && regs->int_no < 48) {
-        if (regs->int_no >= 40) outb(0xA0, 0x20);
-        outb(0x20, 0x20);
-    }
-
-    if (regs->int_no >= 32) {
-        lapic_eoi();
-    }
-
-    if (regs->int_no == 32) {
-        timekeeper_on_tick();
+    if (int_no == 32) {
         timer_ticks++;
-        if (timer_ticks % 1000 == 0) {
-//		debugln("Tick! %d", timer_ticks);
-	}
-        return;
+        timekeeper_on_tick();
+    } 
+    else if (int_no == 33) {
+        keyboard_handle_scancode(inb(0x60));
     }
-
-    if (regs->int_no == 33) {
-        uint8_t scancode = inb(0x60);
-//	debugln("[kbd] Scancode: 0x%x", scancode);
-        keyboard_handle_scancode(scancode);
-        return;
-    }
-
-    if (regs->int_no == 48) {
+    else if (int_no == 48) {
         lapic_timer_fired = true;
-        return;
+    }
+    
+    if (int_no >= 32 && int_no < 48) {
+        if (int_no >= 40) {
+            outb(0xA0, 0x20); // Slave PIC
+        }
+        outb(0x20, 0x20);     // Master PIC
+    }
+
+    if (int_no >= 32) {
+        lapic_eoi();
     }
 }
 
