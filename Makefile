@@ -404,7 +404,7 @@ $($(TARGET)-dirs): scripts_basic
 # make distclean Remove editor backup files, patch leftover files and the like
 
 # Directories & files removed with 'make clean'
-CLEAN_DIRS  += lib/uacpi/.uacpi_out
+CLEAN_DIRS  += lib/uacpi/.uacpi_out configs/iso_root/boot/initramfs.cpio configs/iso_root/boot/kernel.bin configs/sysroot/bin/*
 CLEAN_FILES +=	$(TARGET) $(STARGET) $(ISOIMAGE)
 
 # Directories & files removed with 'make mrproper'
