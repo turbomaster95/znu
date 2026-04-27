@@ -54,39 +54,39 @@ void lapic_init() {
     if (lapic_base != NULL) return; // Already initialized
 
     if (!hhdm_request.response) {
-        debugln("HHDM NOT FOUND");
+        debugerr("HHDM NOT FOUND");
         return; 
     } else {
-        debugln("HHDM response found!");
+        debugln("[lapic] HHDM response found!");
     }
 
     // Request LAPIC info from Limine
     uint32_t lo, hi;
     __asm__ volatile("rdmsr" : "=a"(lo), "=d"(hi) : "c"(0x1B));
 
-    debugln("Got HHDM from Limine");
+    debugln("[lapic] Pulled HHDM from Limine");
 
     uintptr_t lapic_phys = (lo & 0xFFFFF000) | ((uint64_t)(hi & 0x0F) << 32);
 
     lapic_base = (volatile uint64_t*)(lapic_phys + hhdm_request.response->offset);
 
-    debugln("LAPIC Base (Phys): 0x%p", lapic_phys);
-    debugln("LAPIC Base (Virt): 0x%p", lapic_base);
+    debugln("[dlapic] LAPIC Base (Phys): 0x%p", lapic_phys);
+    debugln("[dlapic] LAPIC Base (Virt): 0x%p", lapic_base);
 
     // Enable LAPIC globally via MSR
     // Ensure lo and hi are explicitly 32-bit for the registers
-    debugln("Read lo, and hi");
+    debugln("[dlapic] Read lo, and hi");
     // Set bit 11 (Enable)
     lo |= (1 << 11);
 
     // Write it back
     __asm__ volatile("wrmsr" : : "a"(lo), "d"(hi), "c"(0x1B));
-    debugln("Wrote lo, hi after bit");
+    debugln("[dlapic] Wrote lo, hi after bit");
 
     // Software-enable LAPIC (SVR bit 8)
     uint32_t svr = lapic_read(LAPIC_REG_SVR);
     lapic_write(LAPIC_REG_SVR, lapic_read(LAPIC_REG_SVR) | 0x100 | 0xFF);
-    debugln("Survived the LAPIC SVR write!");
+    debugln("[lapic] Survived the LAPIC SVR write!");
 
     // LINT0: Virtual Wire Mode (ExtINT)
     // Delivery Mode: ExtINT (0x7), Masked: 0 (bit 16)
@@ -116,21 +116,21 @@ void calibrate_lapic_timer_no_irq() {
     uint32_t end_lapic = lapic_read(LAPIC_REG_CURRENT_COUNT);
     lapic_ticks_per_ms = start_lapic - end_lapic;
 
-    debugln("LAPIC Ticks per ms: %u", lapic_ticks_per_ms);
+    debugln("[lapic] LAPIC Ticks per ms: %u", lapic_ticks_per_ms);
 }
 
 
 void calibrate_lapic_timer() {
     if (!lapic_base) {
-        debugln("LAPIC not initialized, cannot calibrate timer.");
+        debugerr("LAPIC not initialized, cannot calibrate timer.");
         return;
     }
     if (lapic_ticks_per_ms != 0) {
-        debugln("LAPIC timer already calibrated.");
+        debugln("[lapic] LAPIC timer already calibrated.");
         return; // Already calibrated
     }
 
-    debugln("Calibrating LAPIC timer...");
+    debugln("[clapic] Calibrating LAPIC timer...");
 
     // Ensure PIT is initialized and interrupts are enabled.
     // We'll wait for 1000 PIT ticks, which is approximately 1 second if PIT is 1kHz.
@@ -157,7 +157,6 @@ void calibrate_lapic_timer() {
         __asm__ volatile("pause"); // Hints to the CPU we are in a spin-loop
     }
 
-
     // 4. Read LAPIC timer's current count *after* waiting.
     uint32_t lapic_end_count = lapic_read(LAPIC_REG_CURRENT_COUNT);
 
@@ -181,7 +180,7 @@ void calibrate_lapic_timer() {
     lapic_ticks_per_ms = ticks_elapsed / duration_ms;
 
 
-    debugln("LAPIC timer calibrated: %u ticks/ms.", lapic_ticks_per_ms);
+    debugln("[clapic] APIC timer calibrated: %u ticks/ms.", lapic_ticks_per_ms);
 
     // Stop the LAPIC timer by resetting initial count to 0 and disabling LVT.
     lapic_write(LAPIC_REG_INITIAL_COUNT, 0);
@@ -216,11 +215,11 @@ void lapic_timer_isr() {
 // Implements power-saving sleep using the LAPIC timer in one-shot mode.
 void sleep(uint32_t ms) {
     if (!lapic_base) {
-        debugln("LAPIC not initialized, cannot sleep.");
+        debugerr("LAPIC not initialized, cannot sleep.");
         return;
     }
     if (lapic_ticks_per_ms == 0) {
-        debugln("LAPIC timer not calibrated, cannot sleep accurately.");
+        debugwarn("LAPIC timer not calibrated, cannot sleep accurately.");
         return;
     }
 

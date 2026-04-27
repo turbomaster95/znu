@@ -1,9 +1,12 @@
 [submodule "lib/uacpi"]
 	path = lib/uacpi
 	url = https://github.com/uACPI/uACPI
+	shallow = true
 [submodule "scripts/limine"]
 	path = scripts/limine
 	url = https://github.com/limine-bootloader/limine
+	shallow = true
 [submodule "lib/flanterm"]
 	path = lib/flanterm
 	url = https://github.com/Mintsuki/Flanterm
+	shallow = true

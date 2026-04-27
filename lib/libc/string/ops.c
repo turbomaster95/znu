@@ -31,3 +31,15 @@ int strncmp(const char *s1, const char *s2, size_t n) {
     return *(unsigned char *)s1 - *(unsigned char *)s2;
 }
 
+char* strrchr(const char* s, int c) {
+    char* last = NULL;
+    char target = (char)c;
+
+    do {
+        if (*s == target) {
+            last = (char*)s;
+        }
+    } while (*s++);
+
+    return last;
+}

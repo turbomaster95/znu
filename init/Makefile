@@ -25,7 +25,8 @@ quiet_cmd_znu_ld = LD      $@
 # We depend on the .uu and .uua files themselves
 $(obj)/init.elf: $(addprefix $(obj)/,$(obj-y))  FORCE
 	$(call if_changed,znu_ld)
-	@cp $(srctree)/init/init.elf $(srctree)/configs/iso_root/boot/init.elf
+	@cp $(srctree)/init/init.elf $(srctree)/configs/sysroot/bin/init
+	@(cd $(srctree)/configs/sysroot && find . -mindepth 1 | cpio -o -H newc) > configs/iso_root/boot/initramfs.cpio
 
 $(obj)/%.o: $(src)/%.c FORCE
 	$(CC) -c $(CFLAGS) $(KBUILD_CFLAGS) $< -o $@

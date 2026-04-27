@@ -8,6 +8,8 @@
 #define EOF (-1)
 #define ROUND_DOWN(v, n) ((v) - ((v) % (n)))
 #define ROUND_UP(v, n) ROUND_DOWN((v) + (n) - 1, n)
+#define ANSI_BOLD      "\033[1m"
+#define ANSI_RESET     "\033[0m"
 
 int printf(const char* __restrict, ...);
 int putchar(int);

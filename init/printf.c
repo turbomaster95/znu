@@ -3,12 +3,13 @@
 
 
 void putchar(char c) {
+    register long rax __asm__("rax") = 1;
+    register long rdi __asm__("rdi") = c;
     __asm__ volatile (
         "syscall"
-        :
-        : "a"(1), // rax = 1
-          "D"(c)  // rdi = character value
-        : "rcx", "r11", "memory"
+        : "+r"(rax)
+        : "r"(rdi)
+        : "rcx", "r11", "rdx", "rsi", "memory"
     );
 }
 

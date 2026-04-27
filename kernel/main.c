@@ -15,6 +15,7 @@
 #include <syscall.h>
 #include <gdt.h>
 #include <proc.h>
+#include <vfs.h>
 
 extern uacpi_status init_acpi(void);
 extern void draw_kernel_gui(void);
@@ -125,7 +126,7 @@ void kmain(void) {
         kernel_pml4 = vmm_get_kernel_pml4();
         init_slab();
     } else {
-        debugln("CRITICAL: Memmap request response is NULL!");
+        debugerr("Memmap request response is NULL!");
         hcf();
     }
 
@@ -136,7 +137,7 @@ void kmain(void) {
     }
 
     if (module_request.response == NULL || module_request.response->module_count == 0) {
-        debugln("Error: No modules found! Did you add init.elf to limine.conf?");
+        debugerr("No modules found! Did you add init.elf to limine.conf?");
         hcf();
     }
 
@@ -145,10 +146,8 @@ void kmain(void) {
 
     terminal_initialize();
     vmm_ready = true;
-    printf("Hello Kernel World!\n");
-    printf("By Deva\n");
     debugln("[kernel] Welcome to znu!");
-
+    debugln("[tty] \033[1mGot a \033[1;31mC\033[1;33mO\033[1;32mL\033[1;34mO\033[1;35mR\033[0;1m Display?\033[0m");
 
     #ifdef CONFIG_EG_GUI
      draw_kernel_gui();
@@ -224,16 +223,31 @@ void kmain(void) {
     enable_syscalls();
     syscall_init();
     gs_init(stack_top);
-    debugln("[kernel] Jumping to Ring 3...");
-    struct limine_file *init_file = module_request.response->modules[0];
-    process_t* init = create_init_process(init_file->address);
-    if (init) {
-        vmm_switch(init->pml4); // Switch to Init's memory
-        jump_to_usermode(init->entry, init->stack_top);
+
+    init_vfs();
+
+    struct limine_module_response *mod_res = module_request.response;
+    if (mod_res == NULL || mod_res->module_count == 0) {
+       panic("Initramfs (CPIO) module not found! Check limine.conf");
     }
 
-//    load_elf(init_file->address);
-    krnl_init_done = true;
+    debugln("[kernel] Parsing initramfs at %p...", mod_res->modules[0]->address);
+    cpio_parse(mod_res->modules[0]->address);
+
+    vfs_node_t* init_node = vfs_path_to_node("/bin/init");
+    if (!init_node) {
+       panic("Initramfs parsed, but /bin/init not found in VFS!");
+    }
+    
+    debugln("[kernel] Loading init process from VFS (Size: %d bytes)", init_node->size);
+    process_t* init_proc = create_init_process((uint8_t*)init_node->data);
+
+    if (init_proc) {
+       vmm_switch(init_proc->pml4);
+       debugln("[kernel] Jumping to Ring 3...");
+       jump_to_usermode(init_proc->entry, init_proc->stack_top);
+    }    
+
     panic("Init binary exited!!!");
 
     hcf(); // Halt
