@@ -12,7 +12,6 @@ void putchar(char c) {
     );
 }
 
-
 int printf(const char* format, ...) {
     va_list args;
     va_start(args, format);
@@ -48,8 +47,6 @@ int printf(const char* format, ...) {
     return count;
 }
 
-
-//-    ; Syscall 1: Print 'Z'
-//-    mov rax, 1
-//-    mov rdi, 'Z'
-//-    syscall             ; After this, rax should be 0x42
+int puts(const char* string) {
+        return printf("%s\n", string);
+}

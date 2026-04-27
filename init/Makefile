@@ -2,7 +2,7 @@ extra-y += init.elf
 obj-y := main.o
 obj-y += printf.o
 
-KBUILD_CPPFLAGS := 
+KBUILD_CPPFLAGS := -Wno-builtin-declaration-mismatch
 
 # Define the target for cross-compilation
 # This matches your Termux-to-x86_64 setup
@@ -23,7 +23,7 @@ quiet_cmd_znu_ld = LD      $@
 
 # The rule to 'build' the elf from the precompiled binaries
 # We depend on the .uu and .uua files themselves
-$(obj)/init.elf: $(srctree)/lib/ulibc/crt1.uu $(srctree)/lib/ulibc/libaic.uua $(addprefix $(obj)/,$(obj-y))  FORCE
+$(obj)/init.elf: $(addprefix $(obj)/,$(obj-y))  FORCE
 	$(call if_changed,znu_ld)
 	@cp $(srctree)/init/init.elf $(srctree)/configs/iso_root/boot/init.elf
 

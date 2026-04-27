@@ -1,10 +1,10 @@
 #include "stdio.h"
 
 int main() {
-    printf("Hello!");
-    printf("---------------------------------");
-    printf("      Starting Zinit v0.0.0      ");
-    printf("---------------------------------");
+    printf("Hello!\n");
+    printf("---------------------------------\n");
+    printf("      Starting Zinit v0.0.0      \n");
+    printf("---------------------------------\n");
     while(1);
     return 0;
 }
