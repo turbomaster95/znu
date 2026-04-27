@@ -6,6 +6,7 @@
 typedef struct {
     uint64_t kernel_stack;
     uint64_t user_stack_scratch;
+    uint64_t user_rdx_scratch;
 } cpu_context_t;
 
 void syscall_init(void);

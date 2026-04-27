@@ -16,6 +16,7 @@ quiet_cmd_run_flanterm  = SH      $(patsubst $(srctree)/%,%,$<)
 obj-y += libc/
 obj-y += uacpi/uacpi_lib.o
 obj-y += flanterm/flanterm_lib.o
+always-y += ulibc/
 
 $(obj)/uacpi/uacpi_lib.o: $(srctree)/scripts/uacpi.sh
 	$(call if_changed,run_uacpi)

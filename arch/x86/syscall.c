@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <syscall.h>
+#include <stddef.h>
 
 extern void hcf(void);
 extern void syscall_entry(void);
@@ -12,6 +13,26 @@ extern void syscall_entry(void);
 #define MSR_KERNEL_GS_BASE 0xC0000102
 #define EFER_MSR 0xC0000080
 #define EFER_SCE (1 << 0) // System Call Enable
+
+extern size_t keyboard_read(char* buf, size_t count);
+
+static bool is_user_addr(void* ptr, size_t len) {
+    uintptr_t addr = (uintptr_t)ptr;
+    // User space is typically 0x0000000000000000 to 0x00007FFFFFFFFFFF
+    // Or just check top 16 bits are 0 for canonical lower half
+    if (addr + len < addr) return false; // overflow
+    return (addr + len) < 0x0000800000000000ULL;
+}
+
+size_t sys_read(int fd, void* buf, size_t count) {
+    if (!is_user_addr(buf, count)) return -1;
+    if (fd == 0) {
+        // stdin — keyboard
+        return keyboard_read((char*)buf, count);
+    }
+    // TODO: fd >= 3 → VFS file read
+    return -1;
+}
 
 static inline uint64_t read_rsp() {
     uint64_t rsp;
@@ -82,7 +103,7 @@ void syscall_init() {
     debugln("[sys] Syscall MSRs initialized.");
 }
 
-uint64_t syscall_handler(uint64_t num, uint64_t arg1, uint64_t arg2) {
+uint64_t syscall_handler(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3) {
     switch (num) {
         case 1: // print_char
             debug_putchar((char)arg1);
@@ -92,6 +113,9 @@ uint64_t syscall_handler(uint64_t num, uint64_t arg1, uint64_t arg2) {
             debugln("\n[sys] User returned value: %x", arg1);
             return 0;
 
+        case 3: // read(fd, buf, count)
+            return (uint64_t)sys_read((int)arg1, (void*)arg2, (size_t)arg3);
+        
         default:
             return -1;
     }

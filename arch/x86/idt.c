@@ -10,6 +10,7 @@ extern void hcf(void);
 struct idt_entry idt[256] __attribute__((aligned(16)));
 struct idtr idtr_instance;
 extern void keyboard_handle_scancode(uint8_t scancode);
+
 /* Externs from the ASM file */
 extern void isr0(void);
 extern void isr32(void); 
@@ -59,9 +60,7 @@ void k_exception_handler(registers_t *regs) {
         timekeeper_on_tick();
         timer_ticks++;
         if (timer_ticks % 1000 == 0) {
-           if (!krnl_init_done) {
-//		   debugln("Tick! %d", timer_ticks);
-	   }
+//		debugln("Tick! %d", timer_ticks);
 	}
         return;
     }

@@ -1,7 +1,6 @@
 #include "stdio.h"
 #include <stdarg.h>
 
-
 void putchar(char c) {
     register long rax __asm__("rax") = 1;
     register long rdi __asm__("rdi") = c;
