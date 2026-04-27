@@ -67,7 +67,8 @@ void k_exception_handler(registers_t *regs) {
 
     if (regs->int_no == 33) {
         uint8_t scancode = inb(0x60);
-        keyboard_handle_scancode(scancode);  // you'll write this
+//	debugln("[kbd] Scancode: 0x%x", scancode);
+        keyboard_handle_scancode(scancode);
         return;
     }
 
@@ -96,9 +97,7 @@ void idt_init() {
 
     pic_remap();
 
-    outb(0x21, 0xFC);
-    // Unmask IRQ0 (Timer)
-    outb(0x21, 0xFE); 
-    outb(0xA1, 0xFF); // All masked on slave
+    outb(0x21, 0xFC); 
+    outb(0xA1, 0xFF);
 }
 

@@ -16,6 +16,7 @@
 #include <gdt.h>
 #include <proc.h>
 #include <vfs.h>
+#include <x86.h>
 
 extern uacpi_status init_acpi(void);
 extern void draw_kernel_gui(void);
@@ -179,9 +180,12 @@ void kmain(void) {
     lapic_init();
     debugln("[lapic] LAPIC initialized.");
 
-    // Initialize PIT (or LAPIC timer later)
-    pit_init(1000); // Use PIT for now, will switch to LAPIC timer
+    // Initialize PIT
+    pit_init(1000);
     debugln("[pit] PIT initialized for calibration.");
+
+    ps2_init();
+    debugln("[ps2] Initialized PS/2");
 
     __asm__ volatile("sti");
     debugln("[kernel] Interupts Enabled.");

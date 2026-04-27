@@ -25,13 +25,23 @@ static bool is_user_addr(void* ptr, size_t len) {
 }
 
 size_t sys_read(int fd, void* buf, size_t count) {
+    if (fd != 0) return -1;
     if (!is_user_addr(buf, count)) return -1;
-    if (fd == 0) {
-        // stdin — keyboard
-        return keyboard_read((char*)buf, count);
+    if (count == 0) return 0;
+
+    char* ptr = (char*)buf;
+    size_t got = 0;
+    
+    while (got < count) {
+        if (keyboard_read(&ptr[got], 1)) {
+            got++;
+            // For line-buffered cooked mode you'd loop until \n
+            // For raw mode, return immediately with what we have
+            break;
+        }
+        __asm__ volatile("sti; hlt; cli");
     }
-    // TODO: fd >= 3 → VFS file read
-    return -1;
+    return got;
 }
 
 static inline uint64_t read_rsp() {

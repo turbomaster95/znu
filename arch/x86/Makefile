@@ -10,3 +10,5 @@ obj-y += timekeeper.o
 obj-y += usermode.o
 obj-y += syscall.o
 obj-y += syscall_entry.o
+obj-y += ps2.o
+

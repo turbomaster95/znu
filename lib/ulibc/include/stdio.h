@@ -10,5 +10,7 @@
 
 int printf(const char* format, ...);
 char* fgets(char* str, int n, int fd);
+void readline(char* buf, size_t n);
+void putchar(char c);
 
 #endif
