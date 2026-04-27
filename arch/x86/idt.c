@@ -9,7 +9,7 @@
 extern void hcf(void);
 struct idt_entry idt[256] __attribute__((aligned(16)));
 struct idtr idtr_instance;
-
+extern void keyboard_handle_scancode(uint8_t scancode);
 /* Externs from the ASM file */
 extern void isr0(void);
 extern void isr32(void); 
@@ -66,6 +66,12 @@ void k_exception_handler(registers_t *regs) {
         return;
     }
 
+    if (regs->int_no == 33) {
+        uint8_t scancode = inb(0x60);
+        keyboard_handle_scancode(scancode);  // you'll write this
+        return;
+    }
+
     if (regs->int_no == 48) {
         lapic_timer_fired = true;
         return;
@@ -91,7 +97,7 @@ void idt_init() {
 
     pic_remap();
 
-    outb(0x21, 0xFD);
+    outb(0x21, 0xFC);
     // Unmask IRQ0 (Timer)
     outb(0x21, 0xFE); 
     outb(0xA1, 0xFF); // All masked on slave

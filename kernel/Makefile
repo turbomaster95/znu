@@ -10,3 +10,5 @@ export KBUILD_LDFLAGS
 obj-y := main.o
 obj-y += gui.o
 obj-y += acpi.o
+obj-y += keyboard.o
+
