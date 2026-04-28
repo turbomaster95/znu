@@ -5,6 +5,8 @@
 
 extern void hcf(void);
 extern void syscall_entry(void);
+extern void kernel_reboot(void);
+extern void kernel_shutdown(void);
 
 #define MSR_STAR         0xC0000081
 #define MSR_LSTAR        0xC0000082
@@ -117,15 +119,21 @@ uint64_t syscall_handler(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t ar
     switch (num) {
         case 1: // print_char
             debug_putchar((char)arg1);
-            return 0x42;
-
-        case 2: // print_hex_byte
-            debugln("\n[sys] User returned value: %x", arg1);
             return 0;
 
-        case 3: // read(fd, buf, count)
+        case 0: // read(fd, buf, count)
             return (uint64_t)sys_read((int)arg1, (void*)arg2, (size_t)arg3);
+
+        case 169: // reboot
+            debugln("\n\nReboot called from user process\n\n");
+	    kernel_reboot();
+            return 0;
         
+        case 48:
+            debugln("\n\nShutdown called from user process\n\n");
+            kernel_shutdown();
+            return 0;
+
         default:
             return -1;
     }

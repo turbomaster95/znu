@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <syscall.h>
 
 int main() {
     printf("Hello!\n");
@@ -16,9 +17,11 @@ int main() {
         if (len > 0 && line[len-1] == '\n') line[len-1] = '\0';
         
         if (strcmp(line, "help") == 0) {
-            printf("ls, reboot, mem, echo <text>\n");
+            printf("ls, reboot, mem, shutdown, echo <text>\n");
         } else if (strcmp(line, "reboot") == 0) {
-            // sys_reboot
+            sys_reboot();
+        } else if (strcmp(line, "shutdown") == 0) {
+//            sys_shutdown();
         } else if (strcmp(line, "ls") == 0) {
             printf("init shell\n");
         } else if (strncmp(line, "echo ", 5) == 0) {
