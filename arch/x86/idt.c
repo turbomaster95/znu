@@ -5,6 +5,8 @@
 #include <pi.h>
 #include <lapic.h>
 #include <timekeeper.h>
+#include <proc.h>
+#include <kernel/tty.h>
 
 extern void hcf(void);
 struct idt_entry idt[256] __attribute__((aligned(16)));
@@ -19,6 +21,7 @@ extern void* isr_ptr_table[];
 extern volatile uint64_t timer_ticks;
 extern volatile bool lapic_timer_fired;
 extern bool krnl_init_done;
+extern bool vmm_ready;
 
 void idt_set_gate(uint8_t vector, void *isr) {
     uint64_t addr = (uint64_t)isr;
@@ -30,6 +33,8 @@ void idt_set_gate(uint8_t vector, void *isr) {
     idt[vector].isr_high   = (uint32_t)(addr >> 32);
     idt[vector].reserved   = 0;
 }
+
+static int frame_count = 0;
 
 void k_exception_handler(registers_t *regs) {
     uint8_t int_no = regs->int_no;
@@ -53,12 +58,19 @@ void k_exception_handler(registers_t *regs) {
     if (int_no == 32) {
         timer_ticks++;
         timekeeper_on_tick();
+        scheduler(regs);
+        if (++frame_count % 16 == 0) {
+           if (vmm_ready && term_buffer) {
+             blit_window(term_x, term_y, TERM_W, TERM_H, term_buffer);
+           }
+        }
     } 
     else if (int_no == 33) {
         keyboard_handle_scancode(inb(0x60));
     }
     else if (int_no == 48) {
         lapic_timer_fired = true;
+        scheduler(regs);
     }
     
     if (int_no >= 32 && int_no < 48) {

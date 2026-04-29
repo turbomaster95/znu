@@ -1,16 +1,21 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <limine.h>
+#include <string.h>
 #include <page.h>
 #include <kernel/tty.h>
 #include <flanterm.h>
 #include <flanterm_backends/fb.h>
 
-// Declare the context so it's visible to all functions in this file
 struct flanterm_context *ft_ctx = NULL;
+uint32_t TERM_W = 800;
+uint32_t TERM_H = 600;
+uint32_t term_x = 0;
+uint32_t term_y = 0;
+
+uint32_t *term_buffer = NULL;
 
 #if defined(__is_libk)
-// Link to the request defined in your main.c
 extern volatile struct limine_framebuffer_request framebuffer_request;
 
 static uint32_t cursor_x = 0;
@@ -21,25 +26,44 @@ void* flanterm_malloc(size_t size) {
     return kmalloc(size);
 }
 
-// Wrapper for free - we ignore the size if your kfree doesn't need it
 void flanterm_free(void* ptr, size_t size) {
     (void)size; // Prevent unused parameter warning
     kfree(ptr);
 }
 
-// Minimal 8x8 Font Data for ASCII 32-126
-// Each byte is a row (8 bits). 
+void blit_window(int win_x, int win_y, int win_w, int win_h, uint32_t *win_buffer) {
+    struct limine_framebuffer *fb = framebuffer_request.response->framebuffers[0];
+    uint32_t *fb_ptr = fb->address;
+
+    for (int i = 0; i < win_h; i++) {
+        // Calculate the start of the row in the window and on the screen
+        void *src = &win_buffer[i * win_w];
+        void *dest = &fb_ptr[(win_y + i) * (fb->pitch / 4) + win_x];
+        
+        // Copy one horizontal line of pixels
+        memcpy(dest, src, win_w * 4);
+    }
+}
 
 void terminal_initialize(void) {
     struct limine_framebuffer *fb = framebuffer_request.response->framebuffers[0];
 
+    term_buffer = kmalloc(TERM_W * TERM_H * 4);
+    
+    // Safety check: ensure kmalloc didn't fail
+    if (term_buffer == NULL) return;
+
     ft_ctx = flanterm_fb_init(
         flanterm_malloc,
         flanterm_free,
-        fb->address,        // Framebuffer address
-        fb->width,          // Width
-        fb->height,         // Height
-        fb->pitch,          // Pitch (bytes per line)
+//        fb->address,        // Framebuffer address
+	term_buffer,
+//        fb->width,          // Width
+	TERM_W,
+//        fb->height,         // Height
+	TERM_H,
+//        fb->pitch,          // Pitch (bytes per line)
+	TERM_W * 4,  
         fb->red_mask_size,  // Red mask size
         fb->red_mask_shift, // Red mask shift
         fb->green_mask_size,// Green mask size
@@ -55,7 +79,7 @@ void terminal_initialize(void) {
         0,                  // Background style
         0,                  // Background opacity
         0,                  // Foreground opacity
-        0,               // Font (NULL for built-in)
+        0,                  // Font (NULL for built-in)
         0,                  // Font UI width
         0,                  // Font UI height
         0,                  // Font spacing

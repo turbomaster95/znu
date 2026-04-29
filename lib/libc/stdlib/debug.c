@@ -1,3 +1,4 @@
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -54,6 +55,9 @@ void debugln(const char* format, ...) {
     va_start(args, format);
     _debug_vlog_colored(format, args);
     va_end(args);
+    if (vmm_ready) {
+//     	blit_window(term_x, term_y, TERM_W, TERM_H, term_buffer);
+    }
 }
 
 void debugwarn(const char* format, ...) {

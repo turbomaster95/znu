@@ -14,15 +14,14 @@ vfs_node_t* vfs_create_node(const char* name, int type) {
     if (!node) return NULL;
     
     memset(node, 0, sizeof(vfs_node_t));
-    strncpy(node->name, name, 127); // Leave space for null terminator
+    strncpy(node->name, name, 127);
     node->type = type;
+    node->mode = 0644; // Default permissions
+    if (type == VFS_DIRECTORY) node->mode = 0755;
 
     return node;
 }
 
-/**
- * vfs_add_child: Links a node into a directory's child list
- */
 void vfs_add_child(vfs_node_t* parent, vfs_node_t* child) {
     if (!parent || !child || parent->type != VFS_DIRECTORY) return;
 
@@ -31,9 +30,6 @@ void vfs_add_child(vfs_node_t* parent, vfs_node_t* child) {
     child->parent = parent;
 }
 
-/**
- * vfs_find_child: Search for a specific entry name within a directory
- */
 vfs_node_t* vfs_find_child(vfs_node_t* parent, const char* name) {
     if (!parent || parent->type != VFS_DIRECTORY) return NULL;
 
@@ -45,9 +41,6 @@ vfs_node_t* vfs_find_child(vfs_node_t* parent, const char* name) {
     return NULL;
 }
 
-/**
- * vfs_ensure_dir: Get or create a directory node
- */
 static vfs_node_t* vfs_ensure_dir(vfs_node_t* parent, const char* name) {
     vfs_node_t* node = vfs_find_child(parent, name);
     if (node) {
@@ -60,10 +53,6 @@ static vfs_node_t* vfs_ensure_dir(vfs_node_t* parent, const char* name) {
     return node;
 }
 
-/**
- * vfs_register_file: Maps a normalized path (e.g. "/bin/init") into the VFS tree.
- * Creates parent directories as needed.
- */
 void vfs_register_file(const char* path, uintptr_t data, size_t size) {
     if (!root_node || !path || path[0] != '/') return;
 
@@ -72,50 +61,73 @@ void vfs_register_file(const char* path, uintptr_t data, size_t size) {
     path_copy[255] = '\0';
 
     vfs_node_t* curr = root_node;
-    char* p = path_copy + 1; // skip leading '/'
+    char* p = path_copy + 1; 
     char* component = p;
 
     while (1) {
-        // Find end of this component
         while (*p && *p != '/') p++;
         int is_last = (*p == '\0');
         char saved = *p;
         *p = '\0';
 
         if (strlen(component) == 0) {
-            // empty component (e.g. "//" or trailing "/")
             if (is_last) break;
-            *p = saved;
-            p++;
-            component = p;
+            *p = saved; p++; component = p;
             continue;
         }
 
         if (is_last) {
-            // Last component: create file
-            vfs_node_t* file = vfs_create_node(component, VFS_FILE);
-            if (file) {
-                file->data = data;
-                file->size = size;
-                vfs_add_child(curr, file);
+            vfs_node_t* existing = vfs_find_child(curr, component);
+            if (existing) {
+                existing->data = data;
+                existing->size = size;
+            } else {
+                vfs_node_t* file = vfs_create_node(component, VFS_FILE);
+                if (file) {
+                    file->data = data;
+                    file->size = size;
+                    vfs_add_child(curr, file);
+                }
             }
             break;
         } else {
-            // Intermediate component: must be directory
             vfs_node_t* next = vfs_ensure_dir(curr, component);
-            if (!next) return; // failed
+            if (!next) return;
             curr = next;
         }
 
-        *p = saved;
-        p++;
-        component = p;
+        *p = saved; p++; component = p;
     }
+}
+
+int vfs_read(vfs_node_t* node, void* buf, size_t size, size_t offset) {
+    if (!node || node->type != VFS_FILE) return -1;
+    if (offset >= node->size) return 0;
+    
+    size_t to_read = size;
+    if (offset + to_read > node->size) {
+        to_read = node->size - offset;
+    }
+    
+    if (!node->data) return -1;
+    memcpy(buf, (void*)(node->data + offset), to_read);
+    return to_read;
+}
+
+int vfs_write(vfs_node_t* node, const void* buf, size_t size, size_t offset) {
+    // Basic memory-backed VFS doesn't support writing to fixed data pointers easily
+    // unless we allocate new memory. For now, just a placeholder.
+    if (!node || node->type != VFS_FILE) return -1;
+    return -1; 
 }
 
 vfs_node_t* vfs_path_to_node(const char* path) {
     if (path == NULL || path[0] != '/') return NULL;
-    if (path[1] == '\0') return root_node;
+    
+    // Handle "/" or any number of leading slashes
+    const char* p = path;
+    while (*p == '/') p++;
+    if (*p == '\0') return root_node;
 
     vfs_node_t* curr = root_node;
     const char* ptr = path + 1; // skip leading '/'

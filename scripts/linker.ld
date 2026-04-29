@@ -13,6 +13,7 @@ PHDRS
     text PT_LOAD;
     rodata PT_LOAD;
     data PT_LOAD;
+    note PT_NOTE;
 }
 
 SECTIONS
@@ -40,14 +41,12 @@ SECTIONS
     /* Move to the next memory page for .rodata */
     . = ALIGN(CONSTANT(MAXPAGESIZE));
 
+    .note.znu : {
+        KEEP(*(.note.znu))
+    } :rodata :note
+    
     .rodata : {
         *(.rodata .rodata.*)
-    } :rodata
-
-    /* Add a .note.gnu.build-id output section in case a build ID flag is added to the */
-    /* linker command. */
-    .note.gnu.build-id : {
-        *(.note.gnu.build-id)
     } :rodata
 
     /* Move to the next memory page for .data */

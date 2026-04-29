@@ -105,40 +105,34 @@ uacpi_status uacpi_kernel_raw_memory_write(uacpi_phys_addr address, uacpi_u8 byt
 
 uacpi_status uacpi_kernel_io_read8(uacpi_handle handle, uacpi_size offset, uacpi_u8 *out) {
 	*out = inb((uacpi_io_addr)handle + offset);
-        debugln("read8 called!!!");
 	for(int i = 0; i < 10; i++) outb(0x80, 0);
 	return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_io_read16(uacpi_handle handle, uacpi_size offset, uacpi_u16 *out) {
 	*out = inw((uacpi_io_addr)handle + offset);
-        debugln("read16 called!!!");
 	for(int i = 0; i < 10; i++) outb(0x80, 0);
 	return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_io_read32(uacpi_handle handle, uacpi_size offset, uacpi_u32 *out) {
 	*out = ind((uacpi_io_addr)handle + offset);
-	debugln("read32 called!!!");
 	for(int i = 0; i < 10; i++) outb(0x80, 0);
         return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_io_write8(uacpi_handle handle, uacpi_size offset, uacpi_u8 v) {
 	outb((uacpi_io_addr)handle + offset, v);
-        debugln("write8 called!!!");
 	return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_io_write16(uacpi_handle handle, uacpi_size offset, uacpi_u16 v) {
 	outw((uacpi_io_addr)handle + offset, v);
-        debugln("write16 called!!!");
 	return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_io_write32(uacpi_handle handle, uacpi_size offset, uacpi_u32 v) {
 	outd((uacpi_io_addr)handle + offset, v);
-	debugln("write32 called!!!");
         return UACPI_STATUS_OK;
 }
 

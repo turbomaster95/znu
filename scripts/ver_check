@@ -1,0 +1,96 @@
+#!/usr/bin/awk -f
+
+function version_ge(v1, v2) {
+    split(v1, a, ".");
+    split(v2, b, ".");
+    for (i = 1; i <= 3; i++) {
+        va = a[i] + 0; # Force numeric
+        vb = b[i] + 0; # Force numeric
+        if (va > vb) return 1;
+        if (va < vb) return 0;
+    }
+    return 1;
+}
+
+BEGIN {
+    # Format: tool | min_version | cmd
+    tools_data = "gcc|10.0|gcc --version;" \
+                 "x86_64-elf-gcc|12.0|x86_64-elf-gcc --version;" \
+                 "nasm|2.15|nasm -v;" \
+                 "python3|3.8|python3 --version;" \
+                 "awk|20200101|awk --version;" \
+                 "bash|4.0|bash --version;" \
+                 "xorriso|1.5|xorriso --version;" \
+                 "llvm-objcopy|15.0|llvm-objcopy --version"
+
+    simple_tools = "clang ld.lld"
+
+    print "	     znu Toolchain Checker		"
+    print "============================================="
+    
+    missing = 0
+    split(tools_data, versioned, ";")
+
+    for (i in versioned) {
+        split(versioned[i], details, "|")
+        name = details[1]
+        min_v = details[2]
+        cmd = details[3]
+
+        current_v = "0.0"
+        found = 0
+
+        # Redirect stderr to stdout to catch versions that print to stderr
+        actual_cmd = cmd " 2>&1"
+        while ((actual_cmd | getline line) > 0) {
+            # Matches standard X.Y.Z OR 8-digit date strings (like your awk)
+            if (match(line, /[0-9]+\.[0-9]+(\.[0-9]+)?|[0-9]{8}/)) {
+                current_v = substr(line, RSTART, RLENGTH)
+                found = 1
+                break 
+            }
+        }
+        close(actual_cmd)
+
+        if (found) {
+            # Simple string comparison for versions
+            if (version_ge(current_v, min_v)) {
+                printf " [\033[0;32mOK\033[0m] %-15s : %-12s (Min: %s)\n", name, current_v, min_v
+            } else {
+                printf " [\033[0;31m!!\033[0m] %-15s : %-12s (TOO OLD! Min: %s)\n", name, current_v, min_v
+                missing++
+            }
+        } else {
+            # Special case for BSD/macOS sed or similar
+            if (name == "sed" || name == "awk") {
+                # If regex fails but tool exists, assume it's a non-standard version string
+                if (system("command -v " name " >/dev/null 2>&1") == 0) {
+                    printf " [\033[0;33m??\033[0m] %-15s : Detected, but version hidden\n", name
+                    continue
+                }
+            }
+            printf " [\033[0;31m!!\033[0m] %-15s : Version not found\n", name
+            missing++
+        }
+    }
+
+    # Simple existence checks
+    split(simple_tools, simple, " ")
+    for (i in simple) {
+        if (system("command -v " simple[i] " >/dev/null 2>&1") == 0) {
+            printf " [\033[0;32mOK\033[0m] %-15s : Present\n", simple[i]
+        } else {
+            printf " [\033[0;31m!!\033[0m] %-15s : MISSING\n", simple[i]
+            missing++
+        }
+    }
+
+    print "======================================"
+    if (missing > 0) {
+        print "Checks \033[0;31mFAILED\033[0m"
+        exit 1
+    } else {
+        print "\033[0;32mREADY\033[0m to build!"
+        exit 0
+    }
+}

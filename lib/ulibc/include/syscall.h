@@ -33,3 +33,49 @@ static inline size_t sys_shutdown() {
     return ret;
 }
 
+static inline int sys_open(const char* path, int flags) {
+    int ret;
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(2), "D"(path), "S"(flags) : "rcx", "r11", "memory");
+    return ret;
+}
+
+static inline int sys_close(int fd) {
+    int ret;
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(3), "D"(fd) : "rcx", "r11", "memory");
+    return ret;
+}
+
+typedef struct {
+    char name[128];
+    unsigned int type;
+    unsigned int size;
+} znu_dirent_t;
+
+static inline int sys_getdents(int fd, void* buf, size_t count) {
+    int ret;
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(217), "D"(fd), "S"(buf), "d"(count) : "rcx", "r11", "memory");
+    return ret;
+}
+
+struct sysinfo {
+    long uptime;
+    unsigned long loads[3];
+    unsigned long totalram;
+    unsigned long freeram;
+    unsigned long sharedram;
+    unsigned long bufferram;
+    unsigned long totalswap;
+    unsigned long freeswap;
+    unsigned short procs;
+    unsigned long totalhigh;
+    unsigned long freehigh;
+    unsigned int mem_unit;
+    char _f[20-2*sizeof(long)-sizeof(int)];
+};
+
+static inline int sys_sysinfo(struct sysinfo* info) {
+    int ret;
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(99), "D"(info) : "rcx", "r11", "memory");
+    return ret;
+}
+

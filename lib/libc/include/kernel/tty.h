@@ -9,8 +9,13 @@
 #define RGB(r, g, b) (uint32_t)(0xFF000000 | ((r) << 16) | ((g) << 8) | (b))
 uint32_t color_hex(uint32_t hex);
 
+extern uint32_t TERM_W;
+extern uint32_t TERM_H;
+extern uint32_t term_x;
+extern uint32_t term_y;
 
 #if defined(__is_libk)
+extern uint32_t *term_buffer;
 
 void terminal_initialize(void);
 void terminal_putchar(char c);
@@ -23,5 +28,6 @@ void draw_circle(int xm, int ym, int r, uint32_t color);
 void set_cursor(uint32_t x, uint32_t y);
 
 #endif
+void blit_window(int win_x, int win_y, int win_w, int win_h, uint32_t *win_buffer);
 
 #endif

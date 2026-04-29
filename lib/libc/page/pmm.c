@@ -93,9 +93,6 @@ void debug_ram_map(struct limine_memmap_response* memmap) {
     debugln("--- RAM MAP ---");
     for (uint64_t i = 0; i < memmap->entry_count; i++) {
         struct limine_memmap_entry* en = memmap->entries[i];
-        
-        // Manual "Suckless" Hex printing if %lx fails
-        // Or just print the type and size to verify the PMM
         const char* type = "OTHER";
         if (en->type == 0) type = "USABLE";
         if (en->type == 1) type = "RESERVED";
@@ -111,5 +108,19 @@ void debug_ram_map(struct limine_memmap_response* memmap) {
         
         debugln("----------");
     }
+}
+
+uint64_t pmm_get_total_pages() {
+    return max_pages;
+}
+
+uint64_t pmm_get_free_pages() {
+    uint64_t free = 0;
+    for (uint64_t i = 0; i < max_pages; i++) {
+        if (!(bitmap[i / 8] & (1 << (i % 8)))) {
+            free++;
+        }
+    }
+    return free;
 }
 

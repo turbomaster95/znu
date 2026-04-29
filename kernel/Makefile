@@ -11,4 +11,5 @@ obj-y := main.o
 obj-y += gui.o
 obj-y += acpi.o
 obj-y += keyboard.o
-
+obj-y += sched.o
+obj-y += metadata.o

@@ -87,6 +87,7 @@ volatile uint64_t limine_requests_start_marker[] = LIMINE_REQUESTS_START_MARKER;
 __attribute__((used, section(".limine_requests_end")))
 volatile uint64_t limine_requests_end_marker[] = LIMINE_REQUESTS_END_MARKER;
 
+
 // Halt and catch fire function.
 volatile void hcf(void) {
     for (;;) {
@@ -146,7 +147,24 @@ void kmain(void) {
     // Fetch the first framebuffer.
     struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
 
+    // Does some neat shit with the init fb
+    int padding = 6;
+    uint32_t screen_w = framebuffer->width;
+    uint32_t screen_h = framebuffer->height;
+
+    TERM_W = screen_w - (padding * 2);
+    TERM_H = screen_h - (padding * 2);
+    term_x = padding;
+    term_y = padding;
+
+    // 3. Draw the "thick" screen border at the extreme edges
+    uint32_t border_color = 0xFF2F334D;
+    for (int i = 0; i < 6; i++) {
+      draw_outline_rect(i, i, screen_w - (i * 2), screen_h - (i * 2), border_color);
+    }
+
     terminal_initialize();
+    blit_window(term_x, term_y, TERM_W, TERM_H, term_buffer);
     vmm_ready = true;
     debugln("[kernel] Welcome to znu!");
     debugln("[tty] \033[1mGot a \033[1;31mC\033[1;33mO\033[1;32mL\033[1;34mO\033[1;35mR\033[0;1m Display?\033[0m");
@@ -201,7 +219,7 @@ void kmain(void) {
     debugln("[ktest] sleep(2000) finished. PIT ticks elapsed: %d", s_end - s_start);
 
     rsdp_response = rsdp_request.response;
-
+        
     debugln("[kernel] Basic System Initialization done!");
     debugln("[kernel] Starting uACPI...");
 
@@ -245,7 +263,13 @@ void kmain(void) {
     }
     
     debugln("[kernel] Loading init process from VFS (Size: %d bytes)", init_node->size);
+    init_scheduler();
+    debugln("Initialized Scheduler.");
     process_t* init_proc = create_init_process((uint8_t*)init_node->data);
+    add_process(init_proc);
+    init_proc->state = TASK_RUNNING;
+    current_process = init_proc;
+    init_process = init_proc;
 
     if (init_proc) {
        vmm_switch(init_proc->pml4);

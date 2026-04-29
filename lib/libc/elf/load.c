@@ -36,9 +36,10 @@ process_t* create_init_process(uint8_t* elf_data) {
 
     // 2. Allocate process structure and private PML4
     process_t* proc = kmalloc(sizeof(process_t));
+    memset(proc, 0, sizeof(process_t));
     proc->pid = 1;
     proc->pml4 = vmm_create_user_pml4();
-    proc->running = true;
+    proc->state = TASK_READY;
 
     Elf64_Phdr* phdr = (Elf64_Phdr*)(elf_data + header->e_phoff);
 
@@ -88,7 +89,23 @@ process_t* create_init_process(uint8_t* elf_data) {
     proc->entry = header->e_entry;
     proc->stack_top = user_stack_base + (4 * 0x1000) - 8;
 
+    // Initialize context for the first run
+    proc->context.rip = proc->entry;
+    proc->context.rsp = proc->stack_top;
+    proc->context.cs = 0x23;
+    proc->context.ss = 0x1B;
+    proc->context.ds = 0x1B;
+    proc->context.es = 0x1B;
+    proc->context.rflags = 0x202; // IF = 1
+
     debugln("[proc] Init process created. Entry: %p, PML4: %p", proc->entry, proc->pml4);
+    
+    // Explicitly reserve FD 0, 1, 2 for console/keyboard
+    for (int i = 0; i < 16; i++) proc->files[i] = NULL;
+    proc->files[0] = (void*)0x1; // stdin marker
+    proc->files[1] = (void*)0x1; // stdout marker
+    proc->files[2] = (void*)0x1; // stderr marker
+
     return proc;
 }
 
