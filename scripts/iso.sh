@@ -1,29 +1,29 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 SRCTREE=$1
-ISO_NAME=$2
+IMG_NAME=$2
 
-if [ -z "$SRCTREE" ]; then
-    echo "Usage: $0 <srctree> <iso_name>"
+if [ -z "$SRCTREE" ] || [ -z "$IMG_NAME" ]; then
+    echo "Usage: $0 <srctree> <img_name>"
     exit 1
 fi
 
-llvm-objcopy --strip-all --strip-unneeded --strip-debug --strip-all-gnu znus znu
+llvm-objcopy --strip-all --strip-unneeded --strip-debug znus znu
 
-mkdir -p "$SRCTREE/configs/iso_root/boot/limine"
+rm -f "$IMG_NAME"
 
-cp znu "$SRCTREE/configs/iso_root/boot/kernel.bin"
-cp "$SRCTREE"/scripts/limine/bin/*.bin "$SRCTREE/configs/iso_root/boot/limine/"
-cp "$SRCTREE"/scripts/limine/bin/*.sys "$SRCTREE/configs/iso_root/boot/limine/"
+truncate -s 128M "$IMG_NAME"
 
-xorriso -as mkisofs \
-  -b boot/limine/limine-bios-cd.bin \
-  -no-emul-boot -boot-load-size 4 -boot-info-table \
-  -R -o "$ISO_NAME" "$SRCTREE/configs/iso_root"
+sgdisk -Z "$IMG_NAME"
+sgdisk -n 1:2048:+1M -t 1:ef02 -c 1:"BIOS_BOOT" "$IMG_NAME"
+sgdisk -n 2:4096:0 -t 2:ef00 -c 2:"ZNU_ESP" "$IMG_NAME"
 
-# 4. Install Limine BIOS stages (Looking in SRCTREE for the binary)
-"$SRCTREE/scripts/limine/bin/limine" bios-install "$ISO_NAME"
+mformat -i "$IMG_NAME"@@2M -F -v "ZNU_BOOT" ::
 
-echo "ISO built: $ISO_NAME"
+mcopy -o -i "$IMG_NAME"@@2M -s "$SRCTREE/configs/iso_root/"* ::/
+mcopy -o -i "$IMG_NAME"@@2M -s znu ::/boot/kernel.bin
 
+"$SRCTREE/scripts/limine/bin/limine" bios-install "$IMG_NAME"
+
+echo "Image built: $IMG_NAME"

@@ -367,7 +367,7 @@ quiet_cmd_strip = STRIP   $@ -> $(STARGET)
       cmd_strip = $(OBJCOPY) --strip-all --strip-unneeded --strip-debug $@ $(STARGET)
 
 quiet_cmd_build_limine = LIMINE  scripts/limine
-      cmd_build_limine = echo &>/dev/null # $(srctree)/scripts/mklimine.sh $(srctree) "$(MAKEFLAGS)" > /dev/null 2>&1
+      cmd_build_limine = $(srctree)/scripts/mklimine.sh $(srctree) "$(MAKEFLAGS)" > /dev/null 2>&1
 
 quiet_cmd_mkiso = MKISO   $(STARGET) -> $(ISOIMAGE)
       cmd_mkiso = $(srctree)/scripts/iso.sh $(srctree) $(ISOIMAGE) > /dev/null 2>&1

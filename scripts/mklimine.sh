@@ -1,56 +1,51 @@
-#!/bin/env bash
+#!/usr/bin/env bash
 set -e
 
-# Use the first argument as the source tree path, default to current dir
 SRCTREE="${1:-.}"
-FLAGS="$2"
 LIMINE_DIR="$SRCTREE/scripts/limine"
+BIN_DIR="$LIMINE_DIR/bin"
 
-JOBS=$(echo "$FLAGS" | grep -oP '(?<=-j)\d+' || echo "")
+# Define the absolute minimum files needed for Znu to boot BIOS/UEFI
+REQUIRED_FILES=(
+    "limine"
+    "limine-bios.sys"
+    "limine-bios-cd.bin"
+    "BOOTX64.EFI"
+)
 
-if [ -z "$JOBS" ]; then
-    # If -j was passed without a number (infinite jobs)
-    # or not passed at all, check for the standalone '-j' flag
-    if [[ "$FLAGS" == *"-j"* ]]; then
-        JOBS="" # Let make handle it
-    else
-        JOBS="1" # Default to single-threaded if not specified
+# 1. THE SHORT-CIRCUIT: Check if all required files exist
+ALL_PRESENT=true
+for file in "${REQUIRED_FILES[@]}"; do
+    if [ ! -f "$BIN_DIR/$file" ]; then
+        ALL_PRESENT=false
+        break
     fi
+done
+
+if [ "$ALL_PRESENT" = true ]; then
+    echo "Limine binaries already built. Skipping."
+    exit 0
 fi
 
-# 1. Check if the submodule is actually there
+# 2. Submodule check (only if we are missing files)
 if [ ! -f "$LIMINE_DIR/bootstrap" ]; then
-    echo "Limine submodule not found at $LIMINE_DIR."
-    echo "Attempting to initialize..."
+    echo "Limine source missing. Initializing submodule..."
     git submodule update --init --recursive
 fi
 
-# 2. Build Limine
-# We use -C to run make inside the directory
-echo "Building Limine binaries..."
-pushd "$LIMINE_DIR"
-unset LDFLAGS
-unset CFLAGS
-export TOOLCHAIN_FOR_TARGET="x86_64-elf-"
-if [ ! -f "$LIMINE_DIR/Makefile" ]; then
-    ./bootstrap
-    ./configure --enable-bios --enable-bios-cd CC="gcc"
-fi
-
-if [ ! -f "$LIMINE_DIR/bin/limine-bios-cd.bin" ]; then
-    if [ -n "$JOBS" ]; then
-        make -j"$JOBS" > /dev/null
-    else
-        make -j > /dev/null
+# 3. Build logic
+echo "Building Limine..."
+pushd "$LIMINE_DIR" > /dev/null
+    unset LDFLAGS CFLAGS
+    
+    # Check for Makefile to avoid redundant config
+    if [ ! -f "Makefile" ]; then
+        ./bootstrap
+        ./configure --enable-bios --enable-bios-cd --enable-uefi-x86-64 --enable-uefi-cd CC="gcc"
     fi
-else
-    echo "Limine already compiled, skipping build."
-fi
-popd
 
-exit 0
-# 3. Verify the build produced the necessary BIOS binary
-if [ ! -f "$LIMINE_DIR/bin/limine-bios-cd.bin" ]; then
-    echo "Error: Limine build failed to produce BIOS binaries."
-    exit 1
-fi
+    # Build and only show errors
+    make -j$(nproc 2>/dev/null || echo 1)
+popd > /dev/null
+
+echo "Limine build complete."
