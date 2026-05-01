@@ -1,5 +1,16 @@
 #include <stddef.h>
 
+static inline size_t sys_write(int fd, const void* buf, size_t count) {
+    size_t ret;
+    __asm__ volatile (
+        "syscall"
+        : "=a"(ret)
+        : "a"(1), "D"(fd), "S"(buf), "d"(count)
+        : "rcx", "r11", "memory"
+    );
+    return ret;
+}
+
 static inline size_t sys_read(int fd, void* buf, size_t count) {
     size_t ret;
     __asm__ volatile (
@@ -79,3 +90,18 @@ static inline int sys_sysinfo(struct sysinfo* info) {
     return ret;
 }
 
+static inline void sys_exit(int status) {
+    __asm__ volatile ("syscall" : : "a"(60), "D"(status) : "rcx", "r11", "memory");
+}
+
+static inline int sys_spawn(const char* path) {
+    int ret;
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(59), "D"(path) : "rcx", "r11", "memory");
+    return ret;
+}
+
+static inline int sys_wait(int pid) {
+    int ret;
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(61), "D"(pid) : "rcx", "r11", "memory");
+    return ret;
+}

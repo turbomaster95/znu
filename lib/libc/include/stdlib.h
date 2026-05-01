@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <stdarg.h>
 
+#define ABS(x) ((x) < 0 ? -(x) : (x))
+
 __attribute__((__noreturn__))
 void panic(const char* reason);
 void abort(void);

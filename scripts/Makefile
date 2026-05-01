@@ -14,7 +14,7 @@
 #hostprogs-$(CONFIG_IKCONFIG)     += bin2c
 #hostprogs-$(BUILD_C_RECORDMCOUNT) += recordmcount
 
-#always		:= $(hostprogs-y) $(hostprogs-m)
+always		:= $(hostprogs-y) $(hostprogs-m)
 
 # The following hostprogs-y programs are only build on demand
 #hostprogs-y += unifdef docproc

@@ -53,6 +53,13 @@ asm_lidt:
 isr_stub:
     pushaq
 
+    ; Check if we came from user-mode (Ring 3)
+    ; CS is at [rsp + 144] (15 regs from pushaq + 2 from wrappers)
+    test qword [rsp + 144], 3
+    jz .no_swapgs
+    swapgs
+.no_swapgs:
+
     ; Save Segment Registers (64-bit push to keep alignment)
     xor rax, rax
     mov ax, ds
@@ -79,6 +86,12 @@ isr_stub:
     mov es, ax
     pop rax
     mov ds, ax
+
+    ; Conditionally swapgs back if we're returning to user-mode
+    test qword [rsp + 144], 3
+    jz .no_swapgs_back
+    swapgs
+.no_swapgs_back:
 
     popaq
     add rsp, 16     ; Pops the 'int_no' and 'err_code' pushed by wrappers

@@ -349,7 +349,8 @@ all: $(TARGET)
 
 objs-y		:= kernel
 objs-y		+= arch
-user-y		:= init
+user-y		:= user
+user-y		+= init
 libs-y		:= lib
 
 $(TARGET)-dirs	:= $(objs-y) $(libs-y) $(user-y)
@@ -372,12 +373,18 @@ quiet_cmd_build_limine = LIMINE  scripts/limine
 quiet_cmd_mkiso = MKISO   $(STARGET) -> $(ISOIMAGE)
       cmd_mkiso = $(srctree)/scripts/iso.sh $(srctree) $(ISOIMAGE) > /dev/null 2>&1
 
+quiet_cmd_gnuefi = GNUEFI   scripts/gnu-efi
+      cmd_gnuefi = $(srctree)/scripts/mkgnuefi.sh $(srctree) > /dev/null 2>&1
+
 $(TARGET): $($(TARGET)-all) FORCE
 	$(call if_changed,$(TARGET))
 	$(call if_changed,strip)
 ifeq ($(CONFIG_GENERATE_ISO),y)
 	$(call if_changed,build_limine)
 	$(call if_changed,mkiso)
+endif
+ifeq ($(CONFIG_MAKE_UKI),y)
+	$(call if_changed,gnuefi)
 endif
 
 # The actual objects are generated when descending, 

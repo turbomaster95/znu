@@ -10,6 +10,7 @@ typedef enum {
     TASK_RUNNING,
     TASK_READY,
     TASK_SLEEPING,
+    TASK_WAITING,
     TASK_ZOMBIE
 } task_state_t;
 
@@ -19,9 +20,14 @@ typedef enum {
 
 typedef struct {
     uint64_t pid;
+    uint64_t parent_pid;
+    int exit_code;
     uint64_t* pml4;      // Private address space
     uintptr_t entry;     // ELF Entry point
     uintptr_t stack_top; // User stack
+    uintptr_t kstack_top; // Kernel stack top
+    uintptr_t brk;       // Current heap end
+    uintptr_t brk_start; // Original heap start
     registers_t context; // Saved registers
     task_state_t state;
     vfs_file_t* files[MAX_FILES];

@@ -18,7 +18,7 @@ config CROSS_COMPILE
 	  need to set this unless you want the configured kernel build
 	  directory to select the cross-compiler automatically.
 
-source "lib/Kconfig"
+#source "lib/Kconfig"
 source "kernel/Kconfig"
 
 config FB_TEST
@@ -32,3 +32,8 @@ config GENERATE_ISO
 #	depends on FOO
 	help
 	  It automatically generates a image.iso file with the Limine bootloader in it.
+
+config MAKE_UKI
+	bool "Generate a UKI (Unified Kernel Image) for a UEFI Bootloader"
+	help
+	  This generates a .efi file which contains the limine bootloader aswell as the kernel in a single, contained package.

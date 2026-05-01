@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+import subprocess
+import sys
+import struct
+import os
+
+# --- Magics & Markers from your limine.h ---
+COMMON_MAGIC = [0xc7b1dd30df4c8b88, 0x0a82e883a194f07b]
+START_MARKER = [0xf6b8f4b39de7d1ae, 0xfab91a6940fcb9cf]
+END_MARKER   = [0xadc0e0531bb10d03, 0x9572709f31764c62]
+
+# --- Request ID Mapping ---
+REQUESTS = {
+    0xf55038d8e2a1202f: "Bootloader Info",
+    0x4b161536e598651e: "Executable Cmdline",
+    0x8c2f75d90bef28a8: "Firmware Type",
+    0x224ef0460a8e8926: "Stack Size",
+    0x48dcf1cb8ad2b852: "HHDM (Direct Map)",
+    0x9d5827dcd881dd75: "Framebuffer",
+    0x3259399fe7c5f126: "Flanterm FB Init",
+    0x95c1a0edab0944cb: "Paging Mode",
+    0x95a67b819a1b857e: "MP (Multiprocessor)",
+    0x67cf3d9d378a806f: "Memory Map",
+    0x13d86c035a1cd3e1: "Entry Point",
+    0xad97e90e83f1ed67: "Executable File",
+    0x3e7e279702be32af: "Module",
+    0xc5e77b6b397e7b43: "RSDP (ACPI)",
+    0x9e9046f11e095391: "SMBIOS",
+    0x5ceba5163eaaf6d6: "EFI System Table",
+    0x7df62a431d6872d5: "EFI Memory Map",
+    0x502746e184c088aa: "Date at Boot",
+    0x71ba76863cc55f63: "Executable Address",
+    0xb40ddb48fb54bac7: "Device Tree Blob (DTB)",
+    0x1369359f025525f9: "RISC-V Hart ID",
+    0x6b50ad9bf36d13ad: "Boot Performance",
+    0x8ebaabe51f490179: "Keep IOMMU"
+}
+
+def parse_kernel(bin_path):
+    if not os.path.exists(bin_path):
+        print(f"Error: File '{bin_path}' not found.")
+        return
+
+    print(f"--- Analyzing Limine Requests for Znu ---")
+    temp_file = "/tmp/limine_section.bin"
+
+    try:
+        # Extract the specific section as a raw binary blob
+        subprocess.run(
+            ["objcopy", "-O", "binary", "-j", ".limine_requests", bin_path, temp_file],
+            check=True, stderr=subprocess.DEVNULL
+        )
+        
+        with open(temp_file, "rb") as f:
+            data = f.read()
+    except subprocess.CalledProcessError:
+        print("Error: Could not find '.limine_requests' section.")
+        print("Check if your linker script uses KEEP(*(.limine_requests))")
+        return
+
+    # Each request or marker is exactly 4 QWORDs (32 bytes)
+    step = 8
+    found_count = 0
+
+    for i in range(0, len(data) - 31, step):
+        # Unpack 4 unsigned 64-bit integers (Little Endian)
+        block = struct.unpack("<QQQQ", data[i:i+32])
+        m1, m2, id1, id2 = block
+
+        # Check for Start/End Markers
+        if list(block[:2]) == START_MARKER:
+            print(f"[{hex(i).ljust(5)}] START_MARKER detected.")
+            continue
+        
+        if list(block[:2]) == END_MARKER:
+            print(f"[{hex(i).ljust(5)}] END_MARKER detected.")
+            continue
+
+        # Check for actual requests using COMMON_MAGIC
+        if m1 == COMMON_MAGIC[0] and m2 == COMMON_MAGIC[1]:
+            req_name = REQUESTS.get(id1, f"Unknown Request ({hex(id1)})")
+            print(f"[{hex(i).ljust(5)}] FOUND: {req_name}")
+            found_count += 1
+
+    print(f"-----------------------------------------")
+    print(f"Total Requests Found: {found_count}")
+    
+    if os.path.exists(temp_file):
+        os.remove(temp_file)
+
+if __name__ == "__main__":
+    target = sys.argv[1] if len(sys.argv) > 1 else "kernel.bin"
+    parse_kernel(target)

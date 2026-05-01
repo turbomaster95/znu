@@ -14,7 +14,7 @@ extern cpu_context_t main_cpu_context;
  */
 void vmm_switch(uint64_t* pml4_virt) {
     uint64_t phys = VIRT_TO_PHYS(pml4_virt);
-    debugln("[VMM] Switching to PML4 at Phys: %p", phys);
+    // debugln("[VMM] Switching to PML4 at Phys: %p", phys);
     __asm__ volatile("mov %0, %%cr3" : : "r"(phys) : "memory");
 }
 

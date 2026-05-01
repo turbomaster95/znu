@@ -5,12 +5,28 @@
 #include <stddef.h>
 
 #define EOF (-1)
+#define BUFSIZ 1024
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
 #define ROUND_DOWN(v, n) ((v) - ((v) % (n)))
 #define ROUND_UP(v, n) ROUND_DOWN((v) + (n) - 1, n)
 
+typedef int FILE;
+#define stdin  ((FILE*)0)
+#define stdout ((FILE*)1)
+#define stderr ((FILE*)2)
+
 int printf(const char* format, ...);
-char* fgets(char* str, int n, int fd);
+int fprintf(FILE* stream, const char* format, ...);
+int sprintf(char* str, const char* format, ...);
+int snprintf(char* str, size_t size, const char* format, ...);
+int vfprintf(FILE* stream, const char* format, va_list ap);
+
+char* fgets(char* str, int n, FILE* stream);
 void readline(char* buf, size_t n);
 void putchar(char c);
+int fputc(int c, FILE* stream);
+int fputs(const char* s, FILE* stream);
 
 #endif

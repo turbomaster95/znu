@@ -10,3 +10,11 @@
 	path = lib/flanterm
 	url = https://github.com/Mintsuki/Flanterm
 	shallow = true
+[submodule "user/dash"]
+	path = user/dash
+	url = https://git.kernel.org/pub/scm/utils/dash/dash.git
+	shallow = true
+[submodule "scripts/gnu-efi"]
+	path = scripts/gnu-efi
+	url = https://github.com/ncroxon/gnu-efi.git
+	shallow = true

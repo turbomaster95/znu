@@ -26,20 +26,31 @@ uint64_t* vmm_create_user_pml4(void) {
     return pml4;
 }
 
-process_t* create_init_process(uint8_t* elf_data) {
+process_t* create_process_from_elf(uint8_t* elf_data) {
+    static uint64_t next_pid = 1;
     // 1. Basic ELF Validation
     Elf64_Ehdr* header = (Elf64_Ehdr*)elf_data;
     if (memcmp(header->e_ident, ELFMAG, 4) != 0) {
-        debugln("[elf] Critical: Init ELF has invalid magic!");
+        debugln("[elf] Critical: ELF has invalid magic!");
         return NULL;
     }
 
     // 2. Allocate process structure and private PML4
     process_t* proc = kmalloc(sizeof(process_t));
     memset(proc, 0, sizeof(process_t));
-    proc->pid = 1;
+    proc->pid = next_pid++;
     proc->pml4 = vmm_create_user_pml4();
     proc->state = TASK_READY;
+    proc->parent_pid = current_process ? current_process->pid : 0;
+    uintptr_t max_vaddr = 0;
+
+    // 2.5 Allocate Kernel Stack (16KB)
+    void* kstack = kmalloc(16384);
+    proc->kstack_top = (uintptr_t)kstack + 16384;
+
+    if (proc->pid == 1) {
+        init_process = proc;
+    }
 
     Elf64_Phdr* phdr = (Elf64_Phdr*)(elf_data + header->e_phoff);
 
@@ -76,8 +87,13 @@ process_t* create_init_process(uint8_t* elf_data) {
                 src_offset += to_copy;
                 remaining -= to_copy;
             }
+            uintptr_t end_vaddr = phdr[i].p_vaddr + phdr[i].p_memsz;
+            if (end_vaddr > max_vaddr) max_vaddr = end_vaddr;
         }
     }
+
+    proc->brk_start = (max_vaddr + 0xFFF) & ~0xFFFULL;
+    proc->brk = proc->brk_start;
 
     // 4. Setup User Stack (4 pages / 16KB)
     uintptr_t user_stack_base = 0x00007ffff0000000;

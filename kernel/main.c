@@ -1,9 +1,9 @@
 #include <stdint.h>
+#include <stdio.h>
 #include <stddef.h>
 #include <stdbool.h>
 #include <limine.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <kernel/tty.h>
 #include <idt.h>
 #include <lapic.h>
@@ -17,17 +17,7 @@
 #include <proc.h>
 #include <vfs.h>
 #include <x86.h>
-
-extern uacpi_status init_acpi(void);
-extern void draw_kernel_gui(void);
-extern void kernel_reboot(void);
-extern void lapic_timer_test(void);
-extern void lapic_timer_test(void);
-extern uint32_t lapic_ticks_per_ms;
-extern void jump_to_usermode(uintptr_t entry, uintptr_t stack);
-extern uintptr_t stack_top;
-extern bool vmm_ready;
-extern void calibrate_lapic_timer_no_irq(void);
+#include <kernel.h>
 
 bool krnl_init_done = false;
 
@@ -67,9 +57,23 @@ volatile struct limine_rsdp_request rsdp_request = {
     .revision = 0
 };
 
-__attribute__((section(".limine_requests")))
+__attribute__((used, section(".limine_requests")))
 static volatile struct limine_module_request module_request = {
     .id = LIMINE_MODULE_REQUEST_ID,
+    .revision = 0,
+    .response = NULL
+};
+
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_executable_cmdline_request cmdline_request = {
+    .id = LIMINE_EXECUTABLE_CMDLINE_REQUEST_ID,
+    .revision = 0,
+    .response = NULL
+};
+
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_efi_system_table_request efi_st_request = {
+    .id = LIMINE_EFI_SYSTEM_TABLE_REQUEST_ID,
     .revision = 0,
     .response = NULL
 };
@@ -77,6 +81,8 @@ static volatile struct limine_module_request module_request = {
 // Define the global variable that mappage.c is looking for
 uint64_t hhdm_offset = 0;
 uint64_t rsdp_addr = 0;
+
+bool running_efi;
 
 // Finally, define the start and end markers for the Limine requests.
 // These can also be moved anywhere, to any .c file, as seen fit.
@@ -140,7 +146,7 @@ void kmain(void) {
     }
 
     if (module_request.response == NULL || module_request.response->module_count == 0) {
-        debugerr("No modules found! Did you add init.elf to limine.conf?");
+        debugerr("No modules found! Did you add any initrd's to limine.conf?");
         hcf();
     }
 
@@ -166,6 +172,25 @@ void kmain(void) {
     terminal_initialize();
     blit_window(term_x, term_y, TERM_W, TERM_H, term_buffer);
     vmm_ready = true;
+
+    // Shows the current cmdline from Limine
+    if (cmdline_request.response == NULL || 
+        cmdline_request.response->cmdline == NULL || 
+        cmdline_request.response->cmdline[0] == '\0') {
+        debugln("[kernel] No cmdline was passed.");
+    } else {
+        debugln("[kernel] Got cmdline!");
+        debugln("[kernel] cmdline: %s", cmdline_request.response->cmdline);
+        parse_cmdline(cmdline_request.response->cmdline);
+    }
+    if (efi_st_request.response == NULL) {
+        debugln("[kernel] Not running on an EFI system.");
+        running_efi = false;
+    } else {
+        debugln("[kernel] Running on an EFI system!");
+        running_efi = true;
+    }
+
     debugln("[kernel] Welcome to znu!");
     debugln("[tty] \033[1mGot a \033[1;31mC\033[1;33mO\033[1;32mL\033[1;34mO\033[1;35mR\033[0;1m Display?\033[0m");
 
@@ -217,9 +242,16 @@ void kmain(void) {
     sleep(2000);
     uint64_t s_end = timer_ticks;
     debugln("[ktest] sleep(2000) finished. PIT ticks elapsed: %d", s_end - s_start);
-
+    if (s_end - s_start != 2000) {
+        debugwarn("sleep(2000) is not accurate!");
+        uint64_t elapsed = s_end - s_start;
+        uint64_t error = (elapsed > 2000) ? (elapsed - 2000) : (2000 - elapsed);
+        debugln("[ktest] Thats like.. %d of error!", (uint32_t)error);
+    } else {
+        debugln("[ktest] sleep(2000) is accurate!");
+    }
     rsdp_response = rsdp_request.response;
-        
+    
     debugln("[kernel] Basic System Initialization done!");
     debugln("[kernel] Starting uACPI...");
 
@@ -254,8 +286,42 @@ void kmain(void) {
        panic("Initramfs (CPIO) module not found! Check limine.conf");
     }
 
-    debugln("[kernel] Parsing initramfs at %p...", mod_res->modules[0]->address);
-    cpio_parse(mod_res->modules[0]->address);
+    void* initrd_addr = mod_res->modules[0]->address;
+    size_t initrd_size = mod_res->modules[0]->size;
+    
+    // Check for LZ4 magic number (Standard: 0x184D2204, Legacy: 0x184C2102)
+    uint32_t magic = *(uint32_t*)initrd_addr;
+    debugln("[kernel] Initramfs magic: 0x%x", magic);
+    if (magic == 0x184D2204 || magic == 0x184C2102) {
+        debugln("[kernel] Detected LZ4 compressed initramfs (%s)", 
+                magic == 0x184D2204 ? "Standard" : "Legacy");
+        // Allocate a buffer for decompression (64MB)
+        size_t decomp_size_max = 64 * 1024 * 1024;
+        void* decomp_buffer = kmalloc(decomp_size_max);
+        if (!decomp_buffer) {
+            panic("Failed to allocate buffer for initramfs decompression!");
+        }
+        
+        int actual_size = lz4_unframe(initrd_addr, decomp_buffer, initrd_size, decomp_size_max);
+        if (actual_size < 0) {
+            debugerr("LZ4 decompression failed with code %d", actual_size);
+            panic("Initramfs decompression failed!");
+        }
+        
+        debugln("[kernel] Decompressed initramfs: %d bytes", actual_size);
+        initrd_addr = decomp_buffer;
+    }
+
+    printf("\033[1;34m  ______             \033[0m\n");
+    printf("\033[1;34m |___  /             \033[0m\n");
+    printf("\033[1;34m    / / _ __  _   _  \033[0m\n");
+    printf("\033[1;34m   / / | '_ \\| | | | \033[0m\n");
+    printf("\033[1;34m  / /__| | | | |_| | \033[0m\n");
+    printf("\033[1;34m /_____|_| |_|\\__,_| \033[0m\n");
+    printf("\033[1;36m  Kernel v0.1.0-alpha \033[0m\n\n");
+
+    debugln("[kernel] Parsing initramfs at %p...", initrd_addr);
+    cpio_parse(initrd_addr);
 
     vfs_node_t* init_node = vfs_path_to_node("/bin/init");
     if (!init_node) {
@@ -265,7 +331,7 @@ void kmain(void) {
     debugln("[kernel] Loading init process from VFS (Size: %d bytes)", init_node->size);
     init_scheduler();
     debugln("Initialized Scheduler.");
-    process_t* init_proc = create_init_process((uint8_t*)init_node->data);
+    process_t* init_proc = create_process_from_elf((uint8_t*)init_node->data);
     add_process(init_proc);
     init_proc->state = TASK_RUNNING;
     current_process = init_proc;

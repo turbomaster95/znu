@@ -3,6 +3,7 @@
 #include <string.h>
 #include <page.h>
 #include <stdlib.h>
+#include <syscall.h>
 
 #define MAX_PROCESSES 64
 
@@ -70,8 +71,54 @@ void scheduler(registers_t* regs) {
             current_process = next_proc;
             current_process->state = TASK_RUNNING;
 
+            // Update the kernel stack pointer in GS for the next SYSCALL
+            extern cpu_context_t main_cpu_context;
+            main_cpu_context.kernel_stack = current_process->kstack_top;
+
             // Restore context
             memcpy(regs, &current_process->context, sizeof(registers_t));
         }
+    }
+}
+
+int do_wait(int pid) {
+    while (1) {
+        int found_idx = -1;
+        for (int i = 0; i < process_count; i++) {
+            if (processes[i]->parent_pid == current_process->pid) {
+                if (pid == -1 || processes[i]->pid == (uint64_t)pid) {
+                    if (processes[i]->state == TASK_ZOMBIE) {
+                        int code = processes[i]->exit_code;
+                        processes[i]->parent_pid = 0; // Prevent finding it again
+                        return code;
+                    }
+                    found_idx = i;
+                }
+            }
+        }
+        
+        if (found_idx == -1) return -1; // No such child
+        
+        current_process->state = TASK_WAITING;
+        __asm__ volatile("sti; hlt; cli");
+    }
+}
+
+void do_exit(int code) {
+    current_process->state = TASK_ZOMBIE;
+    current_process->exit_code = code;
+    
+    // Wake up parent
+    for (int i = 0; i < process_count; i++) {
+        if (processes[i]->pid == current_process->parent_pid) {
+            if (processes[i]->state == TASK_WAITING) {
+                processes[i]->state = TASK_READY;
+            }
+            break;
+        }
+    }
+    
+    while(1) {
+        __asm__ volatile("sti; hlt; cli");
     }
 }

@@ -8,6 +8,7 @@
 #include <page.h>
 #include <stdio.h>
 #include <kernel/tty.h>
+#include <elf.h>
 
 extern void hcf(void);
 extern void syscall_entry(void);
@@ -51,13 +52,11 @@ void gs_init(uintptr_t kernel_stack_top) {
     uintptr_t addr = (uintptr_t)&main_cpu_context;
 
     // IMPORTANT: In Ring 0 (now), GS_BASE is active.
-    // But for SYSCALL from Ring 3, we need the address in KERNEL_GS_BASE
-    // so that 'swapgs' can pull it into the active slot.
+    // For SYSCALL from Ring 3, the CPU will 'swapgs' to pull this address 
+    // into the active slot. So we store it in KERNEL_GS_BASE for now.
     
-    wrmsr(MSR_KERNEL_GS_BASE, (uint32_t)addr, (uint32_t)(addr >> 32));
-    
-    // Set active GS to 0 for now, so we know swapgs actually does something later
-    wrmsr(MSR_GS_BASE, 0, 0); 
+    wrmsr(MSR_GS_BASE, (uint32_t)addr, (uint32_t)(addr >> 32));
+    wrmsr(MSR_KERNEL_GS_BASE, 0, 0); 
 
     debugln("[sys] GS Shadow initialized to %p", (void*)addr);
 }
@@ -95,8 +94,6 @@ long sys_read(int fd, void* buf, size_t count) {
     if (fd < 0 || fd >= MAX_FILES) return -1;
     if (!buf || !is_user_addr(buf, count)) return -1;
     if (!current_process) return -1;
-    
-//    if (fd == 0) debugln("[sys] sys_read(fd=%d, buf=%p, count=%d)", fd, buf, (int)count);
     
     if (fd < 3) {
         if (fd == 0) {
@@ -276,6 +273,72 @@ int sys_sysinfo(struct sysinfo* info) {
     return 0;
 }
 
+int sys_spawn(const char* path) {
+    if (!path || !is_user_addr((void*)path, 1)) return -1;
+
+    char kpath[256];
+    size_t i;
+    for (i = 0; i < 255; i++) {
+        if (!is_user_addr((void*)&path[i], 1)) return -1;
+        kpath[i] = path[i];
+        if (kpath[i] == '\0') break;
+    }
+    kpath[i] = '\0';
+
+    vfs_node_t* node = vfs_path_to_node(kpath);
+    if (!node || node->type != VFS_FILE) return -1;
+
+    process_t* proc = create_process_from_elf((uint8_t*)node->data);
+    if (!proc) return -1;
+
+    add_process(proc);
+    return (int)proc->pid;
+}
+
+long sys_brk(void* addr) {
+    if (!current_process) return -1;
+    if (!addr) return (long)current_process->brk;
+
+    uintptr_t new_brk = (uintptr_t)addr;
+    if (new_brk < current_process->brk_start) return -1;
+
+    if (new_brk > current_process->brk) {
+        uintptr_t start = PAGE_ALIGN_UP(current_process->brk);
+        uintptr_t end = PAGE_ALIGN_UP(new_brk);
+        for (uintptr_t p = start; p < end; p += 4096) {
+            void* phys = palloc_zero();
+            map_page(current_process->pml4, p, (uint64_t)phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+        }
+    }
+    current_process->brk = new_brk;
+    return (long)current_process->brk;
+}
+
+void* sys_mmap(void* addr, size_t len, int prot, int flags, int fd, uint64_t offset) {
+    if (!current_process) return (void*)-1;
+    
+    // Minimal implementation: only anonymous private mappings supported for now
+    if (!(flags & 0x20)) { // MAP_ANONYMOUS is 0x20 on Linux
+        return (void*)-1;
+    }
+
+    // Use a fixed high address area for mmaps if addr is NULL
+    static uintptr_t mmap_bump = 0x0000600000000000;
+    if (!addr) {
+        addr = (void*)mmap_bump;
+        mmap_bump += PAGE_ALIGN_UP(len);
+    }
+
+    uintptr_t start = (uintptr_t)addr;
+    uintptr_t end = start + len;
+    for (uintptr_t p = PAGE_ALIGN_DOWN(start); p < end; p += 4096) {
+        void* phys = palloc_zero();
+        map_page(current_process->pml4, p, (uint64_t)phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+    }
+
+    return addr;
+}
+
 uint64_t syscall_handler(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5) {
     switch (num) {
         case 0: // read
@@ -286,6 +349,14 @@ uint64_t syscall_handler(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t ar
             return (uint64_t)sys_open((const char*)arg1, (int)arg2);
         case 3: // close
             return (uint64_t)sys_close((int)arg1);
+        case 5: // fstat (stub)
+            return 0;
+        case 9: // mmap
+            return (uint64_t)sys_mmap((void*)arg1, (size_t)arg2, (int)arg3, (int)arg4, (int)arg5, 0); // simplified
+        case 12: // brk
+            return (uint64_t)sys_brk((void*)arg1);
+        case 59: // spawn (execve-like)
+            return (uint64_t)sys_spawn((const char*)arg1);
 
         case 217: // getdents64
             return (uint64_t)sys_getdents((int)arg1, (void*)arg2, (size_t)arg3);
@@ -299,17 +370,21 @@ uint64_t syscall_handler(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t ar
 
         case 60: // exit
             if (current_process) {
-                current_process->state = TASK_ZOMBIE;
-                debugln("[proc] Process %d exited with code %d", current_process->pid, (int)arg1);
-                while(1) {
-                    asm volatile("sti; hlt");
-                }
+                extern void do_exit(int code);
+                do_exit((int)arg1);
             }
             return 0;
 
+        case 61: // wait
+            if (current_process) {
+                extern int do_wait(int pid);
+                return (uint64_t)do_wait((int)arg1);
+            }
+            return -1;
+
         case 169: // reboot
             debugln("\n\nReboot called from user process\n\n");
-	    kernel_reboot();
+            kernel_reboot();
             return 0;
         
         case 48:

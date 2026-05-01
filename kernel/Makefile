@@ -13,3 +13,5 @@ obj-y += acpi.o
 obj-y += keyboard.o
 obj-y += sched.o
 obj-y += metadata.o
+obj-y += lz4.o
+obj-y += cmdline.o

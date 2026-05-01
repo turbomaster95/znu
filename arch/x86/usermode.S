@@ -55,5 +55,6 @@ jump_to_usermode:
     xor r15, rax
 
     ; 4. Execute the transition
+    swapgs
     iretq
 

@@ -1,0 +1,36 @@
+#include <stdio.h>
+
+FILE* stdout;
+FILE* stderr;
+t {} FILE;
+
+extern FILE* stdout;
+extern FILE* stderr;
+
+size_t fwrite(const void* buffer, size_t size, size_t count, FILE* stream);
+int fflush(FILE *stream);
+st_pointer {.importc: "const void *".} = pointer
+
+proc fwrite(buf: const_pointer, size: csize_t, count: csize_t, stream: File): csize_t {.exportc.} =
+  let str = $cast[cstring](buf)
+  for line in str.splitLines(keepEOL = true):
+    consoleOut(line)
+    consoleOut("\r")
+  return count
+
+proc fflush(stream: File): cint {.exportc.} =
+  return 0.cint
+
+proc exit(status: cint) {.exportc, asmNoStackFrame.} =
+  asm """
+  .loop:
+    cli
+    hlt
+    jmp .loop
+  """
+t.
+  if unit == bBytes or (unit == bDynamic and size < KiB or unit == bThousands and size < MiB):
+    return &"{size} B"
+  elif unit == bKiB or (unit == bDynamic and size < MiB or unit == bThousands and size < GiB):
+    return &"{size div KiB} KiB"
+  elif unit == bMiB or 

@@ -1,5 +1,6 @@
 #include <syscall.h>
 #include <stdio.h>
+#include <stdint.h>
 
 int getchar(void) {
     char c;
@@ -44,7 +45,8 @@ void readline(char* buf, size_t n) {
     buf[i] = '\0';
 }
 
-char* fgets(char* str, int n, int fd) {
+char* fgets(char* str, int n, FILE* stream) {
+    int fd = (int)(uintptr_t)stream;
     int i = 0;
     while (i < n - 1) {
         char c;
