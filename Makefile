@@ -372,7 +372,7 @@ quiet_cmd_build_limine = LIMINE  scripts/limine
       cmd_build_limine = $(srctree)/scripts/mklimine.sh $(srctree) "$(MAKEFLAGS)" > /dev/null 2>&1
 
 quiet_cmd_mkiso = MKISO   $(STARGET) -> $(ISOIMAGE)
-      cmd_mkiso = $(srctree)/scripts/iso.sh $(srctree) $(ISOIMAGE) > /dev/null 2>&1
+      cmd_mkiso = $(srctree)/scripts/mkiso.sh $(srctree) $(ISOIMAGE) > /dev/null 2>&1
 
 quiet_cmd_mkuki = MKUKI   uki/Znu.efi
       cmd_mkuki = $(srctree)/scripts/mkuki.sh $(srctree)
