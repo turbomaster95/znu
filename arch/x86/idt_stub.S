@@ -54,6 +54,7 @@ isr_stub:
     pushaq
 
     ; Check if we came from user-mode (Ring 3)
+    ; At this point, stack has: int_no, err_code, rip, cs, rflags, rsp, ss
     ; CS is at [rsp + 144] (15 regs from pushaq + 2 from wrappers)
     test qword [rsp + 144], 3
     jz .no_swapgs
@@ -87,13 +88,16 @@ isr_stub:
     pop rax
     mov ds, ax
 
+    popaq
+
     ; Conditionally swapgs back if we're returning to user-mode
-    test qword [rsp + 144], 3
+    ; Stack now has: int_no, err_code, rip, cs, ...
+    ; CS is at [rsp + 24]
+    test qword [rsp + 24], 3
     jz .no_swapgs_back
     swapgs
 .no_swapgs_back:
 
-    popaq
     add rsp, 16     ; Pops the 'int_no' and 'err_code' pushed by wrappers
     iretq
 

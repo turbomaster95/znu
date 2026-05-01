@@ -122,6 +122,7 @@ long sys_read(int fd, void* buf, size_t count) {
 
 long sys_write(int fd, const void* buf, size_t count) {
     if (!current_process) return -1;
+    // debugln("[sys_write] PID: %d, FD: %d, Buf: %p, Count: %d", current_process->pid, fd, buf, count);
     if (!buf || !is_user_addr((void*)buf, count)) return -1;
 
     if (fd == 1 || fd == 2) {

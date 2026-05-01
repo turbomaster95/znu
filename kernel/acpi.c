@@ -71,10 +71,11 @@ void *uacpi_kernel_map(uacpi_phys_addr physical, uacpi_size length) {
 }
 
 void uacpi_kernel_unmap(void *ptr, uacpi_size length) {
-	uintmax_t pageoffset = (uintptr_t)ptr % PAGE_SIZE;
-
-	uintptr_t addr = (uintptr_t)ptr;
-	unmap_page((void*)ROUND_DOWN(addr, PAGE_SIZE), ROUND_UP(length + pageoffset, PAGE_SIZE));
+    // We use the HHDM direct map — no actual pages were allocated,
+    // so there is nothing to unmap. Calling unmap_page here would
+    // destroy the HHDM mapping and cause a #PF on the next access.
+    (void)ptr;
+    (void)length;
 }
 
 uacpi_status uacpi_kernel_raw_memory_read(uacpi_phys_addr address, uacpi_u8 byte_width, uacpi_u64 *out_value) {

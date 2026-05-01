@@ -4,6 +4,7 @@
 #include <page.h>
 #include <stdlib.h>
 #include <syscall.h>
+#include <gdt.h>
 
 #define MAX_PROCESSES 64
 
@@ -70,6 +71,10 @@ void scheduler(registers_t* regs) {
             current_process_index = found;
             current_process = next_proc;
             current_process->state = TASK_RUNNING;
+
+            // Update the kernel stack pointer for the next interrupt from Ring 3
+            extern struct tss kernel_tss;
+            kernel_tss.rsp0 = current_process->kstack_top;
 
             // Update the kernel stack pointer in GS for the next SYSCALL
             extern cpu_context_t main_cpu_context;

@@ -23,6 +23,7 @@ type
     data4: array[8, uint8]
 
   EfiStatus* = uint64
+  EfiLba* = uint64
 
   EfiHandle* = pointer
 
@@ -247,6 +248,30 @@ type
     writeEx*: pointer
     flushEx*: pointer
 
+  EfiBlockIoMedia* = object
+    mediaId*: uint32
+    removableMedia*: bool
+    mediaPresent*: bool
+    logicalPartition*: bool
+    readOnly*: bool
+    writeCaching*: bool
+    blockSize*: uint32
+    ioAlign*: uint32
+    lastBlock*: EfiLba
+
+  EfiBlockIoProtocol* = object
+    revision*: uint64
+    media*: ptr EfiBlockIoMedia
+    reset*: pointer
+    readBlocks*: proc(this: ptr EfiBlockIoProtocol, mediaId: uint32, lba: EfiLba, bufferSize: uint, buffer: pointer): EfiStatus {.cdecl.}
+    writeBlocks*: proc(this: ptr EfiBlockIoProtocol, mediaId: uint32, lba: EfiLba, bufferSize: uint, buffer: pointer): EfiStatus {.cdecl.}
+    flushBlocks*: pointer
+
+  EfiDevicePathProtocol* {.packed.} = object
+    `type`*: uint8
+    subType*: uint8
+    length*: array[2, uint8]
+
 # EfiFileSystemInfo* = object
   #   size*: uint64
   #   readOnly*: bool
@@ -294,6 +319,16 @@ const
   EfiSimpleFileSystemProtocolGuid* = EfiGuid(
     data1: 0x964e5b22'u32, data2: 0x6459, data3: 0x11d2,
     data4: [0x8e, 0x39, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b]
+  )
+
+  EfiBlockIoProtocolGuid* = EfiGuid(
+    data1: 0x964e5b21'u32, data2: 0x6459, data3: 0x11d2,
+    data4: [0x8e'u8, 0x39, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b]
+  )
+
+  EfiDevicePathProtocolGuid* = EfiGuid(
+    data1: 0x09576e91'u32, data2: 0x6d3f, data3: 0x11d2,
+    data4: [0x8e'u8, 0x39, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b]
   )
 
   # EfiFileSystemInfoGuid* = EfiGuid(
@@ -452,3 +487,5 @@ proc printUefiMemoryMap(
     logger.raw &"   {bytesToBinSize(entry.numberOfPages * PageSize):>10} {dim()}({entry.numberOfPages}){undim()}"
     logger.raw "\n"
     prevEnd = entry.physicalStart + entry.numberOfPages * PageSize
+
+

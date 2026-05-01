@@ -352,8 +352,9 @@ objs-y		+= arch
 user-y		:= user
 user-y		+= init
 libs-y		:= lib
+ulibc-y		:= lib/ulibc
 
-$(TARGET)-dirs	:= $(objs-y) $(libs-y) $(user-y)
+$(TARGET)-dirs	:= $(objs-y) $(libs-y) $(ulibc-y) $(user-y)
 $(TARGET)-objs	:= $(patsubst %,%/built-in.o, $(objs-y))
 $(TARGET)-libs	:= $(patsubst %,%/built-in.o, $(libs-y))
 $(TARGET)-all	:= $($(TARGET)-objs) $($(TARGET)-libs)
@@ -373,8 +374,8 @@ quiet_cmd_build_limine = LIMINE  scripts/limine
 quiet_cmd_mkiso = MKISO   $(STARGET) -> $(ISOIMAGE)
       cmd_mkiso = $(srctree)/scripts/iso.sh $(srctree) $(ISOIMAGE) > /dev/null 2>&1
 
-quiet_cmd_gnuefi = GNUEFI   scripts/gnu-efi
-      cmd_gnuefi = $(srctree)/scripts/mkgnuefi.sh $(srctree) > /dev/null 2>&1
+quiet_cmd_mkuki = MKUKI   uki/Znu.efi
+      cmd_mkuki = $(srctree)/scripts/mkuki.sh $(srctree)
 
 $(TARGET): $($(TARGET)-all) FORCE
 	$(call if_changed,$(TARGET))
@@ -384,7 +385,7 @@ ifeq ($(CONFIG_GENERATE_ISO),y)
 	$(call if_changed,mkiso)
 endif
 ifeq ($(CONFIG_MAKE_UKI),y)
-	$(call if_changed,gnuefi)
+	$(call if_changed,mkuki)
 endif
 
 # The actual objects are generated when descending, 
@@ -399,6 +400,11 @@ $(sort $($(TARGET)-all)): $($(TARGET)-dirs) ;
 
 #PHONY += $(vmlinux-dirs)
 #$(vmlinux-dirs): prepare scripts
+# Dependencies between directories to prevent race conditions in parallel builds
+init: user lib lib/ulibc
+user: lib/ulibc
+lib: lib/ulibc
+
 PHONY += $($(TARGET)-dirs)
 $($(TARGET)-dirs): scripts_basic
 	$(Q)$(MAKE) $(build)=$@
@@ -412,7 +418,7 @@ $($(TARGET)-dirs): scripts_basic
 
 # Directories & files removed with 'make clean'
 CLEAN_DIRS  += lib/uacpi/.uacpi_out lib/flanterm/.flt_out
-CLEAN_FILES +=	$(TARGET) $(STARGET) $(ISOIMAGE) configs/iso_root/boot/initramfs.cpio configs/iso_root/boot/kernel.bin configs/sysroot/bin/*
+CLEAN_FILES +=	$(TARGET) $(STARGET) uki/Znu.efi $(ISOIMAGE) configs/iso_root/boot/initramfs.cpio configs/iso_root/boot/kernel.bin configs/sysroot/bin/*
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include/generated lib/uacpi scripts/limine build/ $(CLEAN_DIRS)

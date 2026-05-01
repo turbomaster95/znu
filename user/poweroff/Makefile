@@ -21,5 +21,4 @@ $(obj)/poweroff.elf: $(obj)/main.o $(ULIBC_LIB) FORCE
 $(obj)/%.o: $(src)/%.c FORCE
 	$(CC) -c $(CFLAGS) $(KBUILD_CFLAGS) $< -o $@
 
-$(ULIBC_LIB): FORCE
-	$(Q)$(MAKE) $(build)=lib/ulibc
+$(ULIBC_LIB): ;

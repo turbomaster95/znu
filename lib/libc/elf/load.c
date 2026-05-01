@@ -44,9 +44,9 @@ process_t* create_process_from_elf(uint8_t* elf_data) {
     proc->parent_pid = current_process ? current_process->pid : 0;
     uintptr_t max_vaddr = 0;
 
-    // 2.5 Allocate Kernel Stack (16KB)
-    void* kstack = kmalloc(16384);
-    proc->kstack_top = (uintptr_t)kstack + 16384;
+    // 2.5 Allocate Kernel Stack (32KB)
+    void* kstack = kmalloc(32768);
+    proc->kstack_top = (uintptr_t)kstack + 32768;
 
     if (proc->pid == 1) {
         init_process = proc;

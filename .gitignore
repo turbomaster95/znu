@@ -11,6 +11,7 @@
 # Normal rules
 #
 .*
+!.clangd
 !**/.gitkeep
 *.o
 *.o.*
@@ -81,13 +82,14 @@ GTAGS
 *~
 \#*#
 
-oxus
-image.iso
 Znu.iso
-ox
 znu
 znus
 configs/iso_root/boot/kernel.bin
 configs/sysroot/bin/init
 lib/.uacpi_out
 init/init.elf
+NvVars
+*.efi
+*.img
+*.iso
