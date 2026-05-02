@@ -111,11 +111,9 @@ proc EfiMain*(ImageHandle: EfiHandle,
   let conOut = SystemTable.conOut
 
   discard conOut.clearScreen(conOut)
-  conOut.print("Znu UKI Loader\r\n")
+  conOut.print("[znu] UKI Loader\r\n")
 
   let hp = cast[HandleProtocolProc](bs.handleProtocol)
-  conOut.print(string(limineConfData))
-  conOut.print("\r\n")
   # 1. Inject Limine config via SMBIOS Type 11
   let cfg = "limine:config:" & limineConfData
   if injectSmbios(SystemTable, cfg) == EfiSuccess:

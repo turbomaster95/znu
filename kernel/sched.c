@@ -29,17 +29,17 @@ void add_process(process_t* proc) {
     }
 }
 
-void scheduler(registers_t* regs) {
-    if (process_count == 0) return;
+registers_t* scheduler(registers_t* regs) {
+    if (process_count == 0) return regs;
 
     // If we only have one process and it's already running, just return
     if (process_count == 1 && current_process != NULL && current_process->state == TASK_RUNNING) {
-        return;
+        return regs;
     }
 
     // Save current context
     if (current_process != NULL) {
-        memcpy(&current_process->context, regs, sizeof(registers_t));
+        current_process->context_ptr = regs;
         if (current_process->state == TASK_RUNNING) {
             current_process->state = TASK_READY;
         }
@@ -63,6 +63,11 @@ void scheduler(registers_t* regs) {
         
         // Only switch if it's a different process or not running
         if (next_proc != current_process || next_proc->state != TASK_RUNNING) {
+            // Save current SSE state if any
+            if (current_process) {
+                __asm__ volatile("fxsave %0" : "=m"(current_process->sse_state));
+            }
+
             // Switch address space only if different
             if (current_process == NULL || next_proc->pml4 != current_process->pml4) {
                 vmm_switch(next_proc->pml4);
@@ -72,6 +77,9 @@ void scheduler(registers_t* regs) {
             current_process = next_proc;
             current_process->state = TASK_RUNNING;
 
+            // Restore next SSE state
+            __asm__ volatile("fxrstor %0" : : "m"(current_process->sse_state));
+
             // Update the kernel stack pointer for the next interrupt from Ring 3
             extern struct tss kernel_tss;
             kernel_tss.rsp0 = current_process->kstack_top;
@@ -80,29 +88,34 @@ void scheduler(registers_t* regs) {
             extern cpu_context_t main_cpu_context;
             main_cpu_context.kernel_stack = current_process->kstack_top;
 
-            // Restore context
-            memcpy(regs, &current_process->context, sizeof(registers_t));
+            // Return new context pointer
+            return current_process->context_ptr;
         }
     }
+    return regs;
 }
 
-int do_wait(int pid) {
+int do_wait(int pid, int* status) {
     while (1) {
         int found_idx = -1;
         for (int i = 0; i < process_count; i++) {
+            if (!processes[i]) continue;
             if (processes[i]->parent_pid == current_process->pid) {
                 if (pid == -1 || processes[i]->pid == (uint64_t)pid) {
                     if (processes[i]->state == TASK_ZOMBIE) {
                         int code = processes[i]->exit_code;
+                        if (status) *status = code;
                         processes[i]->parent_pid = 0; // Prevent finding it again
-                        return code;
+                        return (int)processes[i]->pid; 
                     }
                     found_idx = i;
                 }
             }
         }
         
-        if (found_idx == -1) return -1; // No such child
+        if (found_idx == -1) {
+            return -1; 
+        }
         
         current_process->state = TASK_WAITING;
         __asm__ volatile("sti; hlt; cli");

@@ -79,7 +79,7 @@ isr_stub:
     mov rdi, r12    ; Pass pointer to our registers_t struct
     cld             ; Ensure direction flag is clear for C
     call k_exception_handler
-    mov rsp, r12    ; RESET stack to our anchor (Fixes the 1430-tick leak)
+    mov rsp, rax    ; rax contains the new stack pointer returned by k_exception_handler
     ; --------------------------------
 
     ; Restore Segments

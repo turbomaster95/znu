@@ -28,15 +28,16 @@ typedef struct {
     uintptr_t kstack_top; // Kernel stack top
     uintptr_t brk;       // Current heap end
     uintptr_t brk_start; // Original heap start
-    registers_t context; // Saved registers
+    registers_t* context_ptr; // Saved registers on the kernel stack
     task_state_t state;
     vfs_file_t* files[MAX_FILES];
+    uint8_t sse_state[512] __attribute__((aligned(16)));
 } process_t;
 
 extern process_t* current_process;
 extern process_t* init_process;
 
-void scheduler(registers_t* regs);
+registers_t* scheduler(registers_t* regs);
 void init_scheduler(void);
 void add_process(process_t* proc);
 

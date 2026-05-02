@@ -36,7 +36,7 @@ void idt_set_gate(uint8_t vector, void *isr) {
 
 static int frame_count = 0;
 
-void k_exception_handler(registers_t *regs) {
+registers_t* k_exception_handler(registers_t *regs) {
     uint8_t int_no = regs->int_no;
 
     // 1. Handle Critical CPU Exceptions (0-31)
@@ -45,7 +45,7 @@ void k_exception_handler(registers_t *regs) {
         __asm__ volatile("mov %%cr2, %0" : "=r"(cr2));
 
         debugln("\n--- CRITICAL CPU EXCEPTION: %d ---", int_no);
-        debugln("Error Code: 0x%x | RIP: %p", regs->err_code, (void*)regs->rip);
+        debugln("Error Code: 0x%x | RIP: %p | RSP: %p", regs->err_code, (void*)regs->rip, (void*)regs->rsp);
         
         if (int_no == 14) {
             debugln("Faulting Address: %p", (void*)cr2);
@@ -58,7 +58,7 @@ void k_exception_handler(registers_t *regs) {
     if (int_no == 32) {
         timer_ticks++;
         timekeeper_on_tick();
-        scheduler(regs);
+        regs = scheduler(regs);
         if (++frame_count % 16 == 0) {
            if (vmm_ready && term_buffer) {
              blit_window(term_x, term_y, TERM_W, TERM_H, term_buffer);
@@ -70,7 +70,7 @@ void k_exception_handler(registers_t *regs) {
     }
     else if (int_no == 48) {
         lapic_timer_fired = true;
-        scheduler(regs);
+        regs = scheduler(regs);
     }
     
     if (int_no >= 32 && int_no < 48) {
@@ -83,6 +83,8 @@ void k_exception_handler(registers_t *regs) {
     if (int_no >= 32) {
         lapic_eoi();
     }
+    
+    return regs;
 }
 
 void idt_init() {

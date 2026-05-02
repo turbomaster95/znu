@@ -38,6 +38,6 @@ typedef struct {
 
 void load_elf(uint8_t* elf_data);
 uint64_t* vmm_create_user_pml4(void);
-process_t* create_process_from_elf(uint8_t* elf_data);
+process_t* create_process_from_elf(uint8_t* elf_data, char** argv, char** envp);
 
 #endif

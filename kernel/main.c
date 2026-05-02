@@ -101,10 +101,18 @@ volatile void hcf(void) {
     }
 }
 
-static inline uint64_t read_cr3(void) {
-    uint64_t val;
-    __asm__ volatile("mov %%cr3, %0" : "=r"(val));
-    return val;
+void sse_init(void) {
+    uint64_t cr0;
+    asm volatile("mov %%cr0, %0" : "=r"(cr0));
+    cr0 &= ~(1 << 2); // Clear EM
+    cr0 |= (1 << 1);  // Set MP
+    asm volatile("mov %0, %%cr0" : : "r"(cr0));
+
+    uint64_t cr4;
+    asm volatile("mov %%cr4, %0" : "=r"(cr4));
+    cr4 |= (1 << 9);  // Set OSFXSR
+    cr4 |= (1 << 10); // Set OSXMMEXCPT
+    asm volatile("mov %0, %%cr4" : : "r"(cr4));
 }
 
 uint64_t* kernel_pml4;
@@ -211,6 +219,8 @@ void kmain(void) {
 
     idt_init();
     debugln("[idt] IDT initialized.");
+    sse_init();
+    debugln("[cpu] SSE initialized.");
 
     debugln("[kernel] HHDM Offset: %p", hhdm_request.response->offset);
     debugln("[kernel] RSDP Address: %p", rsdp_request.response->address);
@@ -330,15 +340,30 @@ void kmain(void) {
     
     debugln("[kernel] Loading init process from VFS (Size: %d bytes)", init_node->size);
     init_scheduler();
-    debugln("Initialized Scheduler.");
-    process_t* init_proc = create_process_from_elf((uint8_t*)init_node->data);
+    debugln("[sched] Initialized Scheduler.");
+
+    const char* init_argv[] = {"/bin/init", NULL};
+    const char* init_envp[] = {"PATH=/bin", "TERM=linux", "HOME=/", NULL};
+    process_t* init_proc = create_process_from_elf((uint8_t*)init_node->data, (char**)init_argv, (char**)init_envp);
+    
     add_process(init_proc);
     init_proc->state = TASK_RUNNING;
     current_process = init_proc;
     init_process = init_proc;
 
+    // Set the current process for the scheduler/syscalls
+    extern process_t* current_process;
+    current_process = init_process;
+
     if (init_proc) {
        vmm_switch(init_proc->pml4);
+       
+       extern struct tss kernel_tss;
+       extern cpu_context_t main_cpu_context;
+       
+       kernel_tss.rsp0 = init_proc->kstack_top;
+       main_cpu_context.kernel_stack = init_proc->kstack_top;
+
        debugln("[kernel] Jumping to Ring 3...");
        jump_to_usermode(init_proc->entry, init_proc->stack_top);
     }    

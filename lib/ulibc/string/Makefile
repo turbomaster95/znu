@@ -5,3 +5,5 @@ obj-y += memcpy.o
 obj-y += memmove.o
 obj-y += memcmp.o
 obj-y += strchr.o
+obj-y += strdup.o
+obj-y += case.o

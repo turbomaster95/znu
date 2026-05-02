@@ -31,11 +31,34 @@
 typedef void (*sighandler_t)(int);
 typedef int sig_atomic_t;
 
+struct sigaction {
+    union {
+        void (*sa_handler)(int);
+        void (*sa_sigaction)(int, void *, void *); // simplified
+    } __sigaction_handler;
+    sigset_t sa_mask;
+    int sa_flags;
+    void (*sa_restorer)(void);
+};
+
+#define sa_handler   __sigaction_handler.sa_handler
+#define sa_sigaction __sigaction_handler.sa_sigaction
+
+int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
+int sigfillset(sigset_t *set);
+int sigaddset(sigset_t *set, int signum);
+int sigdelset(sigset_t *set, int signum);
+int sigismember(const sigset_t *set, int signum);
+
 sighandler_t signal(int signum, sighandler_t handler);
 int kill(pid_t pid, int sig);
 int sigemptyset(sigset_t *set);
 int sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
 int raise(int sig);
-void (*signal(int sig, void (*func)(int)))(int);
+
+typedef void (*sighandler_t)(int);
+sighandler_t signal(int signum, sighandler_t handler);
+
+extern const char *const sys_siglist[NSIG];
 
 #endif

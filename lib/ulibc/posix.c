@@ -7,6 +7,8 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <sys/time.h>
+#include <sys/times.h>
+#include <sys/resource.h>
 #include <sys/wait.h>
 #include <dirent.h>
 #include <termios.h>
@@ -14,63 +16,186 @@
 #include <wctype.h>
 #include <string.h>
 #include <errno.h>
+#include <signal.h>
+#include <locale.h>
 
 int errno = 0;
+char **environ = NULL;
+
+static inline uint64_t syscall0(uint64_t n) {
+    uint64_t ret;
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(n) : "rcx", "r11", "memory");
+    return ret;
+}
+
+static inline uint64_t syscall1(uint64_t n, uint64_t a1) {
+    uint64_t ret;
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(n), "D"(a1) : "rcx", "r11", "memory");
+    return ret;
+}
+
+static inline uint64_t syscall2(uint64_t n, uint64_t a1, uint64_t a2) {
+    uint64_t ret;
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(n), "D"(a1), "S"(a2) : "rcx", "r11", "memory");
+    return ret;
+}
+
+static inline uint64_t syscall3(uint64_t n, uint64_t a1, uint64_t a2, uint64_t a3) {
+    uint64_t ret;
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(n), "D"(a1), "S"(a2), "d"(a3) : "rcx", "r11", "memory");
+    return ret;
+}
+
+const char *const sys_siglist[NSIG] = {
+    [0] = "Signal 0",
+    [SIGHUP] = "Hangup",
+    [SIGINT] = "Interrupt",
+    [SIGQUIT] = "Quit",
+    [SIGILL] = "Illegal instruction",
+    [SIGTRAP] = "Trace/breakpoint trap",
+    [SIGABRT] = "Aborted",
+    [SIGKILL] = "Killed",
+    [SIGSEGV] = "Segmentation fault",
+    [SIGPIPE] = "Broken pipe",
+    [SIGALRM] = "Alarm clock",
+    [SIGTERM] = "Terminated",
+    [SIGCHLD] = "Child exited",
+    [SIGCONT] = "Continued",
+    [SIGTSTP] = "Stopped (tty output)",
+    [SIGTTIN] = "Stopped (tty input)",
+    [SIGTTOU] = "Stopped",
+};
 
 ssize_t read(int fd, void* buf, size_t count) {
-    return sys_read(fd, buf, count);
+    ssize_t ret;
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(0), "D"(fd), "S"(buf), "d"(count) : "rcx", "r11", "memory");
+    return ret;
 }
 
 ssize_t write(int fd, const void* buf, size_t count) {
-    return sys_write(fd, buf, count);
+    ssize_t ret;
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(1), "D"(fd), "S"(buf), "d"(count) : "rcx", "r11", "memory");
+    return ret;
 }
 
 int close(int fd) {
-    return sys_close(fd);
+    int ret;
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(3), "D"(fd) : "rcx", "r11", "memory");
+    return ret;
 }
 
 int open(const char* pathname, int flags, ...) {
-    return sys_open(pathname, flags);
+    int ret;
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(2), "D"(pathname), "S"(flags) : "rcx", "r11", "memory");
+    return ret;
 }
 
-int raise(int sig) {
-    return 0; 
+int execve(const char* filename, char* const argv[], char* const envp[]) {
+    int ret;
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(59), "D"(filename), "S"(argv), "d"(envp) : "rcx", "r11", "memory");
+    return ret;
+}
+
+pid_t fork(void) {
+    pid_t ret;
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(57) : "rcx", "r11", "memory");
+    return ret;
+}
+
+pid_t vfork(void) {
+    return fork();
+}
+
+pid_t getpid(void) {
+    ssize_t ret;
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(39) : "rcx", "r11", "memory");
+    return (pid_t)ret;
+}
+
+pid_t getppid(void) {
+    return (pid_t)syscall0(110);
+}
+
+uid_t getuid(void) {
+    return (uid_t)syscall0(102);
+}
+
+gid_t getgid(void) {
+    return (gid_t)syscall0(104);
+}
+
+uid_t geteuid(void) {
+    return (uid_t)syscall0(107);
+}
+
+gid_t getegid(void) {
+    return (gid_t)syscall0(108);
+}
+
+int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact) {
+    return 0;
+}
+
+int kill(pid_t pid, int sig) {
+    return 0;
+}
+
+int getgroups(int size, gid_t list[]) {
+    return 0;
+}
+
+clock_t times(struct tms *buf) {
+    return 0;
+}
+
+int fstat(int fd, struct stat* statbuf) {
+    return (int)syscall2(5, (uint64_t)fd, (uint64_t)statbuf);
+}
+
+int stat(const char* pathname, struct stat* statbuf) {
+    return (int)syscall2(4, (uint64_t)pathname, (uint64_t)statbuf);
+}
+
+int lstat(const char* pathname, struct stat* statbuf) {
+    return (int)syscall2(6, (uint64_t)pathname, (uint64_t)statbuf);
+}
+
+int isatty(int fd) {
+    if (fd >= 0 && fd <= 2) return 1;
+    return 0;
+}
+
+int dup(int oldfd) {
+    int ret;
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(32), "D"(oldfd) : "rcx", "r11", "memory");
+    return ret;
+}
+
+int dup2(int oldfd, int newfd) {
+    int ret;
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(33), "D"(oldfd), "S"(newfd) : "rcx", "r11", "memory");
+    return ret;
+}
+
+int pipe(int pipefd[2]) {
+    return -1;
+}
+
+void exit(int status) {
+    __asm__ volatile ("syscall" : : "a"(60), "D"(status) : "rcx", "r11", "memory");
+    while(1);
+}
+
+void _exit(int status) {
+    exit(status);
 }
 
 void abort(void) {
     exit(1);
 }
 
-int pipe(int pipefd[2]) {
-    errno = ENOSYS;
-    return -1;
-}
-
-int dup2(int oldfd, int newfd) {
-    errno = ENOSYS;
-    return -1;
-}
-
-int optind = 1, opterr = 1, optopt = 0;
-char *optarg = NULL;
-
-int getopt(int argc, char * const argv[], const char *optstring) {
-    return -1;
-}
-
-pid_t getpgrp(void) { return 0; }
-int setpgid(pid_t pid, pid_t pgid) { return 0; }
-pid_t tcgetpgrp(int fd) { return 0; }
-int tcsetpgrp(int fd, pid_t pgrp) { return 0; }
-
-pid_t fork(void) {
-    pid_t ret;
-    __asm__ volatile ("syscall" : "=a"(ret) : "a"(31) : "rcx", "r11", "memory"); // Syscall 31 is fork
-    return ret;
-}
-
-pid_t vfork(void) {
-    return fork();
+int raise(int sig) {
+    return 0;
 }
 
 int sigsuspend(const sigset_t *mask) { return 0; }
@@ -85,119 +210,31 @@ char *stpncpy(char *dest, const char *src, size_t n) {
     return ret;
 }
 
-char *strsignal(int sig) {
-    return "Unknown signal";
-}
-
-pid_t getpid(void) {
-    pid_t ret;
-    __asm__ volatile ("syscall" : "=a"(ret) : "a"(39) : "rcx", "r11", "memory");
-    return ret;
-}
-
-int isatty(int fd) {
-    if (fd >= 0 && fd <= 2) return 1;
+int munmap(void *addr, size_t length) {
     return 0;
 }
 
-int atoi(const char *nptr) {
-    return (int)strtoll(nptr, NULL, 10);
+void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
+    return (void*)-1;
 }
 
-uid_t getuid(void) { return 0; }
-uid_t geteuid(void) { return 0; }
-gid_t getgid(void) { return 0; }
-gid_t getegid(void) { return 0; }
-
-int stat64(const char* pathname, struct stat* statbuf) { return stat(pathname, statbuf); }
-int lstat64(const char* pathname, struct stat* statbuf) { return lstat(pathname, statbuf); }
-
-int lstat(const char *pathname, struct stat *statbuf) {
-    return stat(pathname, statbuf);
-}
-// Wide char stubs
-size_t mbrlen(const char *s, size_t n, mbstate_t *ps) { return 0; }
-size_t mbrtowc(wchar_t *pwc, const char *s, size_t n, mbstate_t *ps) { return 0; }
-size_t mbsrtowcs(wchar_t *dest, const char **src, size_t len, mbstate_t *ps) { return 0; }
-wchar_t *wcschr(const wchar_t *s, wchar_t c) { return NULL; }
-int iswspace(wint_t wc) { return 0; }
-int iswctype(wint_t wc, wctype_t desc) { return 0; }
-wctype_t wctype(const char *name) { return 0; }
-
-char* getenv(const char* name) {
-    // Minimal getenv: always return NULL for now
-    return NULL;
-}
-
-int fcntl(int fd, int cmd, ...) {
+int sigfillset(sigset_t *set) {
+    if (set) *set = (sigset_t)-1;
     return 0;
 }
 
-int tcgetattr(int fd, struct termios *termios_p) {
-    memset(termios_p, 0, sizeof(struct termios));
+int sigaddset(sigset_t *set, int signum) {
+    if (set) *set |= (1 << (signum - 1));
     return 0;
 }
 
-int tcsetattr(int fd, int optional_actions, const struct termios *termios_p) {
+int sigdelset(sigset_t *set, int signum) {
+    if (set) *set &= ~(1 << (signum - 1));
     return 0;
 }
 
-pid_t wait(int *stat_loc) {
-    return sys_wait(-1);
-}
-
-pid_t waitpid(pid_t pid, int *stat_loc, int options, ...) {
-    return sys_wait(pid);
-}
-
-int ioctl(int fd, unsigned long request, ...) {
-    return 0;
-}
-
-void exit(int status) {
-    sys_exit(status);
-    while(1);
-}
-
-void _exit(int status) {
-    exit(status);
-}
-
-int fstat(int fd, struct stat* statbuf) {
-    // Stub
-    memset(statbuf, 0, sizeof(struct stat));
-    return 0;
-}
-
-int stat(const char* pathname, struct stat* statbuf) {
-    // Stub
-    memset(statbuf, 0, sizeof(struct stat));
-    return 0;
-}
-
-DIR *opendir(const char *name) {
-    int fd = open(name, 0);
-    if (fd < 0) return NULL;
-    DIR *dir = malloc(sizeof(DIR));
-    dir->fd = fd;
-    dir->pos = 0;
-    return dir;
-}
-
-struct dirent *readdir(DIR *dirp) {
-    static struct dirent de;
-    znu_dirent_t zd;
-    int n = sys_getdents(dirp->fd, &zd, sizeof(zd));
-    if (n <= 0) return NULL;
-    de.d_ino = 0;
-    de.d_type = (zd.type == 2) ? DT_DIR : DT_REG;
-    strncpy(de.d_name, zd.name, 255);
-    return &de;
-}
-
-int closedir(DIR *dirp) {
-    close(dirp->fd);
-    free(dirp);
+int sigismember(const sigset_t *set, int signum) {
+    if (set) return (*set & (1 << (signum - 1))) != 0;
     return 0;
 }
 
@@ -209,26 +246,183 @@ int gettimeofday(struct timeval *tv, struct timezone *tz) {
     return 0;
 }
 
-void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
-    void* ret;
-    __asm__ volatile ("syscall" : "=a"(ret) : "a"(9), "D"(addr), "S"(length), "d"(prot), "r"(flags), "r"(fd) : "rcx", "r11", "memory");
-    return ret;
+int wait4(pid_t pid, int *status, int options, struct rusage *usage) {
+    return (int)syscall2(61, (uint64_t)pid, (uint64_t)status);
 }
 
-int munmap(void *addr, size_t length) {
+pid_t wait(int *status) {
+    return wait4(-1, status, 0, NULL);
+}
+
+pid_t waitpid(pid_t pid, int *status, int options) {
+    return wait4(pid, status, options, NULL);
+}
+
+pid_t wait3(int *status, int options, struct rusage *usage) {
+    return wait4(-1, status, options, usage);
+}
+
+int access(const char *pathname, int mode) {
     return 0;
 }
 
-int fprintf(FILE* stream, const char* format, ...) {
-    va_list ap;
-    va_start(ap, format);
-    // Simple implementation: just use printf for now
-    int ret = printf(format, ap);
-    va_end(ap);
-    return ret;
+int chdir(const char *path) {
+    return 0;
 }
 
-int fputs(const char* s, FILE* stream) {
-    size_t len = strlen(s);
-    return write((int)(uintptr_t)stream, s, len);
+char *getcwd(char *buf, size_t size) {
+    if (buf && size > 0) {
+        strncpy(buf, "/", size);
+    }
+    return buf;
+}
+
+
+
+int fcntl(int fd, int cmd, ...) {
+    return 0;
+}
+
+off_t lseek(int fd, off_t offset, int whence) {
+    return 0;
+}
+
+int ioctl(int fd, unsigned long request, ...) {
+    // 0x5401 is TCGETS on Linux
+    if (request == 0x5401) {
+        // Just return 0 to say "it's a terminal" but we don't support settings
+        return 0;
+    }
+    return 0;
+}
+
+DIR *opendir(const char *name) {
+    return NULL;
+}
+
+struct dirent *readdir(DIR *dirp) {
+    return NULL;
+}
+
+int closedir(DIR *dirp) {
+    return 0;
+}
+
+int iswblank(wint_t wc) {
+    return wc == L' ' || wc == L'\t';
+}
+
+char *strerror(int errnum) {
+    if (errnum == 0) return "Success";
+    if (errnum == ENOENT) return "No such file or directory";
+    if (errnum == EACCES) return "Permission denied";
+    return "Unknown error";
+}
+
+int atoi(const char *nptr) {
+    return (int)strtoll(nptr, NULL, 10);
+}
+
+sighandler_t signal(int signum, sighandler_t handler) {
+    return NULL;
+}
+
+int tcgetattr(int fd, struct termios *termios_p) {
+    if (!termios_p) return -1;
+    memset(termios_p, 0, sizeof(struct termios));
+    // Provide some basic flags so dash doesn't panic
+    termios_p->c_iflag = 0x0500; // ICRNL | IXON
+    termios_p->c_oflag = 0x0005; // OPOST | ONLCR
+    termios_p->c_lflag = 0x8a3b; // ISIG | ICANON | ECHO | ...
+    return 0;
+}
+
+int tcsetattr(int fd, int optional_actions, const struct termios *termios_p) {
+    return 0;
+}
+
+pid_t tcgetpgrp(int fd) {
+    return 0;
+}
+
+int tcsetpgrp(int fd, pid_t pgrp) {
+    return 0;
+}
+
+pid_t getpgrp(void) {
+    return 0;
+}
+
+int setpgid(pid_t pid, pid_t pgid) {
+    return 0;
+}
+
+mode_t umask(mode_t mask) {
+    return 0;
+}
+
+uint32_t htonl(uint32_t hostlong) {
+    return ((hostlong & 0xff000000) >> 24) |
+           ((hostlong & 0x00ff0000) >> 8) |
+           ((hostlong & 0x0000ff00) << 8) |
+           ((hostlong & 0x000000ff) << 24);
+}
+
+char *setlocale(int category, const char *locale) {
+    return "C";
+}
+
+size_t mbrlen(const char *s, size_t n, mbstate_t *ps) {
+    if (s == NULL) return 0;
+    return 1;
+}
+
+size_t mbrtowc(wchar_t *pwc, const char *s, size_t n, mbstate_t *ps) {
+    if (s == NULL) return 0;
+    if (pwc) *pwc = (wchar_t)*s;
+    return 1;
+}
+
+wchar_t *wcschr(const wchar_t *wcs, wchar_t wc) {
+    while (*wcs) {
+        if (*wcs == wc) return (wchar_t *)wcs;
+        wcs++;
+    }
+    return NULL;
+}
+
+int iswspace(wint_t wc) {
+    return wc == L' ' || wc == L'\t' || wc == L'\n' || wc == L'\r';
+}
+
+size_t mbsrtowcs(wchar_t *dest, const char **src, size_t len, mbstate_t *ps) {
+    size_t count = 0;
+    const char *s = *src;
+    while (*s && (!dest || count < len)) {
+        if (dest) dest[count] = (wchar_t)*s;
+        s++;
+        count++;
+    }
+    if (dest && count < len) dest[count] = L'\0';
+    *src = s;
+    return count;
+}
+
+wctype_t wctype(const char *name) {
+    return 0;
+}
+
+int iswctype(wint_t wc, wctype_t desc) {
+    return 0;
+}
+
+char* getenv(const char* name) {
+    if (!environ || !name) return NULL;
+    size_t len = strlen(name);
+    for (int i = 0; environ[i]; i++) {
+        if (strncmp(environ[i], name, len) == 0 && environ[i][len] == '=') {
+            return &environ[i][len + 1];
+        }
+    }
+    return NULL;
 }

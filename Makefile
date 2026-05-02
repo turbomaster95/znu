@@ -392,6 +392,13 @@ endif
 # make sure no implicit rule kicks in
 $(sort $($(TARGET)-all)): $($(TARGET)-dirs) ;
 
+quiet_cmd_qemur = QEMU    $(ISOIMAGE)
+      cmd_qemur = qemu-system-x86_64 -hdd $(ISOIMAGE) -m 4G -debugcon stdio -cpu qemu64 -accel tcg
+
+PHONY += run
+run: FORCE
+	$(call if_changed,qemur)
+
 # Handle descending into subdirectories listed in $(vmlinux-dirs)
 # Preset locale variables to speed up the build process. Limit locale
 # tweaks to this spot to avoid wrong language settings when running

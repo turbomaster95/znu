@@ -26,7 +26,7 @@ uint64_t* vmm_create_user_pml4(void) {
     return pml4;
 }
 
-process_t* create_process_from_elf(uint8_t* elf_data) {
+process_t* create_process_from_elf(uint8_t* elf_data, char** argv, char** envp) {
     static uint64_t next_pid = 1;
     // 1. Basic ELF Validation
     Elf64_Ehdr* header = (Elf64_Ehdr*)elf_data;
@@ -95,24 +95,86 @@ process_t* create_process_from_elf(uint8_t* elf_data) {
     proc->brk_start = (max_vaddr + 0xFFF) & ~0xFFFULL;
     proc->brk = proc->brk_start;
 
-    // 4. Setup User Stack (4 pages / 16KB)
+    // 4. Setup User Stack (16 pages / 64KB)
     uintptr_t user_stack_base = 0x00007ffff0000000;
-    for (uint64_t i = 0; i < 4; i++) {
+    uint64_t stack_pages = 16;
+    for (uint64_t i = 0; i < stack_pages; i++) {
         void* phys = palloc_zero();
         map_page(proc->pml4, user_stack_base + (i * 0x1000), (uintptr_t)phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
     }
 
     proc->entry = header->e_entry;
-    proc->stack_top = user_stack_base + (4 * 0x1000) - 8;
+    uintptr_t stack_ptr = user_stack_base + (stack_pages * 0x1000);
 
-    // Initialize context for the first run
-    proc->context.rip = proc->entry;
-    proc->context.rsp = proc->stack_top;
-    proc->context.cs = 0x23;
-    proc->context.ss = 0x1B;
-    proc->context.ds = 0x1B;
-    proc->context.es = 0x1B;
-    proc->context.rflags = 0x202; // IF = 1
+    // Count arguments and environment
+    int argc = 0;
+    if (argv) while (argv[argc]) argc++;
+    int envc = 0;
+    if (envp) while (envp[envc]) envc++;
+
+    // Copy environment strings
+    uintptr_t* k_envp = kmalloc(sizeof(uintptr_t) * (envc + 1));
+    for (int i = envc - 1; i >= 0; i--) {
+        size_t len = strlen(envp[i]) + 1;
+        stack_ptr -= len;
+        stack_ptr &= ~7ULL;
+        void* dest = (void*)(vmm_virt_to_phys(proc->pml4, stack_ptr) + hhdm_offset);
+        memcpy(dest, envp[i], len);
+        k_envp[i] = stack_ptr;
+    }
+    k_envp[envc] = 0;
+
+    // Copy argument strings
+    uintptr_t* k_argv = kmalloc(sizeof(uintptr_t) * (argc + 1));
+    for (int i = argc - 1; i >= 0; i--) {
+        size_t len = strlen(argv[i]) + 1;
+        stack_ptr -= len;
+        stack_ptr &= ~7ULL;
+        void* dest = (void*)(vmm_virt_to_phys(proc->pml4, stack_ptr) + hhdm_offset);
+        memcpy(dest, argv[i], len);
+        k_argv[i] = stack_ptr;
+    }
+    k_argv[argc] = 0;
+
+    // Push envp array
+    for (int i = envc; i >= 0; i--) {
+        stack_ptr -= 8;
+        *(uint64_t*)(vmm_virt_to_phys(proc->pml4, stack_ptr) + hhdm_offset) = k_envp[i];
+    }
+    // Push argv array
+    for (int i = argc; i >= 0; i--) {
+        stack_ptr -= 8;
+        *(uint64_t*)(vmm_virt_to_phys(proc->pml4, stack_ptr) + hhdm_offset) = k_argv[i];
+    }
+
+    // Push argc
+    stack_ptr -= 8;
+    *(uint64_t*)(vmm_virt_to_phys(proc->pml4, stack_ptr) + hhdm_offset) = (uint64_t)argc;
+
+    kfree(k_envp);
+    kfree(k_argv);
+
+    proc->stack_top = stack_ptr;
+
+    // Initialize context for the first run on the new kernel stack
+    registers_t* regs = (registers_t*)(proc->kstack_top - sizeof(registers_t));
+    memset(regs, 0, sizeof(registers_t));
+    
+    regs->rip = proc->entry;
+    regs->rsp = proc->stack_top;
+    regs->cs = 0x23;
+    regs->ss = 0x1B;
+    regs->ds = 0x1B;
+    regs->es = 0x1B;
+    regs->rflags = 0x202; // IF = 1
+    
+    proc->context_ptr = regs;
+    
+    // Initialize SSE state
+    __asm__ volatile("fninit");
+    __asm__ volatile("fxsave %0" : "=m"(proc->sse_state));
+    // Set default MXCSR (bits 7-12 are masks, they should be 1 to mask exceptions)
+    *(uint32_t*)&proc->sse_state[24] = 0x1F80; 
 
     debugln("[proc] Init process created. Entry: %p, PML4: %p", proc->entry, proc->pml4);
     
@@ -175,7 +237,7 @@ void load_elf(uint8_t* elf_data) {
     }
 
     uintptr_t user_stack_base = 0x00007ffff0000000;
-    uint64_t stack_pages = 4; // 16 KiB
+    uint64_t stack_pages = 16; // 64 KiB
 
     for (uint64_t i = 0; i < stack_pages; i++) {
         void* phys = palloc_zero();
@@ -183,7 +245,7 @@ void load_elf(uint8_t* elf_data) {
         map_page(kernel_pml4, user_stack_base + (i * 0x1000), (uintptr_t)phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
     }
 
-    uintptr_t user_stack_top = user_stack_base + (stack_pages * 0x1000);
+    uintptr_t user_stack_top = user_stack_base + (stack_pages * 0x1000) - 16;
     debugln("[elf] About to jmp to userspace, hdr=> %lx, ustacktop: %p", header->e_entry, user_stack_top);
     jump_to_usermode(header->e_entry, user_stack_top);
 }

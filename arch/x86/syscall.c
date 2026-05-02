@@ -25,6 +25,8 @@ extern void kernel_shutdown(void);
 
 extern size_t keyboard_read(char* buf, size_t count);
 
+#include <sys/stat.h>
+
 static bool is_user_addr(void* ptr, size_t len) {
     uintptr_t addr = (uintptr_t)ptr;
     // Just check if it's in the lower half (Canonical address)
@@ -274,7 +276,57 @@ int sys_sysinfo(struct sysinfo* info) {
     return 0;
 }
 
-int sys_spawn(const char* path) {
+int sys_stat(const char* path, struct stat* buf) {
+    if (!path || !is_user_addr((void*)path, 1)) return -1;
+    if (!buf || !is_user_addr(buf, sizeof(struct stat))) return -1;
+
+    char kpath[256];
+    size_t i;
+    for (i = 0; i < 255; i++) {
+        if (!is_user_addr((void*)&path[i], 1)) return -1;
+        kpath[i] = path[i];
+        if (kpath[i] == '\0') break;
+    }
+    kpath[i] = '\0';
+
+    vfs_node_t* node = vfs_path_to_node(kpath);
+    if (!node) return -1;
+
+    struct stat kstat;
+    memset(&kstat, 0, sizeof(kstat));
+    kstat.st_size = node->size;
+    kstat.st_uid = node->uid;
+    kstat.st_gid = node->gid;
+    
+    if (node->type == VFS_FILE) kstat.st_mode = S_IFREG | 0755;
+    else if (node->type == VFS_DIRECTORY) kstat.st_mode = S_IFDIR | 0755;
+    
+    memcpy(buf, &kstat, sizeof(struct stat));
+    return 0;
+}
+
+int sys_fstat(int fd, struct stat* buf) {
+    if (fd < 0 || fd >= MAX_FILES) return -1;
+    if (!buf || !is_user_addr(buf, sizeof(struct stat))) return -1;
+    if (!current_process || !current_process->files[fd]) return -1;
+
+    vfs_node_t* node = current_process->files[fd]->node;
+    if (!node) return -1;
+
+    struct stat kstat;
+    memset(&kstat, 0, sizeof(kstat));
+    kstat.st_size = node->size;
+    kstat.st_uid = node->uid;
+    kstat.st_gid = node->gid;
+    
+    if (node->type == VFS_FILE) kstat.st_mode = S_IFREG | 0755;
+    else if (node->type == VFS_DIRECTORY) kstat.st_mode = S_IFDIR | 0755;
+
+    memcpy(buf, &kstat, sizeof(struct stat));
+    return 0;
+}
+
+int sys_spawn(const char* path, char** argv, char** envp) {
     if (!path || !is_user_addr((void*)path, 1)) return -1;
 
     char kpath[256];
@@ -289,9 +341,64 @@ int sys_spawn(const char* path) {
     vfs_node_t* node = vfs_path_to_node(kpath);
     if (!node || node->type != VFS_FILE) return -1;
 
-    process_t* proc = create_process_from_elf((uint8_t*)node->data);
+    // Copy argv and envp to kernel space
+    char** k_argv = NULL;
+    if (argv && is_user_addr(argv, sizeof(char*))) {
+        int argc = 0;
+        while (is_user_addr(&argv[argc], sizeof(char*)) && argv[argc]) argc++;
+        k_argv = kmalloc(sizeof(char*) * (argc + 1));
+        for (int j = 0; j < argc; j++) {
+            char* u_arg = argv[j];
+            char* k_arg = kmalloc(256); // Limit argument length
+            int l;
+            for (l = 0; l < 255; l++) {
+                if (!is_user_addr(&u_arg[l], 1)) break;
+                k_arg[l] = u_arg[l];
+                if (k_arg[l] == '\0') break;
+            }
+            k_arg[l] = '\0';
+            k_argv[j] = k_arg;
+        }
+        k_argv[argc] = NULL;
+    }
+
+    char** k_envp = NULL;
+    if (envp && is_user_addr(envp, sizeof(char*))) {
+        int envc = 0;
+        while (is_user_addr(&envp[envc], sizeof(char*)) && envp[envc]) envc++;
+        k_envp = kmalloc(sizeof(char*) * (envc + 1));
+        for (int j = 0; j < envc; j++) {
+            char* u_env = envp[j];
+            char* k_env = kmalloc(256);
+            int l;
+            for (l = 0; l < 255; l++) {
+                if (!is_user_addr(&u_env[l], 1)) break;
+                k_env[l] = u_env[l];
+                if (k_env[l] == '\0') break;
+            }
+            k_env[l] = '\0';
+            k_envp[j] = k_env;
+        }
+        k_envp[envc] = NULL;
+    }
+
+    process_t* proc = create_process_from_elf((uint8_t*)node->data, k_argv, k_envp);
+    
+    // Clean up temporary kernel buffers
+    if (k_argv) {
+        for (int j = 0; k_argv[j]; j++) kfree(k_argv[j]);
+        kfree(k_argv);
+    }
+    if (k_envp) {
+        for (int j = 0; k_envp[j]; j++) kfree(k_envp[j]);
+        kfree(k_envp);
+    }
+
     if (!proc) return -1;
 
+    if (current_process) {
+        proc->parent_pid = current_process->pid;
+    }
     add_process(proc);
     return (int)proc->pid;
 }
@@ -350,14 +457,18 @@ uint64_t syscall_handler(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t ar
             return (uint64_t)sys_open((const char*)arg1, (int)arg2);
         case 3: // close
             return (uint64_t)sys_close((int)arg1);
-        case 5: // fstat (stub)
-            return 0;
+        case 4: // stat
+            return (uint64_t)sys_stat((const char*)arg1, (struct stat*)arg2);
+        case 5: // fstat
+            return (uint64_t)sys_fstat((int)arg1, (struct stat*)arg2);
+        case 6: // lstat
+            return (uint64_t)sys_stat((const char*)arg1, (struct stat*)arg2);
         case 9: // mmap
             return (uint64_t)sys_mmap((void*)arg1, (size_t)arg2, (int)arg3, (int)arg4, (int)arg5, 0); // simplified
         case 12: // brk
             return (uint64_t)sys_brk((void*)arg1);
         case 59: // spawn (execve-like)
-            return (uint64_t)sys_spawn((const char*)arg1);
+            return (uint64_t)sys_spawn((const char*)arg1, (char**)arg2, (char**)arg3);
 
         case 217: // getdents64
             return (uint64_t)sys_getdents((int)arg1, (void*)arg2, (size_t)arg3);
@@ -378,8 +489,8 @@ uint64_t syscall_handler(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t ar
 
         case 61: // wait
             if (current_process) {
-                extern int do_wait(int pid);
-                return (uint64_t)do_wait((int)arg1);
+                extern int do_wait(int pid, int* status);
+                return (uint64_t)do_wait((int)arg1, (int*)arg2);
             }
             return -1;
 

@@ -11,7 +11,6 @@ static long long strtoll(const char *nptr, char **endptr, int base) {
     if (*nptr == '-') { sign = -1; nptr++; }
     else if (*nptr == '+') nptr++;
     
-    // Simplistic base 10/16/8 logic
     while (*nptr >= '0' && *nptr <= '9') {
         res = res * 10 + (*nptr - '0');
         nptr++;
@@ -20,16 +19,42 @@ static long long strtoll(const char *nptr, char **endptr, int base) {
     return res * sign;
 }
 
+static unsigned long long strtoull(const char *nptr, char **endptr, int base) {
+    unsigned long long res = 0;
+    while (*nptr == ' ') nptr++;
+    if (*nptr == '+') nptr++;
+    
+    while (*nptr >= '0' && *nptr <= '9') {
+        res = res * 10 + (*nptr - '0');
+        nptr++;
+    }
+    if (endptr) *endptr = (char *)nptr;
+    return res;
+}
+
+static long long strtoimax(const char *nptr, char **endptr, int base) {
+    return strtoll(nptr, endptr, base);
+}
+
+static unsigned long long strtoumax(const char *nptr, char **endptr, int base) {
+    return strtoull(nptr, endptr, base);
+}
+
+void qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *));
+
 void* malloc(size_t size);
 void free(void* ptr);
+void* calloc(size_t nmemb, size_t size);
+void* realloc(void* ptr, size_t size);
+#define alloca __builtin_alloca
 void abort(void);
 void exit(int status);
 void _exit(int status);
+int atoi(const char *nptr);
 char* getenv(const char* name);
 int system(const char* command);
 int abs(int j);
 long labs(long j);
-int atoi(const char *nptr);
 
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1

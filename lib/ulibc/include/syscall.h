@@ -94,14 +94,14 @@ static inline void sys_exit(int status) {
     __asm__ volatile ("syscall" : : "a"(60), "D"(status) : "rcx", "r11", "memory");
 }
 
-static inline int sys_spawn(const char* path) {
+static inline int sys_spawn(const char* path, char** argv, char** envp) {
     int ret;
-    __asm__ volatile ("syscall" : "=a"(ret) : "a"(59), "D"(path) : "rcx", "r11", "memory");
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(59), "D"(path), "S"(argv), "d"(envp) : "rcx", "r11", "memory");
     return ret;
 }
 
-static inline int sys_wait(int pid) {
+static inline int sys_wait(int pid, int* status) {
     int ret;
-    __asm__ volatile ("syscall" : "=a"(ret) : "a"(61), "D"(pid) : "rcx", "r11", "memory");
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(61), "D"(pid), "S"(status) : "rcx", "r11", "memory");
     return ret;
 }

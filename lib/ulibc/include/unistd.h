@@ -14,11 +14,18 @@ uid_t getuid(void);
 uid_t geteuid(void);
 gid_t getgid(void);
 gid_t getegid(void);
+int getgroups(int size, gid_t list[]);
 
 pid_t fork(void);
 pid_t getpid(void);
+pid_t getppid(void);
 int isatty(int fd);
 int pipe(int pipefd[2]);
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
+
+int dup(int oldfd);
 int dup2(int oldfd, int newfd);
 pid_t getpgrp(void);
 int setpgid(pid_t pid, pid_t pgid);

@@ -11,6 +11,7 @@ struct slab_header {
     void* free_list;
     uint32_t slot_size;
     uint32_t slots_free;
+    uint64_t padding; // Ensure 16-byte alignment for slots (24 -> 32 bytes)
 };
 
 static struct slab_header* buckets[8];

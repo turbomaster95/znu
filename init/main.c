@@ -19,7 +19,11 @@ void run_config() {
             
             if (*line != '#' && *line != '\0') {
                 printf("zInit: Spawning %s...\n", line);
-                sys_spawn(line);
+                char* argv[] = { line, NULL };
+                int pid = sys_spawn(line, argv, NULL);
+                if (pid >= 0) {
+                    sys_wait(pid, NULL);
+                }
             }
             
             if (!has_next) break;
@@ -108,25 +112,28 @@ int main() {
 	    sys_exit(0);
         } else if (strlen(line) > 0) {
             // Try to spawn as a program
-            int pid = sys_spawn(line);
+            char* argv[] = { line, NULL };
+            int pid = sys_spawn(line, argv, NULL);
             if (pid < 0) {
                 char path[256];
                 // Try /bin/
                 strcpy(path, "/bin/");
                 strcat(path, line);
-                pid = sys_spawn(path);
+                char* b_argv[] = { path, NULL };
+                pid = sys_spawn(path, b_argv, NULL);
                 
                 if (pid < 0) {
                     // Try /sbin/
                     strcpy(path, "/sbin/");
                     strcat(path, line);
-                    pid = sys_spawn(path);
+                    char* s_argv[] = { path, NULL };
+                    pid = sys_spawn(path, s_argv, NULL);
                 }
             }
             
             if (pid >= 0) {
                 printf("[zInit] Spawned %s (PID: %d)\n", line, pid);
-                sys_wait(pid);
+                sys_wait(pid, NULL);
             } else {
                 printf("?: %s\n", line);
             }
