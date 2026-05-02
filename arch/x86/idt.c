@@ -66,6 +66,7 @@ registers_t* k_exception_handler(registers_t *regs) {
         }
     } 
     else if (int_no == 33) {
+    //    debugln("[idt] Keyboard IRQ");
         keyboard_handle_scancode(inb(0x60));
     }
     else if (int_no == 48) {

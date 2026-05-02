@@ -52,7 +52,7 @@ registers_t* scheduler(registers_t* regs) {
     int found = -1;
     for (int i = 0; i < process_count; i++) {
         int idx = (next_index + i) % process_count;
-        if (processes[idx]->state == TASK_READY || processes[idx]->state == TASK_RUNNING) {
+        if (processes[idx] && (processes[idx]->state == TASK_READY || processes[idx]->state == TASK_RUNNING)) {
             found = idx;
             break;
         }
@@ -123,6 +123,7 @@ int do_wait(int pid, int* status) {
 }
 
 void do_exit(int code) {
+    debugln("[proc] PID %d exiting with code %d", current_process->pid, code);
     current_process->state = TASK_ZOMBIE;
     current_process->exit_code = code;
     
@@ -139,4 +140,52 @@ void do_exit(int code) {
     while(1) {
         __asm__ volatile("sti; hlt; cli");
     }
+}
+
+process_t* clone_process(process_t* src, registers_t* regs) {
+    process_t* dst = kmalloc(sizeof(process_t));
+    if (!dst) return NULL;
+    
+    memcpy(dst, src, sizeof(process_t));
+    
+    static uint64_t next_pid = 1000;
+    dst->pid = next_pid++;
+    dst->parent_pid = src->pid;
+    
+    // Clone address space
+    extern uint64_t* vmm_clone_pml4(uint64_t* src_pml4);
+    dst->pml4 = vmm_clone_pml4(src->pml4);
+    if (!dst->pml4) {
+        kfree(dst);
+        return NULL;
+    }
+    
+    // Allocate new kernel stack
+    void* kstack = kmalloc(32768);
+    dst->kstack_top = (uintptr_t)kstack + 32768;
+    
+    // We need to copy the kernel stack content where the syscall registers are
+    // The syscall_entry.S pushed everything onto the stack.
+    // The regs pointer points to the registers_t structure on the current kernel stack.
+    // We want the child to have its own copy of those registers on its own kernel stack.
+    
+    // Calculate the offset of regs relative to the top of the parent's kernel stack
+    uintptr_t offset = src->kstack_top - (uintptr_t)regs;
+    
+    // The child's context_ptr should be at the same offset on its own stack
+    dst->context_ptr = (registers_t*)(dst->kstack_top - offset);
+    
+    // Copy the registers and everything below them (down to the current rsp)
+    // But since we are IN the syscall, we only care about the registers_t frame.
+    memcpy(dst->context_ptr, regs, offset);
+    
+    // Child returns 0
+    dst->context_ptr->rax = 0;
+    
+    dst->state = TASK_READY;
+    
+    // Reset some process-specific fields if necessary
+    // (e.g. child doesn't share same file handles in a simple way for now)
+    
+    return dst;
 }

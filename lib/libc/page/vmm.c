@@ -149,6 +149,74 @@ void init_vmm(struct limine_memmap_response* memmap) {
     debugln("[VMM] VMM initialization successful. Context switched.");
 }
 
+
+/**
+ * vmm_clone_pml4: Creates a deep copy of a PML4 (user-space only)
+ */
+uint64_t* vmm_clone_pml4(uint64_t* src_pml4_virt) {
+    // 1. Allocate new PML4
+    uint64_t* dst_pml4 = (uint64_t*)PHYS_TO_VIRT(palloc_zero());
+    if (!dst_pml4) return NULL;
+
+    // 2. Clone Kernel Half (Entries 256-511)
+    // We can just copy these directly as they are shared
+    for (int i = 256; i < 512; i++) {
+        dst_pml4[i] = src_pml4_virt[i];
+    }
+
+    // 3. Clone User Half (Entries 0-255)
+    // We need to recursively copy all present pages
+    for (int i = 0; i < 256; i++) {
+        if (!(src_pml4_virt[i] & PTE_PRESENT)) continue;
+
+        uint64_t* src_pdpt = (uint64_t*)PHYS_TO_VIRT(src_pml4_virt[i] & ~0xFFF);
+        uint64_t* dst_pdpt = (uint64_t*)PHYS_TO_VIRT(palloc_zero());
+        dst_pml4[i] = VIRT_TO_PHYS(dst_pdpt) | (src_pml4_virt[i] & 0xFFF);
+
+        for (int j = 0; j < 512; j++) {
+            if (!(src_pdpt[j] & PTE_PRESENT)) continue;
+            
+            // Handle 1GB huge pages if necessary, but Znu likely doesn't use them for user space
+            if (src_pdpt[j] & (1ULL << 7)) {
+                // For now, we don't support cloning huge pages (rare in simple kernels)
+                continue;
+            }
+
+            uint64_t* src_pd = (uint64_t*)PHYS_TO_VIRT(src_pdpt[j] & ~0xFFF);
+            uint64_t* dst_pd = (uint64_t*)PHYS_TO_VIRT(palloc_zero());
+            dst_pdpt[j] = VIRT_TO_PHYS(dst_pd) | (src_pdpt[j] & 0xFFF);
+
+            for (int k = 0; k < 512; k++) {
+                if (!(src_pd[k] & PTE_PRESENT)) continue;
+
+                if (src_pd[k] & (1ULL << 7)) { // 2MB page
+                     continue;
+                }
+
+                uint64_t* src_pt = (uint64_t*)PHYS_TO_VIRT(src_pd[k] & ~0xFFF);
+                uint64_t* dst_pt = (uint64_t*)PHYS_TO_VIRT(palloc_zero());
+                dst_pd[k] = VIRT_TO_PHYS(dst_pt) | (src_pd[k] & 0xFFF);
+
+                for (int l = 0; l < 512; l++) {
+                    if (!(src_pt[l] & PTE_PRESENT)) continue;
+
+                    // This is a leaf page. Deep copy it.
+                    uint64_t src_phys = src_pt[l] & ~0xFFF;
+                    uint64_t* dst_page_virt = (uint64_t*)PHYS_TO_VIRT(palloc_zero());
+                    
+                    // Copy the content
+                    memcpy(dst_page_virt, PHYS_TO_VIRT(src_phys), PAGE_SIZE);
+
+                    // Map it in the new table
+                    dst_pt[l] = VIRT_TO_PHYS(dst_page_virt) | (src_pt[l] & 0xFFF);
+                }
+            }
+        }
+    }
+
+    return dst_pml4;
+}
+
 /**
  * vmm_get_kernel_pml4: Returns the active kernel address space
  */

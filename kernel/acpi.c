@@ -28,7 +28,7 @@ static uint32_t pci_get_addr(uacpi_handle device, uacpi_size offset) {
     uint8_t bus = (addr >> 32) & 0xFF;
     uint8_t dev = (addr >> 16) & 0xFF;
     uint8_t func = addr & 0xFF;
-    return (uint32_t)((1 << 31) | (bus << 16) | (dev << 11) | (func << 8) | (offset & 0xFC));
+    return (uint32_t)((1U << 31) | (bus << 16) | (dev << 11) | (func << 8) | (offset & 0xFC));
 }
 
 void uacpi_kernel_vlog(uacpi_log_level lvl, const char *fmt, va_list args) {

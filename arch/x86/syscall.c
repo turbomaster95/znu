@@ -104,6 +104,17 @@ long sys_read(int fd, void* buf, size_t count) {
             while (got < count) {
                 char c;
                 if (keyboard_read(&c, 1) > 0) {
+                 //   debugln("[sys] PID %d READ from kb: '%c' (0x%x)", current_process->pid, c, c);
+                    if (c == '\r') c = '\n'; // Map CR to LF for the shell
+                    debug_putchar(c);
+                    user_buf[got++] = c;
+                    return got;
+                }
+                extern int serial_read_nonblock(char* buf, int count);
+                if (serial_read_nonblock(&c, 1) > 0) {
+                 //   debugln("[sys] PID %d READ from serial: '%c' (0x%x)", current_process->pid, c, c);
+                    if (c == '\r') c = '\n'; // Map CR to LF for the shell
+                    debug_putchar(c);
                     user_buf[got++] = c;
                     return got;
                 }
@@ -115,7 +126,9 @@ long sys_read(int fd, void* buf, size_t count) {
     }
 
     vfs_file_t* file = current_process->files[fd];
-    if (!file) return -1;
+    if (file == (void*)0x1 || !file) {
+        return -1;
+    }
 
     int ret = vfs_read(file->node, buf, count, file->pos);
     if (ret > 0) file->pos += ret;
@@ -137,7 +150,7 @@ long sys_write(int fd, const void* buf, size_t count) {
         return -1;
     }
     vfs_file_t* file = current_process->files[fd];
-    if (!file) {
+    if (file == (void*)0x1 || !file) {
         // Fallback for stdout/stderr markers or uninitialized files
         if (fd == 1 || fd == 2) {
             const char* ptr = (const char*)buf;
@@ -289,8 +302,8 @@ int sys_stat(const char* path, struct stat* buf) {
     }
     kpath[i] = '\0';
 
-    vfs_node_t* node = vfs_path_to_node(kpath);
-    if (!node) return -1;
+    debugln("[sys] stat path: %s", kpath);    vfs_node_t* node = vfs_path_to_node(kpath);
+    debugln("[sys] stat: %s", kpath);    if (!node) return -1;
 
     struct stat kstat;
     memset(&kstat, 0, sizeof(kstat));
@@ -339,7 +352,10 @@ int sys_spawn(const char* path, char** argv, char** envp) {
     kpath[i] = '\0';
 
     vfs_node_t* node = vfs_path_to_node(kpath);
-    if (!node || node->type != VFS_FILE) return -1;
+    if (!node || node->type != VFS_FILE) {
+        debugerr("[sys] Failed to find executable at %s", kpath);
+        return -1;
+    }
 
     // Copy argv and envp to kernel space
     char** k_argv = NULL;
@@ -394,7 +410,10 @@ int sys_spawn(const char* path, char** argv, char** envp) {
         kfree(k_envp);
     }
 
-    if (!proc) return -1;
+    if (!proc) {
+        debugerr("[sys] Failed to create process from ELF for %s", kpath);
+        return -1;
+    }
 
     if (current_process) {
         proc->parent_pid = current_process->pid;
@@ -447,7 +466,83 @@ void* sys_mmap(void* addr, size_t len, int prot, int flags, int fd, uint64_t off
     return addr;
 }
 
-uint64_t syscall_handler(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5) {
+long sys_fork(registers_t* regs) {
+    if (!current_process) return -1;
+    
+    extern process_t* clone_process(process_t* src, registers_t* regs);
+    process_t* child = clone_process(current_process, regs);
+    if (!child) return -1;
+    
+    add_process(child);
+    return (long)child->pid;
+}
+
+long sys_execve(const char* path, char** argv, char** envp, registers_t* regs) {
+    if (!current_process) return -1;
+    
+    char kpath[256];
+    size_t i;
+    for (i = 0; i < 255; i++) {
+        if (!is_user_addr((void*)&path[i], 1)) return -1;
+        kpath[i] = path[i];
+        if (kpath[i] == '\0') break;
+    }
+    kpath[i] = '\0';
+    
+    debugln("[sys] PID %d EXECVE: %s", current_process->pid, kpath);
+
+    vfs_node_t* node = vfs_path_to_node(kpath);
+    if (!node || node->type != VFS_FILE) {
+        debugerr("[sys] EXECVE failed: %s not found", kpath);
+        return -1;
+    }
+
+    extern int replace_process_with_elf(process_t* proc, uint8_t* elf_data, char** argv, char** envp, registers_t* regs);
+    return replace_process_with_elf(current_process, (uint8_t*)node->data, argv, envp, regs);
+}
+
+long sys_ioctl(int fd, unsigned long request, void* argp) {
+    if (fd < 0 || fd >= MAX_FILES) return -1;
+    
+    // TCGETS is 0x5401 on Linux. We just return 0 for stdin/stdout/stderr
+    // to trick the libc into thinking it's a TTY.
+    // TCGETS is 0x5401 on Linux. TCSETS is 0x5402, 0x5403, 0x5404.
+    // TIOCGWINSZ is 0x5413.
+    if ((fd == 0 || fd == 1 || fd == 2) && (request == 0x5401 || request == 0x5402 || request == 0x5403 || request == 0x5404 || request == 0x5413)) {
+        if (request == 0x5401 && argp && current_process && is_user_addr(argp, 36)) {
+            memset(argp, 0, 36); 
+            // Set ICANON (2) and ECHO (8) in c_lflag (offset 12)
+            ((uint32_t*)argp)[3] = 0xA;
+        }
+        if (request == 0x5413 && argp && current_process && is_user_addr(argp, 8)) {
+            // struct winsize: rows, cols, xpixel, ypixel (all uint16_t)
+            uint16_t* ws = (uint16_t*)argp;
+            ws[0] = 25; // 25 rows
+            ws[1] = 80; // 80 cols
+            ws[2] = 0;
+            ws[3] = 0;
+        }
+        return 0; 
+    }
+    
+    return -1; // ENOTTY or invalid
+}
+
+uint64_t syscall_handler(registers_t* regs) {
+    uint64_t num = regs->rax;
+    uint64_t arg1 = regs->rdi;
+    uint64_t arg2 = regs->rsi;
+    uint64_t arg3 = regs->rdx;
+    uint64_t arg4 = regs->r10;
+    uint64_t arg5 = regs->r8;
+
+    if (current_process && current_process->pid == 2) {
+        if (num == 1) {
+            debugln("[sys] PID 2 WRITE: fd=%d, buf=%p, len=%d", (int)arg1, (void*)arg2, (int)arg3);
+        } else if (num != 0) { // Don't log read, it's noisy
+            debugln("[sys] PID 2 SYSCALL START: %d (arg1=%d, arg2=%p)", (int)num, (int)arg1, (void*)arg2);
+        }
+    }
     switch (num) {
         case 0: // read
             return (uint64_t)sys_read((int)arg1, (void*)arg2, (size_t)arg3);
@@ -467,7 +562,13 @@ uint64_t syscall_handler(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t ar
             return (uint64_t)sys_mmap((void*)arg1, (size_t)arg2, (int)arg3, (int)arg4, (int)arg5, 0); // simplified
         case 12: // brk
             return (uint64_t)sys_brk((void*)arg1);
-        case 59: // spawn (execve-like)
+        case 16: // ioctl
+            return (uint64_t)sys_ioctl((int)arg1, (unsigned long)arg2, (void*)arg3);
+        case 57: // fork
+            return (uint64_t)sys_fork(regs);
+        case 59: // execve
+            return (uint64_t)sys_execve((const char*)arg1, (char**)arg2, (char**)arg3, regs);
+        case 159: // spawn (custom)
             return (uint64_t)sys_spawn((const char*)arg1, (char**)arg2, (char**)arg3);
 
         case 217: // getdents64

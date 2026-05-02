@@ -194,15 +194,15 @@ AFLAGS_KERNEL	=
 # Needed to be compatible with the O= option
 LINUXINCLUDE    := -Iinclude \
                    $(if $(KBUILD_SRC), -I$(srctree)/include) \
-                   -include include/generated/autoconf.h
+                   -include include/generated/autoconf.h -include $(srctree)/include/prelude.h
 
-KBUILD_CPPFLAGS := -D__KERNEL__
+KBUILD_CPPFLAGS := -D__KERNEL__ -include $(srctree)/include/prelude.h
 
 KBUILD_CFLAGS   := -Wall -Wno-unused-variable -Wundef -Wstrict-prototypes -Wno-trigraphs -mno-mmx -mno-sse -mno-sse2 \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
-		   -Wno-format-security \
-		   -fno-delete-null-pointer-checks \
+		   -Wno-format-security -include $(srctree)/include/prelude.h \
+		   -fno-delete-null-pointer-checks -fno-sanitize=address \
 		   $(EXTRA_CFLAGS)
 
 LDFLAGS += -nostdlib
@@ -393,7 +393,7 @@ endif
 $(sort $($(TARGET)-all)): $($(TARGET)-dirs) ;
 
 quiet_cmd_qemur = QEMU    $(ISOIMAGE)
-      cmd_qemur = qemu-system-x86_64 -hdd $(ISOIMAGE) -m 4G -debugcon stdio -cpu qemu64 -accel tcg
+      cmd_qemur = qemu-system-x86_64 -hdd $(ISOIMAGE) -m 4G -debugcon file:debug.log -cpu qemu64 -accel tcg -serial mon:stdio
 
 PHONY += run
 run: FORCE
@@ -424,11 +424,11 @@ $($(TARGET)-dirs): scripts_basic
 # make distclean Remove editor backup files, patch leftover files and the like
 
 # Directories & files removed with 'make clean'
-CLEAN_DIRS  += lib/uacpi/.uacpi_out lib/flanterm/.flt_out
+CLEAN_DIRS  += 
 CLEAN_FILES +=	$(TARGET) $(STARGET) uki/Znu.efi $(ISOIMAGE) configs/iso_root/boot/initramfs.cpio configs/iso_root/boot/kernel.bin configs/sysroot/bin/*
 
 # Directories & files removed with 'make mrproper'
-MRPROPER_DIRS  += include/config include/generated lib/uacpi scripts/limine build/ $(CLEAN_DIRS)
+MRPROPER_DIRS  += include/config include/generated lib/uacpi scripts/limine build/ $(CLEAN_DIRS) lib/uacpi/.uacpi_out lib/flanterm/.flt_out
 MRPROPER_FILES += .config .config.old tags TAGS cscope* GPATH GTAGS GRTAGS GSYMS $(CLEAN_FILES)
 
 # clean - Delete most, but leave enough to build external modules
@@ -506,6 +506,7 @@ help:
 	@echo  '  all		  - Build all targets marked with [*]'
 	@echo  '* $(TARGET)	  	  - Build the application'
 	@echo  '  dir/            - Build all files in dir and below'
+	@echo  '  run             - Run the application in QEMU'
 	@echo  '  dir/file.[oisS] - Build specified target only'
 	@echo  '  dir/file.lst    - Build specified mixed source/assembly target only'
 	@echo  '                    (requires a recent binutils and recent build (System.map))'

@@ -7,6 +7,8 @@ static uint8_t kb_buffer[KB_BUF_SIZE];
 static volatile size_t kb_head = 0;
 static volatile size_t kb_tail = 0;
 
+static uint8_t shift_pressed = 0;
+
 /**
  * Scan Code Set 1 ASCII Mapping
  * Using designated initializers for clarity.
@@ -32,15 +34,53 @@ static const char ascii[128] = {
     [0x39] = ' ',  // Space
 };
 
-void keyboard_handle_scancode(uint8_t scancode) {
-    // Ignore release codes (break codes)
-    if (scancode & 0x80) return;
+static const char ascii_shifted[128] = {
+    [0x02] = '!', [0x03] = '@', [0x04] = '#', [0x05] = '$', [0x06] = '%',
+    [0x07] = '^', [0x08] = '&', [0x09] = '*', [0x0A] = '(', [0x0B] = ')',
+    [0x0C] = '_', [0x0D] = '+', 
+    [0x10] = 'Q', [0x11] = 'W', [0x12] = 'E', [0x13] = 'R', [0x14] = 'T',
+    [0x15] = 'Y', [0x16] = 'U', [0x17] = 'I', [0x18] = 'O', [0x19] = 'P',
+    [0x1A] = '{', [0x1B] = '}', 
+    [0x1E] = 'A', [0x1F] = 'S', [0x20] = 'D', [0x21] = 'F', [0x22] = 'G',
+    [0x23] = 'H', [0x24] = 'J', [0x25] = 'K', [0x26] = 'L', [0x27] = ':',
+    [0x28] = '"', [0x29] = '~', 
+    [0x2B] = '|',
+    [0x2C] = 'Z', [0x2D] = 'X', [0x2E] = 'C', [0x2F] = 'V', [0x30] = 'B',
+    [0x31] = 'N', [0x32] = 'M', [0x33] = '<', [0x34] = '>', [0x35] = '?',
+};
 
-    if (scancode < 128 && ascii[scancode]) {
+void keyboard_handle_scancode(uint8_t scancode) {
+    // Handle shift state
+    if (scancode == 0x2A || scancode == 0x36) {
+        shift_pressed = true;
+        return;
+    }
+    if (scancode == 0xAA || scancode == 0xB6) {
+        shift_pressed = false;
+        return;
+    }
+
+    // Ignore other release codes
+    if (scancode & 0x80) {
+        return;
+    }
+
+    char c = 0;
+    if (scancode < 128) {
+        if (shift_pressed && ascii_shifted[scancode]) {
+            c = ascii_shifted[scancode];
+        } else {
+            c = ascii[scancode];
+        }
+    }
+
+    if (c) {
         size_t next = (kb_head + 1) % KB_BUF_SIZE;
         if (next != kb_tail) {
-            kb_buffer[kb_head] = ascii[scancode];
+            kb_buffer[kb_head] = c;
             kb_head = next;
+        } else {
+            // debugln("[kb]   Buffer full!");
         }
     }
 }

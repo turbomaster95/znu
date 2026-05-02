@@ -18,12 +18,12 @@ void run_config() {
             *end = '\0';
             
             if (*line != '#' && *line != '\0') {
-                printf("zInit: Spawning %s...\n", line);
-                char* argv[] = { line, NULL };
+                printf("zInit: Spawning %s -i...\n", line);
+                char* argv[] = { line, "-i", NULL };
                 int pid = sys_spawn(line, argv, NULL);
-                if (pid >= 0) {
-                    sys_wait(pid, NULL);
-                }
+                int status = 0;
+                int waited_pid = sys_wait(pid, &status);
+                printf("[zInit] Process %d exited with status %d\n", waited_pid, status);
             }
             
             if (!has_next) break;
@@ -133,7 +133,9 @@ int main() {
             
             if (pid >= 0) {
                 printf("[zInit] Spawned %s (PID: %d)\n", line, pid);
-                sys_wait(pid, NULL);
+                int status = 0;
+                int waited_pid = sys_wait(pid, &status);
+                printf("[zInit] Process %d exited with status %d\n", waited_pid, status);
             } else {
                 printf("?: %s\n", line);
             }

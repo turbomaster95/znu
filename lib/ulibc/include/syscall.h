@@ -96,7 +96,7 @@ static inline void sys_exit(int status) {
 
 static inline int sys_spawn(const char* path, char** argv, char** envp) {
     int ret;
-    __asm__ volatile ("syscall" : "=a"(ret) : "a"(59), "D"(path), "S"(argv), "d"(envp) : "rcx", "r11", "memory");
+    __asm__ volatile ("syscall" : "=a"(ret) : "a"(159), "D"(path), "S"(argv), "d"(envp) : "rcx", "r11", "memory");
     return ret;
 }
 

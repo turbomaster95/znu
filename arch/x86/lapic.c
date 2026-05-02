@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <pi.h>
 #include <lapic.h>
+#include <prelude.h>
 
 extern volatile uint64_t timer_ticks;
 
@@ -32,11 +33,11 @@ volatile uint32_t lapic_ticks_per_ms = 0;
 volatile bool lapic_timer_fired = false;
 
 // --- Helper functions for LAPIC MMIO access ---
-uint32_t lapic_read(uint32_t offset) {
+PERFORM uint32_t lapic_read(uint32_t offset) {
     return *(volatile uint32_t*)((uintptr_t)lapic_base + offset);
 }
 
-void lapic_write(uint32_t offset, uint32_t value) {
+PERFORM void lapic_write(uint32_t offset, uint32_t value) {
     *(volatile uint32_t*)((uintptr_t)lapic_base + offset) = value;
 }
 
@@ -87,7 +88,7 @@ void lapic_init() {
 // --- LAPIC Timer Calibration ---
 // Calibrates the LAPIC timer by comparing it against the PIT.
 // Assumes PIT is initialized to a known frequency (e.g., 1000 Hz) and interrupts are enabled.
-void calibrate_lapic_timer_no_irq() {
+PERFORM void calibrate_lapic_timer_no_irq() {
     pit_init(1000); // 1ms per wrap roughly, but we'll use the raw count
     
     lapic_write(LAPIC_REG_DIVIDE_CONF, 0x03); // Divide by 16
@@ -111,7 +112,7 @@ void calibrate_lapic_timer_no_irq() {
 }
 
 
-void calibrate_lapic_timer() {
+PERFORM void calibrate_lapic_timer() {
     if (!lapic_base) {
         debugerr("LAPIC not initialized, cannot calibrate timer.");
         return;
@@ -192,7 +193,7 @@ void lapic_eoi() {
 extern void lapic_timer_isr_wrapper(void);
 
 // C function for the LAPIC timer ISR
-void lapic_timer_isr() {
+PERFORM void lapic_timer_isr() {
     // This ISR is called when the LAPIC timer expires.
 
     // 1. Acknowledge the interrupt to the LAPIC.
@@ -204,7 +205,7 @@ void lapic_timer_isr() {
 }
 
 // Implements power-saving sleep using the LAPIC timer in one-shot mode.
-void sleep(uint32_t ms) {
+PERFORM void sleep(uint32_t ms) {
     if (!lapic_base) {
         debugerr("LAPIC not initialized, cannot sleep.");
         return;

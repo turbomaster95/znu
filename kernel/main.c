@@ -20,6 +20,7 @@
 #include <kernel.h>
 
 bool krnl_init_done = false;
+ extern void serial_init();
 
 // Set the base revision to 5, this is recommended as this is the latest
 // base revision described by the Limine boot protocol specification.
@@ -238,6 +239,9 @@ void kmain(void) {
     pit_init(1000);
     debugln("[pit] PIT initialized for calibration.");
 
+   
+    serial_init();
+    debugln("[serial] Serial initialized.");
     ps2_init();
     debugln("[ps2] Initialized PS/2");
 

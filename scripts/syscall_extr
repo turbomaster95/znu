@@ -1,0 +1,171 @@
+#!/usr/bin/env python3
+import sys
+import re
+from elftools.elf.elffile import ELFFile
+from capstone import *
+from capstone.x86 import *
+from unicorn import *
+from unicorn.x86_const import *
+from miasm.analysis.binary import Container
+from miasm.analysis.machine import Machine
+from miasm.expression.expression import ExprInt
+
+def parse_tbl(file_path):
+    syscalls = {}
+    pattern = re.compile(r'^(\d+)\s+(\S+)\s+(\S+)\s+(\S+)')
+    try:
+        with open(file_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'): continue
+                match = pattern.match(line)
+                if match:
+                    num, abi, name, entry = match.groups()
+                    syscalls[int(num)] = name
+        return syscalls
+    except Exception: return {}
+
+class EmuTracer:
+    def __init__(self, binary_path, syscall_map):
+        self.path = binary_path
+        self.map = syscall_map
+        self.results = {}
+        self.STACK_ADDR = 0x7ffffffff000
+        self.STACK_SIZE = 1024 * 1024
+        self.BASE_ADDR = 0x400000
+
+    def _setup_stack(self, mu):
+        # Build a basic Linux x86_64 stack frame: [argc] [argvptr] [null]
+        sp = self.STACK_ADDR + (self.STACK_SIZE // 2)
+        
+        def push(val):
+            nonlocal sp
+            sp -= 8
+            mu.mem_write(sp, val.to_bytes(8, 'little'))
+
+        push(0)             # envp NULL
+        push(0)             # argv NULL
+        push(self.BASE_ADDR) # argv[0] dummy string pointer
+        push(1)             # argc = 1
+        mu.reg_write(UC_X86_REG_RSP, sp)
+
+    def _hook_syscall(self, uc, user_data):
+        rax = uc.reg_read(UC_X86_REG_RAX)
+        rip = uc.reg_read(UC_X86_REG_RIP)
+        rdi = uc.reg_read(UC_X86_REG_RDI)
+        rdx = uc.reg_read(UC_X86_REG_RDX)
+        
+        # Log the hit
+        self.results[rip] = (rax, self.map.get(rax, f"UNKN_{rax}"))
+        
+        # We must return success values for the binary to keep moving
+        ret_val = 0
+        if rax == 12:   # brk: return a fake heap address
+            ret_val = self.BASE_ADDR + 0x100000
+        elif rax == 9:  # mmap: return a new page
+            ret_val = 0x80000000
+        elif rax == 1:  # write: return length
+            ret_val = rdx
+        elif rax == 60: # exit
+            uc.emu_stop()
+            return
+        
+        uc.reg_write(UC_X86_REG_RAX, ret_val)
+
+    def run(self):
+        try:
+            with open(self.path, 'rb') as f:
+                elf = ELFFile(f)
+                mu = Uc(UC_ARCH_X86, UC_MODE_64)
+                
+                # Load segments
+                for seg in elf.iter_segments():
+                    if seg['p_type'] == 'PT_LOAD':
+                        addr = seg['p_vaddr'] & ~0xfff
+                        size = (seg['p_memsz'] + 0xfff) & ~0xfff
+                        mu.mem_map(addr, size)
+                        mu.mem_write(seg['p_vaddr'], seg.data())
+                
+                mu.mem_map(self.STACK_ADDR, self.STACK_SIZE)
+                self._setup_stack(mu)
+                
+                # Hook syscall instruction
+                mu.hook_add(UC_HOOK_INSN, self._hook_syscall, None, 1, 0, UC_X86_INS_SYSCALL)
+                
+                mu.emu_start(elf.header['e_entry'], until=-1, count=10000)
+        except Exception: pass
+        return self.results
+
+def run_symbolic(binary_path, syscall_map):
+    sym_results = {}
+    try:
+        cont = Container.from_file(binary_path)
+        machine = Machine("x86_64")
+        mre = machine.net_recon(cont.bin_stream, cont.loc_db, cont.entry_point)
+        
+        for addr, block in mre.blocks.items():
+            if not block.lines: continue
+            if "SYSCALL" in str(block.lines[-1]).upper():
+                for line in reversed(block.lines):
+                    if "MOV" in line.name and any(reg in str(line.args[0]).upper() for reg in ["EAX", "RAX"]):
+                        if isinstance(line.args[1], ExprInt):
+                            val = int(line.args[1])
+                            sym_results[block.lines[-1].offset] = (val, syscall_map.get(val, f"UNKN_{val}"))
+                            break
+    except Exception: pass
+    return sym_results
+
+def analyze_and_merge(binary_path, syscall_map, emu_data, sym_data):
+    results = []
+    reg_state = {}
+    with open(binary_path, 'rb') as f:
+        elf = ELFFile(f)
+        md = Cs(CS_ARCH_X86, CS_MODE_64)
+        md.detail = True
+        for section in elf.iter_sections():
+            if section['sh_flags'] & 0x4: # SHT_PROGBITS + EXEC
+                for insn in md.disasm(section.data(), section['sh_addr']):
+                    if insn.mnemonic == "mov" and insn.operands[0].type == X86_OP_REG:
+                        if insn.operands[1].type == X86_OP_IMM:
+                            reg_state[insn.operands[0].reg] = insn.operands[1].imm
+                    elif insn.mnemonic == "xor":
+                        op1, op2 = insn.operands[0], insn.operands[1]
+                        if op1.type == X86_OP_REG and op1.reg == op2.reg:
+                            reg_state[op1.reg] = 0
+                    elif insn.mnemonic == "call":
+                        reg_state.pop(X86_REG_RAX, None)
+                        reg_state.pop(X86_REG_EAX, None)
+
+                    if insn.mnemonic == "syscall":
+                        # Check Emulation results first (highest accuracy)
+                        emu_match = emu_data.get(insn.address) or emu_data.get(insn.address + 2)
+                        
+                        if emu_match:
+                            v, n, m = emu_match[0], emu_match[1], "[EMU]"
+                        elif insn.address in sym_data:
+                            v, n, m = sym_data[insn.address][0], sym_data[insn.address][1], "[SYM]"
+                        else:
+                            rax = reg_state.get(X86_REG_RAX, reg_state.get(X86_REG_EAX))
+                            if rax is not None and rax >= 0:
+                                v, n, m = rax, syscall_map.get(rax, f"UNKN_{rax}"), "[STAT]"
+                            else:
+                                v, n, m = "?", "DYNAMIC", "[????]"
+                        
+                        results.append({"addr": hex(insn.address), "id": v, "name": n, "meth": m})
+    return results
+
+def main():
+    if len(sys.argv) < 3: return print(f"Usage: {sys.argv[0]} <tbl> <bin>")
+    tbl = parse_tbl(sys.argv[1])
+    print("[*] Performing Hybrid Analysis (FakeKernel + Symbolic + Static)...")
+    
+    emu_res = EmuTracer(sys.argv[2], tbl).run()
+    sym_res = run_symbolic(sys.argv[2], tbl)
+    final = analyze_and_merge(sys.argv[2], tbl, emu_res, sym_res)
+
+    print(f"\n{'Address':<15} {'ID':<8} {'Name':<15} {'Method'}")
+    print("-" * 55)
+    for e in final:
+        print(f"{e['addr']:<15} {str(e['id']):<8} {str(e['name']):<15} {e['meth']}")
+
+if __name__ == "__main__": main()
