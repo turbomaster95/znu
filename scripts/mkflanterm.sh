@@ -60,7 +60,7 @@ for f in $FILES; do
         continue
     fi
 
-    echo "  ACC     $DISPATH"
+    echo "  CC      $DISPATH"
     if $CC -c "$f" -o "$obj_path" $INC -isystem "$INTERNAL_INC" \
         -U__linux__ -w -U__unix__ \
         -include "$SRCTREE/lib/libc/include/string.h" \
