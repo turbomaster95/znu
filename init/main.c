@@ -100,9 +100,9 @@ int main() {
             struct sysinfo info;
             if (sys_sysinfo(&info) == 0) {
                 printf("Memory usage:\n");
-                printf("  Total: %d MB\n", info.totalram / 1024 / 1024);
-                printf("  Free:  %d MB\n", info.freeram / 1024 / 1024);
-                printf("  Used:  %d MB\n", (info.totalram - info.freeram) / 1024 / 1024);
+                printf("  Total: %ld MB\n", info.totalram / 1024 / 1024);
+                printf("  Free:  %ld MB\n", info.freeram / 1024 / 1024);
+                printf("  Used:  %ld MB\n", (info.totalram - info.freeram) / 1024 / 1024);
                 printf("  Procs: %d\n", info.procs);
             } else printf("sysinfo failed\n");
         } else if (strncmp(line, "echo ", 5) == 0) {

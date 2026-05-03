@@ -86,7 +86,7 @@ Znu.iso
 znu
 znus
 configs/iso_root/boot/kernel.bin
-configs/sysroot/bin/init
+configs/sysroot/bin/*
 lib/.uacpi_out
 init/init.elf
 NvVars

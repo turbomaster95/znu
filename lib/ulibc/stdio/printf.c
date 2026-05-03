@@ -23,11 +23,39 @@ int vsnprintf(char* str, size_t size, const char* format, va_list ap) {
     while (*p != '\0') {
         if (*p == '%' && *(p + 1) != '\0') {
             p++;
+            
+            int zero_pad = 0;
+            int width = 0;
+            if (*p == '0') {
+                zero_pad = 1;
+                p++;
+            }
+            while (*p >= '0' && *p <= '9') {
+                width = width * 10 + (*p - '0');
+                p++;
+            }
+
+            int is_long = 0;
+            int is_long_long = 0;
+            int is_size_t = 0;
+            if (*p == 'l') {
+                is_long = 1;
+                p++;
+                if (*p == 'l') {
+                    is_long_long = 1;
+                    p++;
+                }
+            } else if (*p == 'z') {
+                is_size_t = 1;
+                p++;
+            }
+
             if (*p == 'c') {
                 char c = (char)va_arg(ap, int);
                 if (str && count < size - 1) str[count] = c;
                 count++;
-            } else if (*p == 's') {
+            } 
+            else if (*p == 's') {
                 char* s = va_arg(ap, char*);
                 if (!s) s = "(null)";
                 while (*s) {
@@ -35,64 +63,69 @@ int vsnprintf(char* str, size_t size, const char* format, va_list ap) {
                     s++;
                     count++;
                 }
-            } else if (*p == 'd' || *p == 'i') {
-                int num = va_arg(ap, int);
-                if (num == 0) {
-                    if (str && count < size - 1) str[count] = '0';
-                    count++;
+            } 
+            else if (*p == 'd' || *p == 'i' || *p == 'u' || *p == 'x' || *p == 'X' || *p == 'p') {
+                uint64_t num;
+                int negative = 0;
+                int base = 10;
+                int uppercase = 0;
+
+                if (*p == 'd' || *p == 'i') {
+                    int64_t s_num;
+                    if (is_long_long) s_num = va_arg(ap, int64_t);
+                    else if (is_long) s_num = va_arg(ap, long);
+                    else if (is_size_t) s_num = va_arg(ap, size_t);
+                    else s_num = va_arg(ap, int);
+                    
+                    if (s_num < 0) {
+                        negative = 1;
+                        num = (uint64_t)(-s_num);
+                    } else {
+                        num = (uint64_t)s_num;
+                    }
                 } else {
-                    if (num < 0) {
-                        if (str && count < size - 1) str[count] = '-';
-                        count++;
-                        num = -num;
-                    }
-                    char buf[32];
-                    int i = 0;
+                    if (*p == 'x' || *p == 'X' || *p == 'p') base = 16;
+                    if (*p == 'X') uppercase = 1;
+                    if (*p == 'p') {
+                        num = (uintptr_t)va_arg(ap, void*);
+                        if (str && count < size - 1) str[count] = '0'; count++;
+                        if (str && count < size - 1) str[count] = 'x'; count++;
+                    } 
+                    else if (is_long_long) num = va_arg(ap, uint64_t);
+                    else if (is_long) num = va_arg(ap, unsigned long);
+                    else if (is_size_t) num = va_arg(ap, size_t);
+                    else num = va_arg(ap, unsigned int);
+                }
+
+                char buf[64];
+                int i = 0;
+                if (num == 0) buf[i++] = '0';
+                else {
                     while (num > 0) {
-                        buf[i++] = (num % 10) + '0';
-                        num /= 10;
-                    }
-                    while (i > 0) {
-                        if (str && count < size - 1) str[count] = buf[--i];
-                        count++;
+                        int rem = num % base;
+                        if (rem < 10) buf[i++] = rem + '0';
+                        else buf[i++] = rem - 10 + (uppercase ? 'A' : 'a');
+                        num /= base;
                     }
                 }
-            } else if (*p == 'u') {
-                unsigned int num = va_arg(ap, unsigned int);
-                if (num == 0) {
-                    if (str && count < size - 1) str[count] = '0';
+
+                if (negative) {
+                    if (str && count < size - 1) str[count] = '-';
                     count++;
-                } else {
-                    char buf[32];
-                    int i = 0;
-                    while (num > 0) {
-                        buf[i++] = (num % 10) + '0';
-                        num /= 10;
-                    }
-                    while (i > 0) {
-                        if (str && count < size - 1) str[count] = buf[--i];
-                        count++;
-                    }
                 }
-            } else if (*p == 'x' || *p == 'p') {
-                uintptr_t num = va_arg(ap, uintptr_t);
-                if (num == 0) {
-                    if (str && count < size - 1) str[count] = '0';
+
+                while (i < width) {
+                    if (str && count < size - 1) str[count] = zero_pad ? '0' : ' ';
                     count++;
-                } else {
-                    char buf[32];
-                    int i = 0;
-                    while (num > 0) {
-                        int rem = num % 16;
-                        buf[i++] = (rem < 10) ? (rem + '0') : (rem - 10 + 'a');
-                        num /= 16;
-                    }
-                    while (i > 0) {
-                        if (str && count < size - 1) str[count] = buf[--i];
-                        count++;
-                    }
+                    width--;
                 }
-            } else if (*p == '%') {
+
+                while (i > 0) {
+                    if (str && count < size - 1) str[count] = buf[--i];
+                    count++;
+                }
+            } 
+            else if (*p == '%') {
                 if (str && count < size - 1) str[count] = '%';
                 count++;
             }

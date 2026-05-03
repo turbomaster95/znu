@@ -198,7 +198,7 @@ LINUXINCLUDE    := -Iinclude \
 
 KBUILD_CPPFLAGS := -D__KERNEL__ -include $(srctree)/include/prelude.h
 
-KBUILD_CFLAGS   := -Wall -Wno-unused-function -Wno-unused-variable -Wundef -Wstrict-prototypes -Wno-trigraphs -mno-mmx -mno-sse -mno-sse2 \
+KBUILD_CFLAGS   := -Wall -Wno-unused-function -Wno-unused-variable -Wno-format-truncation -Wno-misleading-indentation -Wundef -Wstrict-prototypes -Wno-trigraphs -mno-mmx -mno-sse -mno-sse2 \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security -include $(srctree)/include/prelude.h \
@@ -429,7 +429,7 @@ CLEAN_FILES +=	$(TARGET) $(STARGET) uki/Znu.efi $(ISOIMAGE) configs/iso_root/boo
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include/generated lib/uacpi scripts/limine build/ $(CLEAN_DIRS) lib/uacpi/.uacpi_out lib/flanterm/.flt_out
-MRPROPER_FILES += .config .config.old tags TAGS cscope* GPATH GTAGS GRTAGS GSYMS $(CLEAN_FILES)
+MRPROPER_FILES += .config .config.old tags TAGS cscope* GPATH GTAGS GRTAGS GSYMS $(CLEAN_FILES) scripts/temp/*
 
 # clean - Delete most, but leave enough to build external modules
 #
