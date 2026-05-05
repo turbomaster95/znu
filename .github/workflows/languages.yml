@@ -19,7 +19,20 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y tokei jq golang git fonts-terminus fonts-inconsolata fonts-dejavu
+          sudo apt-get install -y jq golang git fonts-terminus fonts-inconsolata fonts-dejavu
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Tokei via Cargo
+        run: cargo install tokei
+
+      - name: Install freeze
+        run: |
+          export GOPATH=$HOME/go
+          export PATH=$PATH:$GOPATH/bin
+
+          go install github.com/charmbracelet/freeze@latest
 
       - name: Generate Stats and Screenshot
         shell: bash
