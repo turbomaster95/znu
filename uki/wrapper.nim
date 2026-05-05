@@ -1,5 +1,11 @@
 import efi_types, malloc
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Compile-time knob
+#   -d:useRamdiskOnly  → skip SFSP, always use the in-memory ramdisk
+# ──────────────────────────────────────────────────────────────────────────────
+const UseRamdiskOnly {.booldefine.} = false
+
 proc panicOverride(msg: string) {.noreturn.} =
   while true:
     asm "hlt"
@@ -14,6 +20,10 @@ proc copyBytes(dest: pointer, src: pointer, n: uint) =
   let s = cast[ptr UncheckedArray[uint8]](src)
   for i in 0 ..< n: d[i] = s[i]
 
+proc zeroBytes(dest: pointer, n: uint) =
+  let d = cast[ptr UncheckedArray[uint8]](dest)
+  for i in 0 ..< n: d[i] = 0
+
 proc print(conOut: ptr SimpleTextOutput, s: string) =
   var buf: array[512, uint16]
   for i, c in s:
@@ -21,13 +31,17 @@ proc print(conOut: ptr SimpleTextOutput, s: string) =
   buf[min(s.len, 511)] = 0
   discard conOut.outputString(conOut, cast[WideCString](addr buf))
 
+# ──────────────────────────────────────────────────────────────────────────────
 # Compile-time embedded binaries
-const kernelData = slurp("../znu")
-const initrdData = slurp("../configs/iso_root/boot/initramfs.cpio")
-const limineEfiData = slurp("../scripts/limine/bin/BOOTX64.EFI")
+# ──────────────────────────────────────────────────────────────────────────────
+const kernelData     = slurp("../znu")
+const initrdData     = slurp("../configs/iso_root/boot/initramfs.cpio")
+const limineEfiData  = slurp("../scripts/limine/bin/BOOTX64.EFI")
 const limineConfData = slurp("../configs/limine.conf")
 
-# Correct BootServices proc types (all take ptr EfiGuid)
+# ──────────────────────────────────────────────────────────────────────────────
+# Proc-type aliases
+# ──────────────────────────────────────────────────────────────────────────────
 type
   HandleProtocolProc = proc(handle: EfiHandle, protocol: ptr EfiGuid,
       iface: ptr pointer): EfiStatus {.cdecl.}
@@ -45,10 +59,9 @@ type
       buf: pointer): EfiStatus {.cdecl.}
 
 const
-  FILE_MODE_RWC = 0x8000000000000003'u64 # READ|WRITE|CREATE
+  FILE_MODE_RWC = 0x8000000000000003'u64
   FILE_ATTR_DIR = 0x10'u64
 
-# Global wide-char path buffers (reused per call — never overlapping)
 var wbuf1: array[64, uint16]
 var wbuf2: array[64, uint16]
 
@@ -58,7 +71,9 @@ proc toWide(dst: var array[64, uint16], s: string): ptr uint16 =
   dst[min(s.len, 63)] = 0
   return addr dst[0]
 
-# --- SMBIOS Type 11 Injection ---
+# ──────────────────────────────────────────────────────────────────────────────
+# SMBIOS Type-11 injection
+# ──────────────────────────────────────────────────────────────────────────────
 proc injectSmbios(st: ptr EfiSystemTable, oemStr: string): EfiStatus =
   var ep: ptr Smbios3EntryPoint = nil
   for i in 0 ..< st.numTableEntries:
@@ -90,6 +105,9 @@ proc injectSmbios(st: ptr EfiSystemTable, oemStr: string): EfiStatus =
       st.configTable[i].vendorTable = cast[uint64](nep); break
   return EfiSuccess
 
+# ──────────────────────────────────────────────────────────────────────────────
+# SFSP helpers
+# ──────────────────────────────────────────────────────────────────────────────
 proc writeToVolume(root: ptr EfiFileProtocol, path: ptr uint16,
     data: string): bool =
   var f: ptr EfiFileProtocol = nil
@@ -97,31 +115,119 @@ proc writeToVolume(root: ptr EfiFileProtocol, path: ptr uint16,
   if openF(root, addr f, path, FILE_MODE_RWC, 0) != EfiSuccess or f == nil:
     return false
   var sz = uint(data.len)
-  let writeF = cast[FileWriteProc](f.write)
-  discard writeF(f, addr sz, cast[pointer](cstring(data)))
-  let closeF = cast[FileCloseProc](f.close)
-  discard closeF(f)
+  discard cast[FileWriteProc](f.write)(f, addr sz, cast[pointer](cstring(data)))
+  discard cast[FileCloseProc](f.close)(f)
   return true
 
-# --- EFI Entry Point ---
+proc trySfsp(bs: ptr EfiBootServices,
+             hp: HandleProtocolProc,
+             ourDevice: EfiHandle,
+             conOut: ptr SimpleTextOutput): bool =
+  var sfsp: ptr EfiSimpleFileSystemProtocol = nil
+  var guidSFSP = EfiSimpleFileSystemProtocolGuid
+  discard hp(ourDevice, addr guidSFSP, cast[ptr pointer](addr sfsp))
+  if sfsp == nil:
+    conOut.print("[SFSP] Not found\r\n"); return false
+  conOut.print("[SFSP] OK\r\n")
+
+  var root: ptr EfiFileProtocol = nil
+  discard cast[OpenVolumeProc](sfsp.openVolume)(sfsp, addr root)
+  if root == nil:
+    conOut.print("[SFSP] Root open FAIL\r\n"); return false
+
+  if not writeToVolume(root, toWide(wbuf1, "limine.conf"), limineConfData):
+    conOut.print("[SFSP] limine.conf FAIL\r\n")
+    discard cast[FileCloseProc](root.close)(root); return false
+  conOut.print("[SFSP] limine.conf OK\r\n")
+
+  var bootDir: ptr EfiFileProtocol = nil
+  discard cast[FileOpenProc](root.open)(root, addr bootDir,
+    toWide(wbuf1, "boot"), FILE_MODE_RWC, FILE_ATTR_DIR)
+  if bootDir != nil: discard cast[FileCloseProc](bootDir.close)(bootDir)
+
+  if not writeToVolume(root, toWide(wbuf1, "boot\\kernel.bin"), kernelData):
+    conOut.print("[SFSP] kernel.bin FAIL\r\n")
+    discard cast[FileCloseProc](root.close)(root); return false
+  conOut.print("[SFSP] kernel.bin OK\r\n")
+
+  if not writeToVolume(root, toWide(wbuf2, "boot\\initramfs.cpio"), initrdData):
+    conOut.print("[SFSP] initramfs.cpio FAIL\r\n")
+    discard cast[FileCloseProc](root.close)(root); return false
+  conOut.print("[SFSP] initramfs.cpio OK\r\n")
+
+  discard cast[FileCloseProc](root.close)(root)
+  return true
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Ramdisk: allocate EfiLoaderData pages for each blob.
+# The pages survive ExitBootServices.  Limine is pointed at ourDevice for its
+# protocol lookup; the physical addresses of the blobs can be referenced in
+# limine.conf via a physical-address or memory: URI if your Limine build
+# supports it, or passed through the SMBIOS-injected config string above.
+# ──────────────────────────────────────────────────────────────────────────────
+type RamdiskSlot = object
+  base: pointer
+  size: uint
+
+var rdConf*:   RamdiskSlot
+var rdKernel*: RamdiskSlot
+var rdInitrd*: RamdiskSlot
+
+proc rdAlloc(bs: ptr EfiBootServices, data: string,
+             slot: ptr RamdiskSlot): bool =
+  let sz    = uint(data.len)
+  let pages = (sz + 4095) div 4096
+  var phys: EfiPhysicalAddress = 0
+  if bs.allocatePages(AllocateAnyPages, EfiLoaderData,
+                      pages, addr phys) != EfiSuccess or phys == 0:
+    return false
+  zeroBytes(cast[pointer](phys), pages * 4096)
+  copyBytes(cast[pointer](phys), cast[pointer](cstring(data)), sz)
+  slot.base = cast[pointer](phys)
+  slot.size = sz
+  return true
+
+proc tryRamdisk(bs: ptr EfiBootServices,
+                conOut: ptr SimpleTextOutput): bool =
+  conOut.print("[RD] Allocating...\r\n")
+  if not rdAlloc(bs, limineConfData, addr rdConf):
+    conOut.print("[RD] limine.conf FAIL\r\n"); return false
+  conOut.print("[RD] limine.conf OK\r\n")
+  if not rdAlloc(bs, kernelData, addr rdKernel):
+    conOut.print("[RD] kernel FAIL\r\n"); return false
+  conOut.print("[RD] kernel OK\r\n")
+  if not rdAlloc(bs, initrdData, addr rdInitrd):
+    conOut.print("[RD] initrd FAIL\r\n"); return false
+  conOut.print("[RD] initrd OK\r\n")
+  return true
+
+# ──────────────────────────────────────────────────────────────────────────────
+# EFI entry point
+# ──────────────────────────────────────────────────────────────────────────────
 proc EfiMain*(ImageHandle: EfiHandle,
     SystemTable: ptr EfiSystemTable): EfiStatus {.exportc, cdecl.} =
   sysTable = SystemTable
-  let bs = SystemTable.bootServices
+  let bs     = SystemTable.bootServices
   let conOut = SystemTable.conOut
 
   discard conOut.clearScreen(conOut)
   conOut.print("[znu] UKI Loader\r\n")
 
+  when UseRamdiskOnly:
+    conOut.print("[znu] Mode: RAMDISK ONLY\r\n")
+  else:
+    conOut.print("[znu] Mode: SFSP + ramdisk fallback\r\n")
+
   let hp = cast[HandleProtocolProc](bs.handleProtocol)
-  # 1. Inject Limine config via SMBIOS Type 11
+
+  # 1. SMBIOS
   let cfg = "limine:config:" & limineConfData
   if injectSmbios(SystemTable, cfg) == EfiSuccess:
     conOut.print("[1] SMBIOS OK\r\n")
   else:
     conOut.print("[1] SMBIOS FAIL\r\n")
 
-  # 2. Get our own device handle from LoadedImageProtocol
+  # 2. Our own device handle
   var selfImg: ptr EfiLoadedImageProtocol = nil
   var guidLIP = EfiLoadedImageProtocolGuid
   discard hp(ImageHandle, addr guidLIP, cast[ptr pointer](addr selfImg))
@@ -131,75 +237,53 @@ proc EfiMain*(ImageHandle: EfiHandle,
   let ourDevice = selfImg.deviceHandle
   conOut.print("[2] Device handle OK\r\n")
 
-  # 3. Open SimpleFileSystemProtocol on our device
-  var sfsp: ptr EfiSimpleFileSystemProtocol = nil
-  var guidSFSP = EfiSimpleFileSystemProtocolGuid
-  discard hp(ourDevice, addr guidSFSP, cast[ptr pointer](addr sfsp))
-  if sfsp == nil:
-    conOut.print("[3] SFSP FAIL\r\n")
-    discard bs.stall(bs, 5_000_000); return EfiSuccess
-  conOut.print("[3] SFSP OK\r\n")
+  # 3. Write files to SFSP or ramdisk
+  var ramdiskActive = false
 
-  # 4. Open root and write kernel + initramfs into /boot/
-  var root: ptr EfiFileProtocol = nil
-  let openVol = cast[OpenVolumeProc](sfsp.openVolume)
-  discard openVol(sfsp, addr root)
-  if root == nil:
-    conOut.print("[4] Root open FAIL\r\n")
-    discard bs.stall(bs, 5_000_000); return EfiSuccess
-
-  # Write limine.conf to root — Limine scans for this file on the boot device
-  if writeToVolume(root, toWide(wbuf1, "limine.conf"), limineConfData):
-    conOut.print("[4] limine.conf OK\r\n")
+  when UseRamdiskOnly:
+    if not tryRamdisk(bs, conOut):
+      conOut.print("[znu] Ramdisk FAIL — halting\r\n")
+      discard bs.stall(bs, 8_000_000); return EfiSuccess
+    ramdiskActive = true
   else:
-    conOut.print("[4] limine.conf FAIL\r\n")
+    if trySfsp(bs, hp, ourDevice, conOut):
+      conOut.print("[znu] SFSP ready\r\n")
+    else:
+      conOut.print("[znu] SFSP failed — ramdisk fallback\r\n")
+      if not tryRamdisk(bs, conOut):
+        conOut.print("[znu] Ramdisk FAIL — halting\r\n")
+        discard bs.stall(bs, 8_000_000); return EfiSuccess
+      ramdiskActive = true
 
-  # Create /boot directory and write kernel + initramfs
-  var bootDir: ptr EfiFileProtocol = nil
-  let openF = cast[FileOpenProc](root.open)
-  discard openF(root, addr bootDir, toWide(wbuf1, "boot"),
-                FILE_MODE_RWC, FILE_ATTR_DIR)
-  if bootDir != nil:
-    let closeF = cast[FileCloseProc](bootDir.close)
-    discard closeF(bootDir)
-
-  if writeToVolume(root, toWide(wbuf1, "boot\\kernel.bin"), kernelData):
-    conOut.print("[4] kernel.bin OK\r\n")
-  else:
-    conOut.print("[4] kernel.bin FAIL\r\n")
-
-  if writeToVolume(root, toWide(wbuf2, "boot\\initramfs.cpio"), initrdData):
-    conOut.print("[4] initramfs.cpio OK\r\n")
-  else:
-    conOut.print("[4] initramfs.cpio FAIL\r\n")
-
-  let closeF = cast[FileCloseProc](root.close)
-  discard closeF(root)
-
-  # 5. Load Limine BOOTX64.EFI from embedded buffer
-  conOut.print("[5] Loading Limine...\r\n")
+  # 4. Load Limine from embedded buffer
+  conOut.print("[4] Loading Limine...\r\n")
   var limineHandle: EfiHandle = nil
   let loadImg = cast[LoadImageProc](bs.loadImage)
-  let loadSt = loadImg(false, ImageHandle, nil,
-                        cast[pointer](cstring(limineEfiData)),
-                        uint(limineEfiData.len), addr limineHandle)
-  if loadSt != EfiSuccess or limineHandle == nil:
-    conOut.print("[5] Limine load FAIL\r\n")
+  if loadImg(false, ImageHandle, nil,
+             cast[pointer](cstring(limineEfiData)),
+             uint(limineEfiData.len), addr limineHandle) != EfiSuccess or
+      limineHandle == nil:
+    conOut.print("[4] Limine load FAIL\r\n")
     discard bs.stall(bs, 5_000_000); return EfiSuccess
 
-  # 6. Patch Limine's DeviceHandle → our FAT volume
+  # 5. Patch Limine's deviceHandle → ourDevice in both paths.
+  #    SFSP: Limine will OpenVolume on ourDevice and find the files we wrote.
+  #    Ramdisk: ourDevice is still valid; the blob pages are EfiLoaderData and
+  #    survive ExitBootServices so Limine can reach them by physical address.
   var limineImg: ptr EfiLoadedImageProtocol = nil
   discard hp(limineHandle, addr guidLIP, cast[ptr pointer](addr limineImg))
   if limineImg != nil:
     limineImg.deviceHandle = ourDevice
-    conOut.print("[6] DeviceHandle patched\r\n")
+    if ramdiskActive:
+      conOut.print("[5] deviceHandle → ourDevice (ramdisk)\r\n")
+    else:
+      conOut.print("[5] deviceHandle → ourDevice (SFSP)\r\n")
   else:
-    conOut.print("[6] Patch FAIL — starting anyway\r\n")
+    conOut.print("[5] Patch FAIL — starting anyway\r\n")
 
-  # 7. Hand off to Limine
-  conOut.print("[7] Starting Limine...\r\n")
-  let startImg = cast[StartImageProc](bs.startImage)
-  discard startImg(limineHandle, nil, nil)
+  # 6. Hand off to Limine
+  conOut.print("[6] Starting Limine...\r\n")
+  discard cast[StartImageProc](bs.startImage)(limineHandle, nil, nil)
 
   conOut.print("Limine returned unexpectedly\r\n")
   discard bs.stall(bs, 8_000_000)
