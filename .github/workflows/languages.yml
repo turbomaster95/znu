@@ -8,36 +8,25 @@ on:
 jobs:
   update-stats:
     runs-on: ubuntu-latest
-    container: 
-      image: alpine:latest
     permissions:
       contents: write  
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
           persist-credentials: true
 
       - name: Install Dependencies
-        shell: sh
         run: |
-          apk add --no-cache --update \
-            tokei \
-            jq \
-            go \
-            git \
-            build-base \
-            bash \
-            gcompat \
-            font-terminus \
-            font-inconsolata \
-            font-dejavu \
-            font-noto
+          sudo apt-get update
+          sudo apt-get install -y tokei jq golang git fonts-terminus fonts-inconsolata fonts-dejavu
 
       - name: Generate Stats and Screenshot
         shell: bash
         run: |
+          # Move to the workspace root
+          cd "$GITHUB_WORKSPACE"
+          
           export GOPATH=$HOME/go
           export PATH=$PATH:$GOPATH/bin
           
@@ -46,20 +35,13 @@ jobs:
           
           mkdir -p Documentation/stats
 
-          # Pipe tokei output into freeze with explicit language handling
+          # Pipe tokei output into freeze
           tokei | freeze --language text \
             --theme "dracula" \
             --shadow.blur 20 \
             --padding 20 \
             --output Documentation/stats/stats.png
 
-      - name: Configure Git
-        shell: sh
-        run: |
-          git config --global user.name "tokei-lang[bot]"
-          git config --global user.email "tokei-lang@coder.is-a.dev"
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-      
       - name: Commit & Push changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
@@ -68,4 +50,3 @@ jobs:
           commit_user_name: tokei-lang[bot]
           commit_user_email: tokei-lang@coder.is-a.dev
           commit_author: Tokei <tokei-lang@coder.is-a.dev>
-          repository: ${{ github.workspace }}
