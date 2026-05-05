@@ -459,7 +459,7 @@ proc printUefiMemoryMap(
   memoryMap: ptr UncheckedArray[EfiMemoryDescriptor],
   memoryMapSize: uint,
   memoryMapDescriptorSize: uint,
-) =
+) {.used.} =
   let numEntries = memoryMapSize div memoryMapDescriptorSize
   logger.info &"UEFI Memory Map ({numEntries} entries):"
   logger.raw &"""   {"Entry"}"""

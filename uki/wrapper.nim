@@ -1,17 +1,14 @@
 import efi_types, malloc
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Compile-time knob
 #   -d:useRamdiskOnly  → skip SFSP, always use the in-memory ramdisk
-# ──────────────────────────────────────────────────────────────────────────────
 const UseRamdiskOnly {.booldefine.} = false
 
-proc panicOverride(msg: string) {.noreturn.} =
+proc panicOverride(msg: string) {.noreturn, used.} =
   while true:
     asm "hlt"
 
-proc nimGetMem(size: int): pointer {.cdecl.} = malloc(cast[csize_t](size))
-proc nimFreeMem(p: pointer) {.cdecl.} = free(p)
+proc nimGetMem(size: int): pointer {.cdecl, used.} = malloc(cast[csize_t](size))
+proc nimFreeMem(p: pointer) {.cdecl, used.} = free(p)
 
 {.compile: "stubs.c".}
 
@@ -31,17 +28,11 @@ proc print(conOut: ptr SimpleTextOutput, s: string) =
   buf[min(s.len, 511)] = 0
   discard conOut.outputString(conOut, cast[WideCString](addr buf))
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Compile-time embedded binaries
-# ──────────────────────────────────────────────────────────────────────────────
 const kernelData     = slurp("../znu")
 const initrdData     = slurp("../configs/iso_root/boot/initramfs.cpio")
 const limineEfiData  = slurp("../scripts/limine/bin/BOOTX64.EFI")
 const limineConfData = slurp("../configs/limine.conf")
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Proc-type aliases
-# ──────────────────────────────────────────────────────────────────────────────
 type
   HandleProtocolProc = proc(handle: EfiHandle, protocol: ptr EfiGuid,
       iface: ptr pointer): EfiStatus {.cdecl.}
@@ -71,9 +62,6 @@ proc toWide(dst: var array[64, uint16], s: string): ptr uint16 =
   dst[min(s.len, 63)] = 0
   return addr dst[0]
 
-# ──────────────────────────────────────────────────────────────────────────────
-# SMBIOS Type-11 injection
-# ──────────────────────────────────────────────────────────────────────────────
 proc injectSmbios(st: ptr EfiSystemTable, oemStr: string): EfiStatus =
   var ep: ptr Smbios3EntryPoint = nil
   for i in 0 ..< st.numTableEntries:
@@ -105,9 +93,6 @@ proc injectSmbios(st: ptr EfiSystemTable, oemStr: string): EfiStatus =
       st.configTable[i].vendorTable = cast[uint64](nep); break
   return EfiSuccess
 
-# ──────────────────────────────────────────────────────────────────────────────
-# SFSP helpers
-# ──────────────────────────────────────────────────────────────────────────────
 proc writeToVolume(root: ptr EfiFileProtocol, path: ptr uint16,
     data: string): bool =
   var f: ptr EfiFileProtocol = nil
@@ -158,13 +143,6 @@ proc trySfsp(bs: ptr EfiBootServices,
   discard cast[FileCloseProc](root.close)(root)
   return true
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Ramdisk: allocate EfiLoaderData pages for each blob.
-# The pages survive ExitBootServices.  Limine is pointed at ourDevice for its
-# protocol lookup; the physical addresses of the blobs can be referenced in
-# limine.conf via a physical-address or memory: URI if your Limine build
-# supports it, or passed through the SMBIOS-injected config string above.
-# ──────────────────────────────────────────────────────────────────────────────
 type RamdiskSlot = object
   base: pointer
   size: uint
@@ -201,9 +179,6 @@ proc tryRamdisk(bs: ptr EfiBootServices,
   conOut.print("[RD] initrd OK\r\n")
   return true
 
-# ──────────────────────────────────────────────────────────────────────────────
-# EFI entry point
-# ──────────────────────────────────────────────────────────────────────────────
 proc EfiMain*(ImageHandle: EfiHandle,
     SystemTable: ptr EfiSystemTable): EfiStatus {.exportc, cdecl.} =
   sysTable = SystemTable
