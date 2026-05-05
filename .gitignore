@@ -15,6 +15,8 @@
 !**/.gitkeep
 !.tokeignore
 !.github/
+!.vscode/
+.vscode/compile_commands.json
 *.o
 *.o.*
 *.s

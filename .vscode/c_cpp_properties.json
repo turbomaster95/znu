@@ -1,0 +1,11 @@
+{
+    "configurations": [
+        {
+            "name": "znu-Kernel",
+            "compileCommands": "${workspaceFolder}/.vscode/compile_commands.json",
+            "compilerPath": "/usr/local/bin/x86_64-elf-gcc",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}
