@@ -19,7 +19,7 @@ jobs:
           persist-credentials: true
 
       - name: Install Dependencies
-        shell: bash
+        shell: sh
         run: |
           apk add --no-cache --update \
             tokei \
