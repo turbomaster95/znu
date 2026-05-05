@@ -1,0 +1,57 @@
+name: Generate Languages used 
+
+on:
+  push:
+    branches: [testing]
+  workflow_dispatch:
+
+jobs:
+  update-stats:
+    runs-on: ubuntu-latest
+    container: 
+      image: alpine:latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@latest
+        with:
+           ref: ${{ github.head_ref }}
+	   persist-credentials: true
+
+      - name: Install Dependencies
+        run: |
+          apk add --no-cache --update \
+            tokei \
+            jq \
+            go \
+            git \
+            build-base \
+	    bash
+
+      - name: Install Fonts
+        run: |
+          apk add --no-cache --update font-terminus font-inconsolata font-dejavu
+
+      - name: Generate Stats and Screenshot
+        run: |
+          # Install freeze
+          export GOPATH=$HOME/go
+          export PATH=$PATH:$GOPATH/bin
+          go install github.com/charmbracelet/freeze@latest
+          
+	  mkdir -p Documentation/stats
+
+          # Generate Screenshot
+          freeze --execute "tokei" --theme "dracula" --shadow.blur 20 --padding 20 --output Documentation/stats/stats.png
+
+      - name: Commit & Push changes
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: "docs: Updated languages used stat."
+          file_pattern: 'Documentation/stats/stats.png'
+	  commit_user_name: tokei-lang[bot]
+	  commit_user_email: tokei-lang@coder.is-a.dev
+	  commit_author: Tokei <tokei-lang@coder.is-a.dev>
+

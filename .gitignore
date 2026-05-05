@@ -14,6 +14,7 @@
 !.clangd
 !**/.gitkeep
 !.tokeignore
+!.github/
 *.o
 *.o.*
 *.s
