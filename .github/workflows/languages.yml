@@ -24,10 +24,26 @@ jobs:
       - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Cache Tokei
+        id: cache-tokei
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/tokei
+          key: ${{ runner.os }}-tokei-bin
+
       - name: Install Tokei via Cargo
+        if: steps.cache-tokei.outputs.cache-hit != 'true'
         run: cargo install tokei
 
+      - name: Cache Freeze
+        id: cache-freeze
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/freeze
+          key: ${{ runner.os }}-freeze-bin
+
       - name: Install freeze
+        if: steps.cache-freeze.outputs.cache-hit != 'true'
         run: |
           export GOPATH=$HOME/go
           export PATH=$PATH:$GOPATH/bin
