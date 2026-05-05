@@ -340,12 +340,17 @@ else
 include/config/auto.conf: ;
 endif # $(dot-config)
 
+LEGAL_OBJ := $(objtree)/scripts/temp/legal.o
+
+$(LEGAL_OBJ): $(srctree)/LICENSE $(srctree)/NOTICE $(srctree)/scripts/mklegal.sh FORCE
+	$(Q)mkdir -p $(objtree)/scripts/temp
+	$(Q)bash $(srctree)/scripts/mklegal.sh $(srctree) $(LD)
 
 # The all: target is the default when no target is given on the
 # command line.
 # This allow a user to issue only 'make' to build a kernel including modules
 # Defaults to vmlinux, but the arch makefile usually adds further targets
-all: $(TARGET)
+all: $(LEGAL_OBJ) $(TARGET)
 
 objs-y		:= kernel
 objs-y		+= arch
@@ -357,16 +362,16 @@ ulibc-y		:= lib/ulibc
 $(TARGET)-dirs	:= $(objs-y) $(libs-y) $(ulibc-y) $(user-y)
 $(TARGET)-objs	:= $(patsubst %,%/built-in.o, $(objs-y))
 $(TARGET)-libs	:= $(patsubst %,%/built-in.o, $(libs-y))
-$(TARGET)-all	:= $($(TARGET)-objs) $($(TARGET)-libs)
+$(TARGET)-all	:= $($(TARGET)-objs) $($(TARGET)-libs) $(LEGAL_OBJ)
 
 # Do modpost on a prelinked vmlinux. The finally linked vmlinux has
 # relevant sections renamed as per the linker script.
 quiet_cmd_$(TARGET) = KRNLD   $@
       cmd_$(TARGET) = $(CC) $(LDFLAGS) $(KBUILD_LDFLAGS) -o $@    \
-      -Wl,--start-group $($(TARGET)-libs) $($(TARGET)-objs) -Wl,--end-group -T $(srctree)/scripts/linker.ld
+      -Wl,--start-group $($(TARGET)-libs) $($(TARGET)-objs) $(LEGAL_OBJ) -Wl,--end-group -T $(srctree)/scripts/linker.ld
 
 quiet_cmd_strip = STRIP   $@ -> $(STARGET)
-      cmd_strip = $(OBJCOPY) --strip-all --strip-unneeded --strip-debug $@ $(STARGET)
+      cmd_strip = $(OBJCOPY) --strip-all --strip-unneeded --strip-debug --keep-section=.legal --set-section-flags .legal=alloc,contents,load $@ $(STARGET)
 
 quiet_cmd_build_limine = LIMINE  scripts/limine
       cmd_build_limine = $(srctree)/scripts/mklimine.sh $(srctree) "$(MAKEFLAGS)" > /dev/null 2>&1
@@ -390,7 +395,7 @@ endif
 
 # The actual objects are generated when descending, 
 # make sure no implicit rule kicks in
-$(sort $($(TARGET)-all)): $($(TARGET)-dirs) ;
+$(filter-out $(LEGAL_OBJ),$(sort $($(TARGET)-all))): $($(TARGET)-dirs) ;
 
 quiet_cmd_qemur = QEMU    $(ISOIMAGE)
       cmd_qemur = qemu-system-x86_64 -hdd $(ISOIMAGE) -m 4G -debugcon file:debug.log -cpu qemu64 -accel tcg -serial mon:stdio
