@@ -1,29 +1,34 @@
 #!/usr/bin/env bash
 set -e
-
 SRCTREE=$1
 
 mkdir -p "$SRCTREE/uki"
 
-# 1. Generate ramdisk.img
 rm -f "$SRCTREE/uki/ramdisk.img"
 truncate -s 16M "$SRCTREE/uki/ramdisk.img"
+mformat  -i "$SRCTREE/uki/ramdisk.img" -F -v "ZNUBOOT" ::
 
-# Format as FAT32
-mformat -i "$SRCTREE/uki/ramdisk.img" -F -v "UKI_RAMDISK" ::
-
-# Create directories
+# Directory layout
 mmd -i "$SRCTREE/uki/ramdisk.img" ::/boot
+mmd -i "$SRCTREE/uki/ramdisk.img" ::/EFI
+mmd -i "$SRCTREE/uki/ramdisk.img" ::/EFI/BOOT
 
-# Copy files
-mcopy -i "$SRCTREE/uki/ramdisk.img" "$SRCTREE/znu" ::/boot/kernel.bin
-mcopy -i "$SRCTREE/uki/ramdisk.img" "$SRCTREE/configs/iso_root/boot/initramfs.cpio" ::/boot/initramfs.cpio
+# limine.conf in root AND EFI/BOOT — Limine scans both locations
+mcopy -i "$SRCTREE/uki/ramdisk.img" \
+    "$SRCTREE/configs/limine.conf" ::/limine.conf
+mcopy -i "$SRCTREE/uki/ramdisk.img" \
+    "$SRCTREE/configs/limine.conf" ::/EFI/BOOT/limine.conf
+
+# Kernel and initrd
+mcopy -i "$SRCTREE/uki/ramdisk.img" \
+    "$SRCTREE/znu"                                          ::/boot/kernel.bin
+mcopy -i "$SRCTREE/uki/ramdisk.img" \
+    "$SRCTREE/configs/iso_root/boot/initramfs.cpio"         ::/boot/initramfs.cpio
 
 echo "  RAMDISK uki/ramdisk.img generated"
 
-# 2. Build the UKI wrapper
 pushd "$SRCTREE/uki" > /dev/null
-nim c --out:$SRCTREE/uki/Znu.efi wrapper.nim &> /dev/null
+nim c --out:"$SRCTREE/uki/Znu.efi" wrapper.nim 2>&1
 popd > /dev/null
 
 echo "  MKUKI   uki/Znu.efi built successfully"

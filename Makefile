@@ -1,4 +1,4 @@
-# Include the config to access vars
+# Include the config to access vars 
 -include .config
 
 # *DOCUMENTATION*
@@ -425,7 +425,7 @@ $($(TARGET)-dirs): scripts_basic
 
 # Directories & files removed with 'make clean'
 CLEAN_DIRS  += 
-CLEAN_FILES +=	$(TARGET) $(STARGET) uki/Znu.efi $(ISOIMAGE) configs/iso_root/boot/initramfs.cpio configs/iso_root/boot/kernel.bin configs/sysroot/bin/*
+CLEAN_FILES +=	$(TARGET) $(STARGET) uki/Znu.efi uki/ramdisk.img $(ISOIMAGE) configs/iso_root/boot/initramfs.cpio configs/iso_root/boot/kernel.bin configs/sysroot/bin/*
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include/generated lib/uacpi scripts/limine build/ $(CLEAN_DIRS) lib/uacpi/.uacpi_out lib/flanterm/.flt_out

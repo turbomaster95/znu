@@ -13,6 +13,7 @@
 .*
 !.clangd
 !**/.gitkeep
+!.tokeignore
 *.o
 *.o.*
 *.s
