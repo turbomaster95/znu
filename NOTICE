@@ -1,0 +1,56 @@
+================================================================================
+                               znu NOTICE
+================================================================================
+Primary Project License: Nicense Software License, Version 1.1
+
+Copyright (c) 2026 Deva Midhun.
+
+This product includes software developed by Deva Midhun 
+(https://github.com/turbomaster95).
+
+--------------------------------------------------------------------------------
+THIRD-PARTY SUBMODULES AND ATTRIBUTIONS
+--------------------------------------------------------------------------------
+
+1. flanterm
+   Copyright (c) 2022-2026 Mintsuki and contributors.
+   License: BSD 2-Clause
+   Location: [lib/flanterm]
+   
+   (Refer to the LICENSE file in the submodule directory for the full 
+   disclaimer and conditions.)
+
+--------------------------------------------------------------------------------
+
+2. Limine Bootloader
+   Copyright (c) 2022-2026 Mintsuki and contributors.
+   License: BSD 2-Clause
+   Location: [scripts/limine]
+   
+   (Refer to the LICENSE file in the submodule directory for the full 
+   disclaimer and conditions.)
+
+--------------------------------------------------------------------------------
+
+3. uACPI
+   Copyright (c) 2022-2026 Daniil Tatianin
+   License: MIT
+   Location: [lib/uacpi]
+   
+   (Refer to the LICENSE file in the submodule directory for the full 
+   permission notice.)
+
+--------------------------------------------------------------------------------
+
+4. DASH Shell
+   Copyright (c) 1989-1994 The Regents of the University of California.
+   Copyright (c) 1997 Christos Zoulas.
+   Copyright (c) 1997-2005 Herbert Xu.
+   License: BSD 3-Clause
+   Location: [user/dash]
+   
+   Build Component 'mksignames.c':
+   Copyright (C) 1992 Free Software Foundation, Inc.
+   License: GNU General Public License (GPL) version 2 or later.
+
+   (Refer to user/dash/COPYING for the full text of the BSD and GPL licenses.)
