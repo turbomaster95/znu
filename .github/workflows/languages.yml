@@ -45,7 +45,7 @@ jobs:
           mkdir -p Documentation/stats
 
           # We use bash -c to ensure the environment is ready for freeze
-          freeze --execute "tokei" \
+          freeze --execute "tokei" --language text \
             --theme "dracula" \
             --shadow.blur 20 \
             --padding 20 \
