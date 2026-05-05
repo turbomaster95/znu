@@ -14,8 +14,9 @@ jobs:
       contents: write  
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
+          ref: ${{ github.head_ref }}
           persist-credentials: true
 
       - name: Install Dependencies
@@ -28,6 +29,7 @@ jobs:
             git \
             build-base \
             bash \
+            gcompat \
             font-terminus \
             font-inconsolata \
             font-dejavu \
@@ -39,12 +41,12 @@ jobs:
           export GOPATH=$HOME/go
           export PATH=$PATH:$GOPATH/bin
           
-          # Install freeze
+          # Install freeze binary
           go install github.com/charmbracelet/freeze@latest
           
           mkdir -p Documentation/stats
 
-          # We use bash -c to ensure the environment is ready for freeze
+          # Pipe tokei output into freeze with explicit language handling
           tokei | freeze --language text \
             --theme "dracula" \
             --shadow.blur 20 \
@@ -52,18 +54,17 @@ jobs:
             --output Documentation/stats/stats.png
 
       - name: Configure Git
+        shell: sh
         run: |
           git config --global user.name "tokei-lang[bot]"
           git config --global user.email "tokei-lang@coder.is-a.dev"
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
       
       - name: Commit & Push changes
-        shell: bash
-	uses: stefanzweifel/git-auto-commit-action@v7
-	with:
-	      repository: ${{ github.workspace }}
-	      commit_message: "docs: Updated languages used stat."
-	      file_pattern: 'Documentation/stats/stats.png'
-	      commit_user_name: tokei-lang[bot]
-	      commit_user_email: tokei-lang@coder.is-a.dev
-	      commit_author: Tokei <tokei-lang@coder.is-a.dev>
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "docs: Updated languages used stat."
+          file_pattern: 'Documentation/stats/stats.png'
+          commit_user_name: tokei-lang[bot]
+          commit_user_email: tokei-lang@coder.is-a.dev
+          commit_author: Tokei <tokei-lang@coder.is-a.dev>
