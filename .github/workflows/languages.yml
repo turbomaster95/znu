@@ -68,3 +68,4 @@ jobs:
           commit_user_name: tokei-lang[bot]
           commit_user_email: tokei-lang@coder.is-a.dev
           commit_author: Tokei <tokei-lang@coder.is-a.dev>
+          repository: ${{ github.workspace }}
