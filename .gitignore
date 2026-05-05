@@ -19,7 +19,6 @@
 .vscode/compile_commands.json
 *.o
 *.o.*
-*.s
 *.ko
 *.so
 *.so.dbg

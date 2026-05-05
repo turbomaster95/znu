@@ -65,7 +65,7 @@ for f in $FILES; do
         -U__linux__ -w -U__unix__ \
         -include "$SRCTREE/lib/libc/include/string.h" \
         -include "$SRCTREE/lib/libc/include/ctype.h" \
-        -D__is_libk \
+        -D__is_libk -DFLANTERM_FB_DISABLE_BUMP_ALLOC \
         -ffreestanding -nostdinc -fno-stack-protector -mcmodel=kernel -mno-red-zone -mno-mmx -mno-sse -mno-sse2; then
         NEW_FILES_COMPILED=true
     else
