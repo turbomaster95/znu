@@ -50,8 +50,15 @@ jobs:
             --shadow.blur 20 \
             --padding 20 \
             --output Documentation/stats/stats.png
+      - name: Configure Git
+	shell: bash
+        run: |
+          git config --global user.name "tokei-lang[bot]"
+          git config --global user.email "tokei-lang@coder.is-a.dev"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Commit & Push changes
+	shell: bash
         uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "docs: Updated languages used stat."
