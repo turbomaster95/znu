@@ -338,13 +338,13 @@ void kmain(void) {
         initrd_addr = decomp_buffer;
     }
 
-    printf("\033[1;34m  ______             \033[0m\n");
-    printf("\033[1;34m |___  /             \033[0m\n");
-    printf("\033[1;34m    / / _ __  _   _  \033[0m\n");
-    printf("\033[1;34m   / / | '_ \\| | | | \033[0m\n");
-    printf("\033[1;34m  / /__| | | | |_| | \033[0m\n");
-    printf("\033[1;34m /_____|_| |_|\\__,_| \033[0m\n");
-    printf("\033[1;36m  Kernel v0.1.0-alpha \033[0m\n\n");
+    debugln("\033[1;34m  ______             \033[0m\n");
+    debugln("\033[1;34m |___  /             \033[0m\n");
+    debugln("\033[1;34m    / / _ __  _   _  \033[0m\n");
+    debugln("\033[1;34m   / / | '_ \\| | | | \033[0m\n");
+    debugln("\033[1;34m  / /__| | | | |_| | \033[0m\n");
+    debugln("\033[1;34m /_____|_| |_|\\__,_| \033[0m\n");
+    debugln("\033[1;36m  Kernel v0.1.0-alpha \033[0m\n\n");
 
     debugln("[kernel] Parsing initramfs at %p...", initrd_addr);
     cpio_parse(initrd_addr);
