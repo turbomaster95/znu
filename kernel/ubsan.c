@@ -103,6 +103,9 @@ void __ubsan_handle_mul_overflow_abort(struct ubsan_overflow_data *data, uintptr
     panic("[ubsan] Arithmetic Overflow");
 }
 
+void __ubsan_handle_negate_overflow_abort(void* data, void* location) {
+    panic("[ubsan] Negate Overflow");
+}
 void __ubsan_handle_divrem_overflow_abort(struct ubsan_overflow_data *data, uintptr_t lhs, uintptr_t rhs) {
     ubsan_log_header("Division Overflow", &data->location);
     panic("[ubsan] Arithmetic Overflow");

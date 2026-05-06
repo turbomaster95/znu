@@ -22,6 +22,7 @@ extern volatile uint64_t timer_ticks;
 extern volatile bool lapic_timer_fired;
 extern bool krnl_init_done;
 extern bool vmm_ready;
+extern volatile bool screen_lock;
 
 void idt_set_gate(uint8_t vector, void *isr) {
     uint64_t addr = (uint64_t)isr;
@@ -60,7 +61,7 @@ registers_t* k_exception_handler(registers_t *regs) {
         timekeeper_on_tick();
         regs = scheduler(regs);
         if (++frame_count % 16 == 0) {
-           if (vmm_ready && term_buffer) {
+           if (vmm_ready && term_buffer && !screen_lock) {
              blit_window(term_x, term_y, TERM_W, TERM_H, term_buffer);
            }
         }

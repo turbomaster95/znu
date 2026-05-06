@@ -4,8 +4,8 @@
 #include <sys/cdefs.h>
 #include <stdint.h>
 #include <stdarg.h>
+#include <stddef.h>
 #include <limine.h>
-
 
 extern uint64_t hhdm_offset;
 
@@ -32,6 +32,7 @@ extern uint64_t hhdm_offset;
 void  init_pmm(struct limine_memmap_response* memmap);
 void* palloc_zero(void);
 void  pfree(void* phys_addr);
+void *krealloc(void *ptr, size_t new_size);
 void  init_slab(void);
 void  map_page(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t flags);
 void unmap_page(uint64_t* pml4, uint64_t virt);

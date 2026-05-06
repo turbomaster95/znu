@@ -20,7 +20,7 @@
 #include <kernel.h>
 
 bool krnl_init_done = false;
- extern void serial_init();
+extern void serial_init();
 
 // Set the base revision to 5, this is recommended as this is the latest
 // base revision described by the Limine boot protocol specification.
@@ -118,6 +118,12 @@ void sse_init(void) {
 
 uint64_t* kernel_pml4;
 struct limine_rsdp_response *rsdp_response = NULL;
+
+volatile bool screen_lock = false; 
+
+// This prevents flanterm from taking over the screen if graphics are to be drawn
+void lock_screen() { screen_lock = true; }
+void unlock_screen() { screen_lock = false; }
 
 // The following will be our kernel's entry point.
 // If renaming kmain() to something else, make sure to change the

@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
 
 // A dedicated virtual address range for the kernel heap
 static uint64_t heap_virtual_top;
@@ -114,5 +115,47 @@ void kfree(void* ptr) {
     *(void**)ptr = slab->free_list;
     slab->free_list = ptr;
     slab->slots_free++;
+}
+
+size_t get_allocation_size(void* ptr) {
+    if (!ptr) return 0;
+
+    struct slab_header* slab = (struct slab_header*)((uint64_t)ptr & ~0xFFF);
+
+    // If slot_size is > 0, it's a slab allocation
+    if (slab->slot_size > 0 && slab->slot_size <= 2048) {
+        return (size_t)slab->slot_size;
+    }
+
+    return PAGE_SIZE; 
+}
+
+void *krealloc(void *ptr, size_t new_size) {
+    if (!ptr) {
+        return kmalloc(new_size);
+    }
+
+    if (new_size == 0) {
+        kfree(ptr);
+        return NULL;
+    }
+
+    void *new_ptr = kmalloc(new_size);
+    if (!new_ptr) {
+        return NULL; // Keep original ptr intact on failure
+    }
+
+    /* 
+     * IMPORTANT: You need the old size here. 
+     * If your allocator stores size in a header before the pointer:
+     * size_t old_size = ((header_t*)ptr - 1)->size;
+     */
+    size_t old_size = get_allocation_size(ptr); 
+    
+    size_t copy_size = (old_size < new_size) ? old_size : new_size;
+    memcpy(new_ptr, ptr, copy_size);
+    
+    kfree(ptr);
+    return new_ptr;
 }
 

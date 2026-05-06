@@ -17,3 +17,4 @@ obj-y += metadata.o
 obj-y += lz4.o
 obj-y += cmdline.o
 obj-y += serial.o
+obj-y += image.o
