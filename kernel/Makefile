@@ -18,3 +18,4 @@ obj-y += lz4.o
 obj-y += cmdline.o
 obj-y += serial.o
 obj-y += image.o
+obj-y += stack_guard.o

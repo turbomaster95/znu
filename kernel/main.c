@@ -84,6 +84,7 @@ uint64_t hhdm_offset = 0;
 uint64_t rsdp_addr = 0;
 
 bool running_efi;
+extern uintptr_t __stack_chk_guard;
 
 // Finally, define the start and end markers for the Limine requests.
 // These can also be moved anywhere, to any .c file, as seen fit.
@@ -137,6 +138,7 @@ void kmain(void) {
     debugln("[rng] About to seed!");
     seed_from_hardware();
     debugln("[rng] Seeded RNG with hardware noise!");
+    __stack_chk_guard = (uintptr_t)rand() << 32 | rand();
 
     if (hhdm_request.response) {
         hhdm_offset = hhdm_request.response->offset;
