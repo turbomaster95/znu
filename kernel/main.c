@@ -125,9 +125,6 @@ volatile bool screen_lock = false;
 void lock_screen() { screen_lock = true; }
 void unlock_screen() { screen_lock = false; }
 
-// The following will be our kernel's entry point.
-// If renaming kmain() to something else, make sure to change the
-// linker script accordingly.
 void kmain(void) {
     // Ensure the bootloader actually understands our base revision (see spec).
     if (LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision) == false) {
@@ -136,6 +133,11 @@ void kmain(void) {
 
     disable_smap();
     debugln("Disabled SMAP");
+    // This starts the random number generator
+    debugln("[rng] About to seed!");
+    seed_from_hardware();
+    debugln("[rng] Seeded RNG with hardware noise!");
+
     if (hhdm_request.response) {
         hhdm_offset = hhdm_request.response->offset;
     }

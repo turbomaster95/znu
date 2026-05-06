@@ -33,10 +33,11 @@ fi
 
 TEMP_DIR="$SRCTREE/scripts/temp"
 mkdir -p "$TEMP_DIR"
-rm -rf "$TEMP_DIR/*.o"
+# Clean up previous runs
+rm -f "$TEMP_DIR"/*.o
 
 FINAL_OBJ="$TEMP_DIR/legal.o"
-rm -rf "$FINAL_OBJ"
+rm -f "$FINAL_OBJ"
 
 OBJCOPY_FLAGS="-I binary -O elf64-x86-64 -B i386"
 SECTION_NAME=".legal"
@@ -45,14 +46,15 @@ compile_to_obj() {
     local input_txt=$1
     local output_obj=$2
     objcopy $OBJCOPY_FLAGS --rename-section .data=$SECTION_NAME "$input_txt" "$output_obj"
-    # Added 'alloc' and 'load'
+    # Set flags so the section is included in the final binary
     objcopy --set-section-flags $SECTION_NAME=alloc,load,contents,readonly "$output_obj"
 }
 
+# --- Handle Root Licenses ---
 ROOT_COMBINED="$TEMP_DIR/znu_root.txt"
 > "$ROOT_COMBINED"
 
-find . -maxdepth 1 -type f \( -iname "LICENSE*" -o -iname "COPYING*" -o -iname "NOTICE*" \) | while read -r root_file; do
+find "$SRCTREE" -maxdepth 1 -type f \( -iname "LICENSE*" -o -iname "COPYING*" -o -iname "NOTICE*" \) | while read -r root_file; do
     # Skip the NOTICE file inside scripts/temp if it exists
     [[ "$root_file" == *"$TEMP_DIR"* ]] && continue
     echo "--- ROOT: $(basename "$root_file") ---" >> "$ROOT_COMBINED"
@@ -65,9 +67,11 @@ if [ -s "$ROOT_COMBINED" ]; then
     rm "$ROOT_COMBINED"
 fi
 
+# --- Handle Locations from NOTICE ---
 paths=$(grep "Location:" "$SRCTREE/NOTICE" | sed -n 's/.*\[\(.*\)\].*/\1/p')
 
 for path in $paths; do
+    # Only proceed if the path is a directory; ignore files (like md5.h)
     if [ -d "$path" ]; then
         folder_name=$(basename "$path")
         sub_combined="$TEMP_DIR/${folder_name}.txt"
@@ -75,6 +79,7 @@ for path in $paths; do
         
         > "$sub_combined"
         
+        # Look for legal files inside the submodule folder
         find "$path" -maxdepth 1 -type f \( -iname "LICENSE*" -o -iname "COPYING*" -o -iname "NOTICE*" \) | while read -r legal_file; do
             echo "--- SUBMODULE ($folder_name): $(basename "$legal_file") ---" >> "$sub_combined"
             cat "$legal_file" >> "$sub_combined"
@@ -84,16 +89,23 @@ for path in $paths; do
         if [ -s "$sub_combined" ]; then
             compile_to_obj "$sub_combined" "$sub_obj"
             rm "$sub_combined"
+        else
+            # Remove empty file if no legal docs found in this folder
+            rm -f "$sub_combined"
         fi
     fi
 done
 
-$LDP -r "$TEMP_DIR"/*.o -o "$FINAL_OBJ"
-
-if [ $? -eq 0 ]; then
-    echo "  GEN     scripts/temp/legal.o"
+# Check if there are actually any objects to merge
+if ls "$TEMP_DIR"/*.o >/dev/null 2>&1; then
+    $LDP -r "$TEMP_DIR"/*.o -o "$FINAL_OBJ"
+    
+    if [ $? -eq 0 ]; then
+        echo "  GEN      scripts/temp/legal.o"
+    else
+        printf "${RED}Error:${NC} Failed to merge objects.\n"
+        exit 1
+    fi
 else
-    printf "${RED}Error:${NC} Failed to merge objects.\n"
-    rm -rf "$TEMP_DIR/*"
-    exit 1
+    printf "${BLUE}Notice:${NC} No legal objects generated to merge.\n"
 fi

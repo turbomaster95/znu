@@ -9,6 +9,17 @@
 #define VFS_DEVICE    3
 #define VFS_SYMLINK   4
 
+// Forward declaration
+struct vfs_node;
+
+// 1. Define the Operations structure
+typedef struct vfs_ops {
+    int (*read)(struct vfs_node* node, void* buf, size_t size, size_t offset);
+    int (*write)(struct vfs_node* node, const void* buf, size_t size, size_t offset);
+    struct vfs_node* (*find_node)(struct vfs_node* parent, const char* name);
+} vfs_ops_t;
+
+// 2. Update the Node structure
 typedef struct vfs_node {
     char name[128];
     int type;
@@ -17,6 +28,12 @@ typedef struct vfs_node {
     int gid;
     uintptr_t data;
     size_t size;
+
+    // Added for Polymorphism/FatFs
+    vfs_ops_t* ops;          // Pointer to the driver functions
+    int is_mountpoint;       // 1 if this node redirects to a disk driver
+    void* internal_data;     // Stores filesystem-specific data (like FIL*)
+
     struct vfs_node* parent;
     struct vfs_node* children;
     struct vfs_node* next;
@@ -38,14 +55,12 @@ vfs_node_t* vfs_find_child(vfs_node_t* parent, const char* name);
 vfs_node_t* vfs_path_to_node(const char* path);
 void vfs_register_file(const char* path, uintptr_t data, size_t size);
 
-// File access functions
+// File access functions (Now backend-aware)
 int vfs_read(vfs_node_t* node, void* buf, size_t size, size_t offset);
 int vfs_write(vfs_node_t* node, const void* buf, size_t size, size_t offset);
 
-// CPIO
+// CPIO & Debug
 void cpio_parse(void *addr);
-
-// Debug
 void debug_vfs(vfs_node_t* node, int tab);
 
 #endif

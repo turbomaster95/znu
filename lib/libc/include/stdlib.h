@@ -57,6 +57,10 @@ void write_cr4(uint64_t cr4);
 uint64_t read_cr4(void);
 void disable_smap(void);
 int vdebugprintf(const char* format, va_list args);
+int rand(void);
+void srand(unsigned int seed);
+int rdrand64(uint64_t* val);
+void seed_from_hardware(void);
 
 #endif
 
