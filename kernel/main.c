@@ -134,6 +134,8 @@ void kmain(void) {
         hcf();
     }
 
+    disable_smap();
+    debugln("Disabled SMAP");
     if (hhdm_request.response) {
         hhdm_offset = hhdm_request.response->offset;
     }
