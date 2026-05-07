@@ -103,6 +103,13 @@ volatile void hcf(void) {
     }
 }
 
+
+void force_sync(void* addr) {
+    volatile uint32_t* fb = (volatile uint32_t*)addr;
+    uint32_t dummy = *fb; // Force a read
+    (void)dummy;
+}
+
 void sse_init(void) {
     uint64_t cr0;
     asm volatile("mov %%cr0, %0" : "=r"(cr0));
@@ -125,6 +132,13 @@ volatile bool screen_lock = false;
 // This prevents flanterm from taking over the screen if graphics are to be drawn
 void lock_screen() { screen_lock = true; }
 void unlock_screen() { screen_lock = false; }
+
+void flush_framebuffer(void* addr, uint64_t size) {
+    // Flush in 64-byte chunks (standard cache line size)
+    for (uint64_t i = 0; i < size; i += 64) {
+        asm volatile("clflush (%0)" : : "r"((uint8_t*)addr + i) : "memory");
+    }
+}
 
 void kmain(void) {
     // Ensure the bootloader actually understands our base revision (see spec).
@@ -173,7 +187,7 @@ void kmain(void) {
 
     // Fetch the first framebuffer.
     struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
-
+    pat_init();
     // Does some neat shit with the init fb
     int padding = 6;
     uint32_t screen_w = framebuffer->width;
@@ -193,7 +207,10 @@ void kmain(void) {
     terminal_initialize();
     blit_window(term_x, term_y, TERM_W, TERM_H, term_buffer);
     vmm_ready = true;
-
+    debugln("Test Log for KVM and others.");
+    flush_framebuffer(framebuffer->address, framebuffer->height * framebuffer->pitch);
+    debugln("force_sync");
+    force_sync(framebuffer->address);
     // Shows the current cmdline from Limine
     if (cmdline_request.response == NULL || 
         cmdline_request.response->cmdline == NULL || 
@@ -250,8 +267,7 @@ void kmain(void) {
     // Initialize PIT
     pit_init(1000);
     debugln("[pit] PIT initialized for calibration.");
-
-   
+ 
     serial_init();
     debugln("[serial] Serial initialized.");
     ps2_init();

@@ -64,3 +64,12 @@ THIRD-PARTY SUBMODULES AND ATTRIBUTIONS
    Location: [lib/libc/md5.c]
    
    (Refer to the top of the files for the full permission notice.)
+
+--------------------------------------------------------------------------------
+
+6. GNU C Library ELF Header
+   Copyright (c) 1995-2026 Free Software Foundation, Inc.
+   License: GNU LGPL Version 2.1
+   Location: [include/elf.h]
+   
+   (Refer to the top of the file for the full permission notice.)

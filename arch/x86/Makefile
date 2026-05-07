@@ -11,4 +11,5 @@ obj-y += usermode.o
 obj-y += syscall.o
 obj-y += syscall_entry.o
 obj-y += ps2.o
+obj-y += pat.o
 
