@@ -2,18 +2,49 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdint.h>
+#include <unistd.h>
 
 void putchar(char c) {
-    register long rax __asm__("rax") = 1; // sys_write
-    register long rdi __asm__("rdi") = 1; // stdout
-    register long rsi __asm__("rsi") = (long)&c; // buffer
-    register long rdx __asm__("rdx") = 1; // count
+    if (c == '\n') {
+        char cr = '\r';
+        register long rax_cr __asm__("rax") = 1; 
+        register long rdi_cr __asm__("rdi") = 1; 
+        register long rsi_cr __asm__("rsi") = (long)&cr; 
+        register long rdx_cr __asm__("rdx") = 1; 
+        __asm__ volatile (
+            "syscall"
+            : "+r"(rax_cr)
+            : "r"(rdi_cr), "r"(rsi_cr), "r"(rdx_cr)
+            : "rcx", "r11", "memory"
+        );
+    }
+
+    register long rax __asm__("rax") = 1; 
+    register long rdi __asm__("rdi") = 1; 
+    register long rsi __asm__("rsi") = (long)&c; 
+    register long rdx __asm__("rdx") = 1; 
     __asm__ volatile (
         "syscall"
         : "+r"(rax)
         : "r"(rdi), "r"(rsi), "r"(rdx)
         : "rcx", "r11", "memory"
     );
+}
+
+size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
+    size_t total_bytes = size * nmemb;
+    if (total_bytes == 0) return 0;
+
+    // Assuming you have a write() syscall or similar
+    // We cast the FILE* back to an int because your typedef is 'int'
+    int fd = (int)(uintptr_t)stream;
+    
+    // Replace 'write_syscall' with whatever your actual 
+    // kernel-entry or hardware-write function is called.
+    int written = write(fd, ptr, total_bytes);
+
+    if (written <= 0) return 0;
+    return written / size;
 }
 
 int vsnprintf(char* str, size_t size, const char* format, va_list ap) {
@@ -220,4 +251,11 @@ int fputs(const char* s, FILE* stream) {
         );
     }
     return 0;
+}
+
+void perror(const char *s) {
+    if (s && *s) {
+        fprintf(stderr, "%s: ", s);
+    }
+    fprintf(stderr, "Unknown error\n"); // Or link to an actual strerror implementation later
 }

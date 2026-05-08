@@ -30,5 +30,14 @@ void readline(char* buf, size_t n);
 void putchar(char c);
 int fputc(int c, FILE* stream);
 int fputs(const char* s, FILE* stream);
+int fflush(FILE *stream);
+int fgetc(FILE *stream);
+int fclose(FILE *stream);
+int ferror(FILE *stream);
+int fileno(FILE *stream);
+size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
+FILE *fopen(const char *filename, const char *mode);
+void perror(const char *s);
+int sscanf(const char *str, const char *format, ...);
 
 #endif

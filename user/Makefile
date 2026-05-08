@@ -1,3 +1,5 @@
+KBUILD_CPPFLAGS := -I$(srctree)/lib/ulibc/third-party/linenoise
+
 subdir-y += hello
 subdir-y += poweroff
 subdir-y += dash

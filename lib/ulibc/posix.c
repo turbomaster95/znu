@@ -18,9 +18,11 @@
 #include <errno.h>
 #include <signal.h>
 #include <locale.h>
+#include <sys/select.h>
 
 int errno = 0;
 char **environ = NULL;
+
 
 static inline uint64_t syscall0(uint64_t n) {
     uint64_t ret;
@@ -181,6 +183,17 @@ int pipe(int pipefd[2]) {
     return -1;
 }
 
+int select(int nfds, fd_set *readfds, fd_set *writefds, 
+           fd_set *exceptfds, struct timeval *timeout) {
+    /* 
+     * For now, we stub this to return 0 (timeout). 
+     * This prevents the shell from hanging if it's in async mode.
+     * In a real implementation, this would be a syscall:
+     * return syscall(SYS_select, nfds, readfds, writefds, exceptfds, timeout);
+     */
+    return 0; 
+}
+
 void exit(int status) {
     __asm__ volatile ("syscall" : : "a"(60), "D"(status) : "rcx", "r11", "memory");
     while(1);
@@ -321,6 +334,10 @@ char *strerror(int errnum) {
 
 int atoi(const char *nptr) {
     return (int)strtoll(nptr, NULL, 10);
+}
+
+int fchmod(int fd, mode_t mode) {
+    return 0; 
 }
 
 sighandler_t signal(int signum, sighandler_t handler) {

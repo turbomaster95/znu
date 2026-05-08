@@ -1,3 +1,4 @@
+#include "rtc.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stddef.h>
@@ -20,7 +21,7 @@
 #include <kernel.h>
 
 bool krnl_init_done = false;
-extern void serial_init();
+extern void serial_init(void);
 
 // Set the base revision to 5, this is recommended as this is the latest
 // base revision described by the Limine boot protocol specification.
@@ -174,6 +175,24 @@ void kmain(void) {
         hcf();
     }
 
+    // 1. Enable OS support for XSAVE and AVX
+    uint64_t cr4;
+    __asm__ volatile("mov %%cr4, %0" : "=r"(cr4));
+    cr4 |= (1 << 18); // OSXSAVE bit
+    __asm__ volatile("mov %0, %%cr4" : : "r"(cr4));
+    
+    // 2. Enable SSE, AVX, and x87 in XCR0
+    uint32_t eax, edx;
+    // xgetbv reads XCR0 into edx:eax
+    __asm__ volatile("xgetbv" : "=a"(eax), "=d"(edx) : "c"(0));
+    
+    eax |= (1 << 0); // x87 state
+    eax |= (1 << 1); // SSE state
+    eax |= (1 << 2); // AVX state (This is the one you're missing!)
+    
+    // xsetbv writes edx:eax back to XCR0
+    __asm__ volatile("xsetbv" : : "a"(eax), "d"(edx), "c"(0));
+
     // Ensure we got a framebuffer.
     if (framebuffer_request.response == NULL
      || framebuffer_request.response->framebuffer_count < 1) {
@@ -211,6 +230,9 @@ void kmain(void) {
     flush_framebuffer(framebuffer->address, framebuffer->height * framebuffer->pitch);
     debugln("force_sync");
     force_sync(framebuffer->address);
+
+
+
     // Shows the current cmdline from Limine
     if (cmdline_request.response == NULL || 
         cmdline_request.response->cmdline == NULL || 
@@ -265,8 +287,8 @@ void kmain(void) {
     debugln("[lapic] LAPIC initialized.");
 
     // Initialize PIT
-    pit_init(1000);
-    debugln("[pit] PIT initialized for calibration.");
+    /* pit_init(1000); */
+    /* debugln("[pit] PIT initialized for calibration."); */
  
     serial_init();
     debugln("[serial] Serial initialized.");
@@ -276,7 +298,9 @@ void kmain(void) {
     __asm__ volatile("sti");
     debugln("[kernel] Interupts Enabled.");
 
-    calibrate_lapic_timer();
+    /* calibrate_lapic_timer(); */
+    rtc_init();
+    timekeeper_init();
     debugln("[lapic] LAPIC calibrated: %u ticks/ms", lapic_ticks_per_ms);
 
     debugln("[ktest] Testing sleep(2000)...");
