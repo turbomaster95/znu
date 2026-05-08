@@ -60,7 +60,7 @@ THIRD-PARTY SUBMODULES AND ATTRIBUTIONS
 5. OpenWall MD5 Implementation
    Copyright (c) 2001 Alexander Peslyar (Solar Designer) 
    License: Heavily Cut-Down BSD license
-   Location: [include/md5.h]
+   Location: [lib/libc/include/md5.h]
    Location: [lib/libc/md5.c]
    
    (Refer to the top of the files for the full permission notice.)
