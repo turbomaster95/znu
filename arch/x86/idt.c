@@ -60,14 +60,14 @@ registers_t* k_exception_handler(registers_t *regs) {
         timer_ticks++;
         timekeeper_on_tick();
         regs = scheduler(regs);
-        if (++frame_count % 16 == 0) {
-           if (vmm_ready && term_buffer && !screen_lock) {
-             blit_window(term_x, term_y, TERM_W, TERM_H, term_buffer);
-           }
-        }
+//        if (++frame_count % 16 == 0) {
+//           if (vmm_ready && term_buffer && !screen_lock) {
+//             blit_window(term_x, term_y, TERM_W, TERM_H, term_buffer);
+//           }
+//        }
     } 
     else if (int_no == 33) {
-    //    debugln("[idt] Keyboard IRQ");
+        debugln("[idt] Keyboard IRQ");
         keyboard_handle_scancode(inb(0x60));
     }
     else if (int_no == 48) {
@@ -75,15 +75,12 @@ registers_t* k_exception_handler(registers_t *regs) {
         regs = scheduler(regs);
     }
     
-    if (int_no >= 32 && int_no < 48) {
-        if (int_no >= 40) {
-            outb(0xA0, 0x20); // Slave PIC
-        }
-        outb(0x20, 0x20);     // Master PIC
-    }
-
-    if (int_no >= 32) {
-        lapic_eoi();
+    if (int_no >= 32 && int_no <= 47) {
+	if (int_no >= 40) outb(0xA0, 0x20); // Slave
+    	outb(0x20, 0x20);                  // Master
+    } else if (int_no == 48) {
+        debugln("lapic eoi");
+        lapic_eoi(); // LAPIC Timer
     }
     
     return regs;

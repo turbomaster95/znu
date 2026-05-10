@@ -7,46 +7,38 @@
 #include <timekeeper.h> 
 #include <stdlib.h>
 
-extern tsc_info_t tsc_detect(void);
-extern bool rtc_init(void);
-extern bool rtc_read_time(rtc_time_t *time);
 extern void pit_init(uint32_t frequency);
 extern void msleep(uint32_t ms);
-extern void lapic_init(void);
-extern void calibrate_lapic_timer(void); // Or a similar function to calibrate LAPIC
 extern tsc_info_t tsc_data;
 
-// Function to measure CPU speed by counting TSC cycles during a PIT delay
 uint64_t measure_cpu_speed(void) {
     debugln("[CPU] Measuring CPU speed...");
 
-    const uint32_t calibration_duration_ms = 10; // 10 milliseconds for measurement
-    const uint32_t pit_frequency = 1000; // PIT set to 1kHz for ~1ms ticks
-
-    if (!tsc_data.supported) { // Assuming tsc_data is globally accessible or passed
+    const uint32_t ms_to_wait = 10;
+    
+    if (!tsc_data.supported) {
         debugerr("[CPU] TSC not supported, cannot measure speed.");
         return 0;
     }
 
-    pit_init(pit_frequency);
+    // Ensure PIT is ready
+    pit_init(1000); 
+
+    // Warm up the pipeline/cache
+    tsc_read();
 
     uint64_t tsc_start = tsc_read();
-    uint64_t start_timer_ticks = timer_ticks; // Assuming timer_ticks is accessible
-
-    msleep(calibration_duration_ms);
-
+    msleep(ms_to_wait);
     uint64_t tsc_end = tsc_read();
 
     uint64_t tsc_cycles = tsc_end - tsc_start;
 
-    uint64_t duration_seconds = calibration_duration_ms / 1000ULL;
-    if (duration_seconds == 0) duration_seconds = 1;
+    // Fixed Math: (Cycles * 1000) / ms = Cycles per Second (Hz)
+    uint64_t cpu_frequency = (tsc_cycles * 1000) / ms_to_wait;
 
-    // CPU speed = cycles / seconds
-    uint64_t cpu_frequency = tsc_cycles / duration_seconds;
-
-    debugln("[CPU] Measured TSC cycles in %u ms: %llu", calibration_duration_ms, tsc_cycles);
-    debugln("[CPU] Estimated CPU frequency: %llu Hz", cpu_frequency);
+    debugln("[CPU] Measured %llu cycles in %u ms", tsc_cycles, ms_to_wait);
+    debugln("[CPU] Estimated frequency: %llu Hz (%llu MHz)", 
+            cpu_frequency, cpu_frequency / 1000000);
 
     return cpu_frequency;
 }

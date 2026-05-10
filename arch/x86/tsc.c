@@ -4,6 +4,7 @@
 #include <pi.h> 
 #include <stdlib.h>
 #include <limine.h>
+#include <cpuid.h>
 
 tsc_info_t tsc_data = {
     .supported = false,
@@ -15,31 +16,48 @@ static uint64_t tsc_calibrate_frequency(void);
 tsc_info_t tsc_detect(void) {
     debugln("[TSC] Detecting TSC...");
 
-    uint32_t eax, ebx, ecx, edx;
-
-    // Check for CPUID support (leaf 0)
-    __asm__ volatile("cpuid" : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx) : "a"(0));
-    if (eax < 1) { // CPUID leaf 1 is not supported
+    // 1. Check max supported leaf via CPUID_GETVENDORSTRING (Leaf 0)
+    cpuid_res_t basic_info = cpuid_query(CPUID_GETVENDORSTRING, 0);
+    if (basic_info.eax < 1) { 
         debugln("[TSC] CPUID leaf 1 not supported.");
         tsc_data.supported = false;
         tsc_data.frequency = 0;
         return tsc_data;
     }
 
-    // Check for TSC support (leaf 1, ECX bit 4)
-    __asm__ volatile("cpuid" : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx) : "a"(1));
-    if (ecx & (1 << 4)) { // TSC flag is set
+    // 2. Check for TSC support (Leaf 1, EDX bit 4)
+    // Offset mapping for your helper: eax=0, ebx=1, ecx=2, edx=3
+    if (cpuid_has_feature(CPUID_GETFEATURES, 3, 4)) { 
         tsc_data.supported = true;
         debugln("[TSC] TSC supported.");
 
-        // Calibrate TSC frequency using PIT
-        tsc_data.frequency = tsc_calibrate_frequency();
+        /* 
+         * Logic: We check if Leaf 0x15 is available for hardware-provided frequency.
+         * If not, we fall back to the manual PIT calibration.
+         */
+        if (basic_info.eax >= CPUID_GETTSC_INFO) {
+            cpuid_res_t tsc_info = cpuid_query(CPUID_GETTSC_INFO, 0);
+            
+            // If EAX/EBX are non-zero, we can calculate freq without PIT
+            if (tsc_info.eax != 0 && tsc_info.ebx != 0) {
+                // Freq = Crystal * (EBX/EAX)
+                // Note: ECX is the crystal frequency in Hz (if provided)
+                uint64_t crystal = tsc_info.ecx ? tsc_info.ecx : 24000000; // Default 24MHz
+                tsc_data.frequency = (crystal * tsc_info.ebx) / tsc_info.eax;
+                debugln("[TSC] Hardware-reported frequency: %llu Hz", tsc_data.frequency);
+            }
+        }
+
+        // Fallback to PIT calibration if hardware didn't report it
         if (tsc_data.frequency == 0) {
-            debugwarn("[TSC] Failed to calibrate TSC frequency, using placeholder.");
-            // Fallback frequency if calibration fails
-            tsc_data.frequency = 3000000000; // Placeholder: 3 GHz (adjust later)
+            tsc_data.frequency = tsc_calibrate_frequency();
+        }
+
+        if (tsc_data.frequency == 0) {
+            debugwarn("[TSC] Failed to calibrate frequency, using placeholder.");
+            tsc_data.frequency = 3000000000; // 3 GHz
         } else {
-            debugln("[TSC] Calibrated TSC frequency: %llu Hz", tsc_data.frequency);
+            debugln("[TSC] Final TSC frequency: %llu Hz", tsc_data.frequency);
         }
     } else {
         debugln("[TSC] TSC not supported.");
@@ -77,39 +95,41 @@ uint64_t tsc_get_frequency(void) {
 }
 
 static uint64_t tsc_calibrate_frequency(void) {
-    debugln("[TSC] Calibrating TSC frequency using PIT...");
+    debugln("[TSC] Calibrating TSC frequency via hardware PIT polling...");
 
-    const uint32_t calibration_duration_ms = 10; // 10 milliseconds
-    const uint32_t pit_frequency = 1000; // PIT set to 1kHz for ~1ms interrupts
+    /* 1. Prepare the PIT: Channel 2, LSB/MSB, mode 0 (Interrupt on terminal count) */
+    /* We use Channel 2 because it's safer to poll without messing up the system timer */
+    outb(0x61, (inb(0x61) & ~0x02) | 0x01); // Gate on for Channel 2
+    outb(0x43, 0xB0);                       // Select Channel 2, LSB/MSB, Mode 0
 
-    // Record current timer_ticks to measure elapsed time accurately.
-    // We need to ensure timer_ticks is updated by PIT interrupts.
-    uint64_t start_timer_ticks = timer_ticks;
-    
-    // Read TSC at the start
+    // Set PIT reload value to 0xFFFF (65535)
+    // The PIT frequency is 1.193182 MHz. 
+    // 0xFFFF ticks is approx 54.925 ms.
+    outb(0x42, 0xFF); 
+    outb(0x42, 0xFF);
+
     uint64_t tsc_start = tsc_read();
 
-    // Wait for the specified duration using msleep.
-    // msleep relies on timer_ticks and PIT interrupts.
-    msleep(calibration_duration_ms);
+    /* 2. Wait for the PIT to count down */
+    /* We poll the status of Channel 2 until the OUT bit (bit 7) goes high */
+    while (!(inb(0x61) & 0x20)); 
 
-    // Read TSC at the end
     uint64_t tsc_end = tsc_read();
 
-    // Calculate elapsed TSC cycles
+    /* 3. Cleanup: Disable PIT Channel 2 gate */
+    outb(0x61, inb(0x61) & ~0x01);
+
     uint64_t tsc_cycles = tsc_end - tsc_start;
 
-    // Calculate duration in seconds.
-    // msleep waits for timer_ticks to increment by calibration_duration_ms.
-    // If PIT frequency is 1000 Hz, 1 tick is 1ms.
-    // So, the actual duration in seconds is calibration_duration_ms / 1000.0
-    uint64_t duration_seconds = calibration_duration_ms / 1000ULL;
-    if (duration_seconds == 0) duration_seconds = 1; // Avoid division by zero if ms < 1000
+    /* 
+     * 4. Math:
+     * PIT Frequency = 1193182 Hz
+     * Ticks used = 65535
+     * Seconds elapsed = 65535 / 1193182 (~0.0549 sec)
+     * Freq = Cycles / (Ticks / PIT_FREQ) = (Cycles * PIT_FREQ) / Ticks
+     */
+    uint64_t frequency = (tsc_cycles * 1193182) / 65535;
 
-    // Frequency = cycles / seconds
-    uint64_t frequency = tsc_cycles / duration_seconds;
-
-    debugln("[TSC] Calibration: %llu cycles in %u ms.", tsc_cycles, calibration_duration_ms);
-    
+    debugln("[TSC] Calibration complete: %llu Hz", frequency);
     return frequency;
 }

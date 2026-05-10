@@ -1,4 +1,4 @@
-#include "rtc.h"
+#include <rtc.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stddef.h>
@@ -130,16 +130,8 @@ struct limine_rsdp_response *rsdp_response = NULL;
 
 volatile bool screen_lock = false; 
 
-// This prevents flanterm from taking over the screen if graphics are to be drawn
 void lock_screen() { screen_lock = true; }
 void unlock_screen() { screen_lock = false; }
-
-void flush_framebuffer(void* addr, uint64_t size) {
-    // Flush in 64-byte chunks (standard cache line size)
-    for (uint64_t i = 0; i < size; i += 64) {
-        asm volatile("clflush (%0)" : : "r"((uint8_t*)addr + i) : "memory");
-    }
-}
 
 void kmain(void) {
     // Ensure the bootloader actually understands our base revision (see spec).
@@ -207,31 +199,12 @@ void kmain(void) {
     // Fetch the first framebuffer.
     struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
     pat_init();
-    // Does some neat shit with the init fb
-    int padding = 6;
-    uint32_t screen_w = framebuffer->width;
-    uint32_t screen_h = framebuffer->height;
-
-    TERM_W = screen_w - (padding * 2);
-    TERM_H = screen_h - (padding * 2);
-    term_x = padding;
-    term_y = padding;
-
-    // 3. Draw the "thick" screen border at the extreme edges
-    uint32_t border_color = 0xFF2F334D;
-    for (int i = 0; i < 6; i++) {
-      draw_outline_rect(i, i, screen_w - (i * 2), screen_h - (i * 2), border_color);
-    }
 
     terminal_initialize();
-    blit_window(term_x, term_y, TERM_W, TERM_H, term_buffer);
     vmm_ready = true;
+
     debugln("Test Log for KVM and others.");
-    flush_framebuffer(framebuffer->address, framebuffer->height * framebuffer->pitch);
-    debugln("force_sync");
     force_sync(framebuffer->address);
-
-
 
     // Shows the current cmdline from Limine
     if (cmdline_request.response == NULL || 
@@ -271,6 +244,11 @@ void kmain(void) {
 
     idt_init();
     debugln("[idt] IDT initialized.");
+
+    // Initialize PIT
+    pit_init(1000);
+    debugln("[pit] PIT initialized for calibration.");
+
     sse_init();
     debugln("[cpu] SSE initialized.");
 
@@ -286,10 +264,6 @@ void kmain(void) {
     lapic_init();
     debugln("[lapic] LAPIC initialized.");
 
-    // Initialize PIT
-    /* pit_init(1000); */
-    /* debugln("[pit] PIT initialized for calibration."); */
- 
     serial_init();
     debugln("[serial] Serial initialized.");
     ps2_init();
@@ -298,11 +272,16 @@ void kmain(void) {
     __asm__ volatile("sti");
     debugln("[kernel] Interupts Enabled.");
 
-    /* calibrate_lapic_timer(); */
     rtc_init();
     timekeeper_init();
     debugln("[lapic] LAPIC calibrated: %u ticks/ms", lapic_ticks_per_ms);
 
+    __asm__ volatile("cli");
+    // Re-initialize PIT Channel 0, Mode 3, LSB/MSB
+    pit_init(1000); 
+    // Ensure the PIC unmasks IRQ0
+    outb(0x21, 0xFE); 
+    __asm__ volatile("sti");
     debugln("[ktest] Testing sleep(2000)...");
     uint64_t s_start = timer_ticks;
     sleep(2000);
@@ -378,13 +357,13 @@ void kmain(void) {
         initrd_addr = decomp_buffer;
     }
 
-    debugln("\033[1;34m  ______             \033[0m\n");
-    debugln("\033[1;34m |___  /             \033[0m\n");
-    debugln("\033[1;34m    / / _ __  _   _  \033[0m\n");
-    debugln("\033[1;34m   / / | '_ \\| | | | \033[0m\n");
-    debugln("\033[1;34m  / /__| | | | |_| | \033[0m\n");
-    debugln("\033[1;34m /_____|_| |_|\\__,_| \033[0m\n");
-    debugln("\033[1;36m  Kernel v0.1.0-alpha \033[0m\n\n");
+    debugln("\033[1;34m  ______             \033[0m");
+    debugln("\033[1;34m |___  /             \033[0m");
+    debugln("\033[1;34m    / / _ __  _   _  \033[0m");
+    debugln("\033[1;34m   / / | '_ \\| | | | \033[0m");
+    debugln("\033[1;34m  / /__| | | | |_| | \033[0m");
+    debugln("\033[1;34m /_____|_| |_|\\__,_| \033[0m");
+    debugln("\033[1;36m  Kernel v0.1.0-alpha \033[0m\n");
 
     debugln("[kernel] Parsing initramfs at %p...", initrd_addr);
     cpio_parse(initrd_addr);

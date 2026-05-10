@@ -8,12 +8,6 @@
 #include <flanterm_backends/fb.h>
 
 struct flanterm_context *ft_ctx = NULL;
-uint32_t TERM_W = 800;
-uint32_t TERM_H = 600;
-uint32_t term_x = 0;
-uint32_t term_y = 0;
-
-uint32_t *term_buffer = NULL;
 
 #if defined(__is_libk)
 extern volatile struct limine_framebuffer_request framebuffer_request;
@@ -48,22 +42,22 @@ void blit_window(int win_x, int win_y, int win_w, int win_h, uint32_t *win_buffe
 void terminal_initialize(void) {
     struct limine_framebuffer *fb = framebuffer_request.response->framebuffers[0];
 
-    term_buffer = kmalloc(TERM_W * TERM_H * 4);
+    // term_buffer = kmalloc(TERM_W * TERM_H * 4);
     
     // Safety check: ensure kmalloc didn't fail
-    if (term_buffer == NULL) return;
+    // if (term_buffer == NULL) return;
 
     ft_ctx = flanterm_fb_init(
         flanterm_malloc,
         flanterm_free,
-//        fb->address,        // Framebuffer address
-	term_buffer,
-//        fb->width,          // Width
-	TERM_W,
-//        fb->height,         // Height
-	TERM_H,
-//        fb->pitch,          // Pitch (bytes per line)
-	TERM_W * 4,  
+        fb->address,        // Framebuffer address
+//	term_buffer,
+        fb->width,          // Width
+//	TERM_W,
+        fb->height,         // Height
+//	TERM_H,
+        fb->pitch,          // Pitch (bytes per line)
+//	TERM_W * 4,  
         fb->red_mask_size,  // Red mask size
         fb->red_mask_shift, // Red mask shift
         fb->green_mask_size,// Green mask size

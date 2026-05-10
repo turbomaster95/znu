@@ -101,7 +101,7 @@ if ls "$TEMP_DIR"/*.o >/dev/null 2>&1; then
     $LDP -r "$TEMP_DIR"/*.o -o "$FINAL_OBJ"
     
     if [ $? -eq 0 ]; then
-        echo "  GEN      scripts/temp/legal.o"
+        echo "  GEN     scripts/temp/legal.o"
     else
         printf "${RED}Error:${NC} Failed to merge objects.\n"
         exit 1
