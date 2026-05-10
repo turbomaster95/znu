@@ -18,7 +18,7 @@ typedef struct tty {
 } tty_t;
 
 tty_t kernel_tty;
-tty_t tty0;
+// tty_t tty0;
 
 void tty_init(void) {
     memset(&kernel_tty, 0, sizeof(kernel_tty));
@@ -109,7 +109,7 @@ long tty_write(const char *buf, size_t count) {
 }
 
 int tty_ioctl(unsigned long request, void *argp) {
-    tty_t *tty = &tty0;
+    tty_t *tty = &kernel_tty;
 
     switch (request) {
 

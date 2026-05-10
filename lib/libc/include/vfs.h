@@ -12,7 +12,7 @@
 // Forward declaration
 struct vfs_node;
 
-// 1. Define the Operations structure
+
 typedef struct vfs_ops {
     int (*read)(struct vfs_node* node, void* buf, size_t size, size_t offset);
     int (*write)(struct vfs_node* node, const void* buf, size_t size, size_t offset);
@@ -38,6 +38,13 @@ typedef struct vfs_node {
     struct vfs_node* children;
     struct vfs_node* next;
 } vfs_node_t;
+
+typedef struct vfs_file_instance {
+    vfs_node_t* node;
+    size_t pos;
+    int flags;
+    void* private;   // tty buffer, pipe state, etc.
+} vfs_file_instance_t;
 
 typedef struct vfs_file {
     vfs_node_t* node;

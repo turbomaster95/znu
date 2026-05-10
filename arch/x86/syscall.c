@@ -520,13 +520,13 @@ uint64_t syscall_handler(registers_t* regs) {
     uint64_t arg4 = regs->r10;
     uint64_t arg5 = regs->r8;
 
-    if (current_process && current_process->pid == 2) {
-        if (num == 1) {
-            // debugln("[sys] PID 2 WRITE: fd=%d, buf=%p, len=%d", (int)arg1, (void*)arg2, (int)arg3);
-        } else if (num != 0) { // Don't log read, it's noisy
-            // debugln("[sys] PID 2 SYSCALL START: %d (arg1=%d, arg2=%p)", (int)num, (int)arg1, (void*)arg2);
-        }
-    }
+//    if (current_process && current_process->pid == 2) {
+//        if (num == 1) {
+//            // debugln("[sys] PID 2 WRITE: fd=%d, buf=%p, len=%d", (int)arg1, (void*)arg2, (int)arg3);
+//        } else if (num != 0) { // Don't log read, it's noisy
+//            // debugln("[sys] PID 2 SYSCALL START: %d (arg1=%d, arg2=%p)", (int)num, (int)arg1, (void*)arg2);
+//        }
+//    }
     switch (num) {
         case 0: // read
             return (uint64_t)sys_read((int)arg1, (void*)arg2, (size_t)arg3);
