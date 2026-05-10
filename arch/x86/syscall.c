@@ -359,7 +359,7 @@ int sys_spawn(const char* path, char** argv, char** envp) {
 
     vfs_node_t* node = vfs_path_to_node(kpath);
     if (!node || node->type != VFS_FILE) {
-        debugerr("[sys] Failed to find executable at %s", kpath);
+        // debugerr("[sys] Failed to find executable at %s", kpath);
         return -1;
     }
 

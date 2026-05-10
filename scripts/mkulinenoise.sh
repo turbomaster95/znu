@@ -40,7 +40,7 @@ if $CC -c "$ISOCLINE_SRC" -o "$FINAL_OBJ" $INC -isystem "$INTERNAL_INC" \
     -w \
     -mcmodel=kernel -mno-red-zone -mno-mmx -mno-sse -mno-sse2; then
     
-    echo "  DONE    $FINAL_DISPATH"
+    echo "  LD      $FINAL_DISPATH"
 else
     echo "  ERROR: Failed to compile $ISOCLINE_SRC"
     exit 1
