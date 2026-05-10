@@ -10,6 +10,7 @@
 #define LAPIC_REG_CURRENT_COUNT 0x00390
 #define LAPIC_REG_DIVIDE_CONF 0x003E0
 #define LAPIC_REG_EOI         0x00B0
+#define LAPIC_TIMER_VECTOR 0xF0
 
 void lapic_init(void);
 uint32_t lapic_read(uint32_t offset);

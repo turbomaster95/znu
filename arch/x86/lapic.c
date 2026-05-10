@@ -5,6 +5,7 @@
 #include <limine.h> // For limine_lapic_request
 #include <stdio.h>
 #include <pi.h>
+#include <tsc.h>
 #include <lapic.h>
 #include <prelude.h>
 
@@ -14,9 +15,6 @@ extern volatile struct limine_hhdm_request hhdm_request;
 
 // LAPIC Base Address (obtained from Limine)
 volatile uint64_t* lapic_base = NULL;
-
-// LAPIC Timer Interrupt Vector.
-#define LAPIC_TIMER_VECTOR 48
 
 #define LAPIC_TIMER_CLOCK_HZ 24000000
 #define LAPIC_TIMER_DIVIDER_CONF 0x3
@@ -76,35 +74,66 @@ void lapic_init() {
 }
 
 PERFORM void calibrate_lapic_timer_no_irq() {
-    debugln("[clapic] Polling PIT for LAPIC calibration...");
-    
-    // PIT Channel 2 is best for this to avoid messing with system time
-    // But if you use Channel 0, ensure it's in Mode 2 or 3.
-    pit_init(1000); 
+    debugln("[clapic] Calibrating LAPIC timer using TSC...");
 
-    lapic_write(LAPIC_REG_DIVIDE_CONF, 0x03); // Divide by 16
-    lapic_write(LAPIC_REG_INITIAL_COUNT, 0xFFFFFFFF);
+    extern tsc_info_t tsc_data;
 
-    // Get start state
-    uint16_t start_pit = read_pit_count();
-    uint32_t start_lapic = lapic_read(LAPIC_REG_CURRENT_COUNT);
+    if (!tsc_data.supported || tsc_data.frequency == 0) {
+        // TSC unavailable: fall back to PIT channel 2 direct polling.
+        // Channel 2 OUT is polled via port 0x61 bit 5 -- no IRQ needed.
+        debugwarn("[clapic] TSC unavailable, falling back to PIT ch2 polling.");
+        outb(0x61, (inb(0x61) & ~0x02) | 0x01); // gate on, speaker off
+        outb(0x43, 0xB0);                        // ch2, LSB+MSB, mode 0
+        outb(0x42, 0xFF);
+        outb(0x42, 0xFF);
 
-    // Wait for ~10ms (roughly 11932 PIT ticks)
-    // 1.193MHz / 100 = 11931.8
-    uint32_t ticks_to_wait = 11932;
-    while (1) {
-        uint16_t current_pit = read_pit_count();
-        uint32_t diff = (start_pit >= current_pit) ? (start_pit - current_pit) : (start_pit + (0xFFFF - current_pit));
-        if (diff > ticks_to_wait) break;
+        // Do NOT touch the LVT -- leave the timer masked so no IRQ fires.
+        lapic_write(LAPIC_REG_DIVIDE_CONF,   0x03);
+        lapic_write(LAPIC_REG_INITIAL_COUNT, 0xFFFFFFFF);
+
+        while (!(inb(0x61) & 0x20)); // poll until OUT high (~55 ms)
+
+        uint32_t lapic_remaining = lapic_read(LAPIC_REG_CURRENT_COUNT);
+        lapic_write(LAPIC_REG_INITIAL_COUNT, 0); // stop timer
+        outb(0x61, inb(0x61) & ~0x01);           // gate off
+
+        uint32_t elapsed = 0xFFFFFFFF - lapic_remaining;
+        // window = 65535 PIT ticks = 65535/1193182 s ~= 54.925 ms
+        lapic_ticks_per_ms = (uint32_t)(((uint64_t)elapsed * 1193182ULL)
+                                        / (65535ULL * 1000ULL));
+        debugln("[lapic] LAPIC calibration (PIT fallback): %u ticks/ms",
+                lapic_ticks_per_ms);
+        return;
     }
 
-    uint32_t end_lapic = lapic_read(LAPIC_REG_CURRENT_COUNT);
-    uint32_t lapic_ticks_elapsed = start_lapic - end_lapic;
+    // Normal path: spin on TSC for exactly 10 ms.
+    // TSC was already calibrated by tsc_detect() so this cannot hang.
+    // We deliberately do NOT write the LVT register here so there is no
+    // risk of delivering a vector-0 GP fault on strict hypervisors.
+    const uint32_t MEASURE_MS = 10;
+    uint64_t tsc_per_ms = tsc_data.frequency / 1000ULL;
+    uint64_t tsc_wait   = tsc_per_ms * (uint64_t)MEASURE_MS;
 
-    // We waited 10ms, so divide by 10 to get ticks per 1ms
-    lapic_ticks_per_ms = lapic_ticks_elapsed / 10;
+    lapic_write(LAPIC_REG_DIVIDE_CONF,   0x03);
+    lapic_write(LAPIC_REG_INITIAL_COUNT, 0xFFFFFFFF);
 
-    debugln("[lapic] LAPIC Ticks per ms: %u", lapic_ticks_per_ms);
+    uint64_t tsc_start   = tsc_read();
+    uint32_t lapic_start = lapic_read(LAPIC_REG_CURRENT_COUNT);
+
+    while ((tsc_read() - tsc_start) < tsc_wait) {
+        __asm__ volatile("pause");
+    }
+
+    uint32_t lapic_end = lapic_read(LAPIC_REG_CURRENT_COUNT);
+
+    // Stop the LAPIC timer so it cannot fire a spurious IRQ later.
+    lapic_write(LAPIC_REG_INITIAL_COUNT, 0);
+
+    uint32_t lapic_elapsed = lapic_start - lapic_end;
+    lapic_ticks_per_ms     = lapic_elapsed / MEASURE_MS;
+
+    debugln("[lapic] LAPIC calibration: %u ticks in %u ms -> %u ticks/ms",
+            lapic_elapsed, MEASURE_MS, lapic_ticks_per_ms);
 }
 
 
@@ -174,32 +203,20 @@ PERFORM void lapic_timer_isr() {
 }
 
 PERFORM void sleep(uint32_t ms) {
-    if (!lapic_base) {
-        debugerr("LAPIC not initialized, cannot sleep.");
-        return;
-    }
-    if (lapic_ticks_per_ms == 0) {
-        debugwarn("LAPIC timer not calibrated, cannot sleep accurately.");
-        return;
-    }
-
-    lapic_write(LAPIC_REG_DIVIDE_CONF, LAPIC_TIMER_DIVIDER_CONF);
-    lapic_write(LAPIC_REG_LVT_TIMER, LAPIC_TIMER_VECTOR);
-
-    uint32_t ticks_to_wait = ms * lapic_ticks_per_ms;
-    if (ticks_to_wait == 0) ticks_to_wait = 1;
-    
-    lapic_timer_fired = false;
-    lapic_write(LAPIC_REG_INITIAL_COUNT, ticks_to_wait);
-
-    while (!lapic_timer_fired) {
-        __asm__ volatile("hlt");
+    // Use the PIT-driven timer_ticks counter (incremented every 1ms by the
+    // PIT IRQ handler) as the time reference.  This is immune to LAPIC
+    // spurious firings, scheduler context switches, and lapic_timer_fired
+    // flag corruption.  The hlt wakes on every PIT tick (1ms), so the
+    // worst-case overrun is one tick (1 ms).
+    extern volatile uint64_t timer_ticks;
+    uint64_t target = timer_ticks + (uint64_t)ms;
+    while (timer_ticks < target) {
+        __asm__ volatile("sti; hlt");
     }
 }
 
 void lapic_timer_test() {
     lapic_write(LAPIC_REG_DIVIDE_CONF, 0x03); 
-    lapic_write(LAPIC_REG_LVT_TIMER, 32 | (1 << 17)); 
+    lapic_write(LAPIC_REG_LVT_TIMER, LAPIC_TIMER_VECTOR | (1 << 17)); 
     lapic_write(LAPIC_REG_INITIAL_COUNT, 1000000); 
 }
-

@@ -249,6 +249,9 @@ void kmain(void) {
     pit_init(1000);
     debugln("[pit] PIT initialized for calibration.");
 
+    init_scheduler();
+    debugln("[sched] Initialized Scheduler.");
+
     sse_init();
     debugln("[cpu] SSE initialized.");
 
@@ -280,8 +283,15 @@ void kmain(void) {
     // Re-initialize PIT Channel 0, Mode 3, LSB/MSB
     pit_init(1000); 
     // Ensure the PIC unmasks IRQ0
-    outb(0x21, 0xFE); 
+    outb(0x21, 0xFD); 
     __asm__ volatile("sti");
+    
+    debugln("Starting LAPIC periodic timer..."); 
+    lapic_write(LAPIC_REG_DIVIDE_CONF, 0x3);
+    lapic_write(LAPIC_REG_LVT_TIMER, LAPIC_TIMER_VECTOR | (1 << 17));
+    lapic_write(LAPIC_REG_INITIAL_COUNT,lapic_ticks_per_ms);
+    debugln("LAPIC timer armed.");
+
     debugln("[ktest] Testing sleep(2000)...");
     uint64_t s_start = timer_ticks;
     sleep(2000);
@@ -374,9 +384,7 @@ void kmain(void) {
     }
     
     debugln("[kernel] Loading init process from VFS (Size: %d bytes)", init_node->size);
-    init_scheduler();
-    debugln("[sched] Initialized Scheduler.");
-
+    
     const char* init_argv[] = {"/bin/init", NULL};
     const char* init_envp[] = {"PATH=/bin", "TERM=linux", "HOME=/", NULL};
     process_t* init_proc = create_process_from_elf((uint8_t*)init_node->data, (char**)init_argv, (char**)init_envp);

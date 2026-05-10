@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #define KB_BUF_SIZE 256
 
@@ -75,6 +76,7 @@ void keyboard_handle_scancode(uint8_t scancode) {
     }
 
     if (c) {
+	debug_putchar(c);
         size_t next = (kb_head + 1) % KB_BUF_SIZE;
         if (next != kb_tail) {
             kb_buffer[kb_head] = c;
