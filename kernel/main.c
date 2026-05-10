@@ -270,10 +270,6 @@ void kmain(void) {
     serial_init();
     debugln("[serial] Serial initialized.");
     ps2_init();
-    debugln("[ps2] Initialized PS/2");
-
-    __asm__ volatile("sti");
-    debugln("[kernel] Interupts Enabled.");
 
     rtc_init();
     timekeeper_init();

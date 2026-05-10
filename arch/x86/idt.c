@@ -84,6 +84,7 @@ registers_t* k_exception_handler(registers_t *regs) {
 
 	        keyboard_handle_scancode(scancode);
     	    }
+	    lapic_eoi();
     }
 
     else if (int_no >= 32 && int_no <= 47) {
