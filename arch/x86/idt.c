@@ -57,9 +57,7 @@ registers_t* k_exception_handler(registers_t *regs) {
         }
 
         hcf();
-    }
-
-    else if (int_no == LAPIC_TIMER_VECTOR) {
+    } else if (int_no == LAPIC_TIMER_VECTOR) {
         timer_ticks++;
         lapic_timer_fired = true;
 
@@ -68,27 +66,17 @@ registers_t* k_exception_handler(registers_t *regs) {
         regs = scheduler(regs);
 
         lapic_eoi();
-    }
-
-    else if (int_no == 33) {
-	    debugln("IRQ33 ENTER");
-
+    } else if (int_no == 33) {
 	    uint8_t status = inb(0x64);
-
-	    debugln("STATUS=0x%x", status);
-
 	    if (status & 1) {
         	uint8_t scancode = inb(0x60);
 
-	        debugln("SC=0x%x", scancode);
-
 	        keyboard_handle_scancode(scancode);
     	    }
+	    outb(0x20, 0x20); // ACK the irq always
+
 	    lapic_eoi();
-    }
-
-    else if (int_no >= 32 && int_no <= 47) {
-
+    } else if (int_no >= 32 && int_no <= 47 && int_no != 33) {
         // Slave PIC
         if (int_no >= 40) {
             outb(0xA0, 0x20);

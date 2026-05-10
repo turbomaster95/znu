@@ -76,13 +76,12 @@ void keyboard_handle_scancode(uint8_t scancode) {
     }
 
     if (c) {
-	debug_putchar(c);
         size_t next = (kb_head + 1) % KB_BUF_SIZE;
         if (next != kb_tail) {
             kb_buffer[kb_head] = c;
             kb_head = next;
         } else {
-            // debugln("[kb]   Buffer full!");
+            debugln("[kb]   Buffer full!");
         }
     }
 }

@@ -19,3 +19,4 @@ obj-y += cmdline.o
 obj-y += serial.o
 obj-y += image.o
 obj-y += stack_guard.o
+obj-y += tty.o

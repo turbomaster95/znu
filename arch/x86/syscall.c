@@ -104,17 +104,15 @@ long sys_read(int fd, void* buf, size_t count) {
             while (got < count) {
                 char c;
                 if (keyboard_read(&c, 1) > 0) {
-                 //   debugln("[sys] PID %d READ from kb: '%c' (0x%x)", current_process->pid, c, c);
                     if (c == '\r') c = '\n'; // Map CR to LF for the shell
-                    debug_putchar(c);
+                    // debug_putchar(c);
                     user_buf[got++] = c;
                     return got;
                 }
                 extern int serial_read_nonblock(char* buf, int count);
                 if (serial_read_nonblock(&c, 1) > 0) {
-                 //   debugln("[sys] PID %d READ from serial: '%c' (0x%x)", current_process->pid, c, c);
                     if (c == '\r') c = '\n'; // Map CR to LF for the shell
-                    debug_putchar(c);
+                    // debug_putchar(c);
                     user_buf[got++] = c;
                     return got;
                 }

@@ -30,9 +30,9 @@ void readline(char* buf, size_t n) {
         
         // Echo printable chars
         if (c >= 0x20 && c < 0x7F) {
-            // putchar(c); // Kernel echoes for us
+            putchar(c); // Kernel echoes for us
         } else if (c == '\n' || c == '\r') {
-            // putchar('\n'); // Kernel echoes for us
+            putchar('\n'); // Kernel echoes for us
             buf[i++] = '\n';
             break;
         } else {
