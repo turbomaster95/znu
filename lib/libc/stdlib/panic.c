@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <kernel/tty.h>
+#include <kernel/display.h>
 
 #define PANIC_BG_COLOR 0xff0000
 

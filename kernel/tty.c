@@ -18,6 +18,7 @@ typedef struct tty {
 } tty_t;
 
 tty_t kernel_tty;
+tty_t tty0;
 
 void tty_init(void) {
     memset(&kernel_tty, 0, sizeof(kernel_tty));
@@ -98,4 +99,55 @@ size_t tty_read(char *buf, size_t count) {
     }
 
     return got;
+}
+
+long tty_write(const char *buf, size_t count) {
+    for (size_t i = 0; i < count; i++)
+        terminal_putchar(buf[i]);
+
+    return count;
+}
+
+int tty_ioctl(unsigned long request, void *argp) {
+    tty_t *tty = &tty0;
+
+    switch (request) {
+
+        case 0x5401: { // TCGETS
+            if (!argp)
+                return -1;
+
+            memcpy(argp,
+                   &tty->termios,
+                   sizeof(struct termios));
+
+            return 0;
+        }
+
+        case 0x5402: // TCSETS
+        case 0x5403:
+        case 0x5404: {
+            if (!argp)
+                return -1;
+
+            memcpy(&tty->termios,
+                   argp,
+                   sizeof(struct termios));
+
+            return 0;
+        }
+
+        case 0x5413: { // TIOCGWINSZ
+            uint16_t *ws = argp;
+
+            ws[0] = 25;
+            ws[1] = 80;
+            ws[2] = 0;
+            ws[3] = 0;
+
+            return 0;
+        }
+    }
+
+    return -1;
 }

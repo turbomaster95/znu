@@ -7,8 +7,10 @@
 #include <vfs.h>
 #include <page.h>
 #include <stdio.h>
+#include <kernel/display.h>
 #include <kernel/tty.h>
 #include <elf.h>
+#include <fcntl.h>
 
 extern void hcf(void);
 extern void syscall_entry(void);
@@ -97,30 +99,16 @@ long sys_read(int fd, void* buf, size_t count) {
     if (!buf || !is_user_addr(buf, count)) return -1;
     if (!current_process) return -1;
     
-    if (fd < 3) {
-        if (fd == 0) {
-            size_t got = 0;
-            char* user_buf = (char*)buf;
-            while (got < count) {
-                char c;
-                if (keyboard_read(&c, 1) > 0) {
-                    if (c == '\r') c = '\n'; // Map CR to LF for the shell
-                    // debug_putchar(c);
-                    user_buf[got++] = c;
-                    return got;
-                }
-                extern int serial_read_nonblock(char* buf, int count);
-                if (serial_read_nonblock(&c, 1) > 0) {
-                    if (c == '\r') c = '\n'; // Map CR to LF for the shell
-                    // debug_putchar(c);
-                    user_buf[got++] = c;
-                    return got;
-                }
-                __asm__ volatile("sti; hlt; cli");
+    if (fd == 0) {
+        char *user_buf = buf;
+
+        while (1) {
+            size_t got = tty_read(user_buf, count);
+            if (got > 0) {
+               return got;
             }
-            return (long)got;
+            __asm__ volatile("sti; hlt; cli");
         }
-        return -1;
     }
 
     vfs_file_t* file = current_process->files[fd];
@@ -135,31 +123,51 @@ long sys_read(int fd, void* buf, size_t count) {
 
 long sys_write(int fd, const void* buf, size_t count) {
     if (!current_process) return -1;
-    // debugln("[sys_write] PID: %d, FD: %d, Buf: %p, Count: %d", current_process->pid, fd, buf, count);
-    if (!buf || !is_user_addr((void*)buf, count)) return -1;
 
+    if (fd < 0 || fd >= MAX_FILES)
+        return -1;
+
+    if (!buf || !is_user_addr((void*)buf, count))
+        return -1;
+
+    /*
+     * Temporary kernel console handling.
+     *
+     * stdin/stdout/stderr are not real files yet,
+     * so route stdout/stderr to the debug console.
+     */
     if (fd == 1 || fd == 2) {
         const char* ptr = (const char*)buf;
-        for (size_t i = 0; i < count; i++) debug_putchar(ptr[i]);
-        return count;
+
+        for (size_t i = 0; i < count; i++) {
+            char c = ptr[i];
+
+            /*
+             * Optional CRLF handling for serial terminals.
+             */
+            if (c == '\n')
+                debug_putchar('\r');
+
+            debug_putchar(c);
+        }
+
+        return (long)count;
     }
 
-    if (fd < 0 || fd >= MAX_FILES) {
-        return -1;
-    }
     vfs_file_t* file = current_process->files[fd];
-    if (file == (void*)0x1 || !file) {
-        // Fallback for stdout/stderr markers or uninitialized files
-        if (fd == 1 || fd == 2) {
-            const char* ptr = (const char*)buf;
-            for (size_t i = 0; i < count; i++) debug_putchar(ptr[i]);
-            return count;
-        }
+
+    if (!file || file == (void*)0x1)
         return -1;
-    }
+
+    if (!(file->flags & O_WRONLY) &&
+        !(file->flags & O_RDWR))
+        return -1;
 
     int ret = vfs_write(file->node, buf, count, file->pos);
-    if (ret > 0) file->pos += ret;
+
+    if (ret > 0)
+        file->pos += ret;
+
     return (long)ret;
 }
 
@@ -501,29 +509,7 @@ long sys_execve(const char* path, char** argv, char** envp, registers_t* regs) {
 
 long sys_ioctl(int fd, unsigned long request, void* argp) {
     if (fd < 0 || fd >= MAX_FILES) return -1;
-    
-    // TCGETS is 0x5401 on Linux. We just return 0 for stdin/stdout/stderr
-    // to trick the libc into thinking it's a TTY.
-    // TCGETS is 0x5401 on Linux. TCSETS is 0x5402, 0x5403, 0x5404.
-    // TIOCGWINSZ is 0x5413.
-    if ((fd == 0 || fd == 1 || fd == 2) && (request == 0x5401 || request == 0x5402 || request == 0x5403 || request == 0x5404 || request == 0x5413)) {
-        if (request == 0x5401 && argp && current_process && is_user_addr(argp, 36)) {
-            memset(argp, 0, 36); 
-            // Set ICANON (2) and ECHO (8) in c_lflag (offset 12)
-            ((uint32_t*)argp)[3] = 0xA;
-        }
-        if (request == 0x5413 && argp && current_process && is_user_addr(argp, 8)) {
-            // struct winsize: rows, cols, xpixel, ypixel (all uint16_t)
-            uint16_t* ws = (uint16_t*)argp;
-            ws[0] = 25; // 25 rows
-            ws[1] = 80; // 80 cols
-            ws[2] = 0;
-            ws[3] = 0;
-        }
-        return 0; 
-    }
-    
-    return -1; // ENOTTY or invalid
+    if (fd >= 0 && fd <= 2) return tty_ioctl(request, argp);
 }
 
 uint64_t syscall_handler(registers_t* regs) {
@@ -536,9 +522,9 @@ uint64_t syscall_handler(registers_t* regs) {
 
     if (current_process && current_process->pid == 2) {
         if (num == 1) {
-            debugln("[sys] PID 2 WRITE: fd=%d, buf=%p, len=%d", (int)arg1, (void*)arg2, (int)arg3);
+            // debugln("[sys] PID 2 WRITE: fd=%d, buf=%p, len=%d", (int)arg1, (void*)arg2, (int)arg3);
         } else if (num != 0) { // Don't log read, it's noisy
-            debugln("[sys] PID 2 SYSCALL START: %d (arg1=%d, arg2=%p)", (int)num, (int)arg1, (void*)arg2);
+            // debugln("[sys] PID 2 SYSCALL START: %d (arg1=%d, arg2=%p)", (int)num, (int)arg1, (void*)arg2);
         }
     }
     switch (num) {

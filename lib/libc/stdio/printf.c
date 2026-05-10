@@ -1,6 +1,5 @@
-/* lib/libc/stdio/printf.c */
 #include <limits.h>
-#include <kernel/tty.h>
+#include <kernel/display.h>
 #include <stdbool.h>
 #include <stdarg.h>
 #include <stdio.h>

@@ -3,7 +3,7 @@
 #include <limine.h>
 #include <string.h>
 #include <page.h>
-#include <kernel/tty.h>
+#include <kernel/display.h>
 #include <flanterm.h>
 #include <flanterm_backends/fb.h>
 

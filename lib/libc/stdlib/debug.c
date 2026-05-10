@@ -1,10 +1,9 @@
-
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
-#include <kernel/tty.h>
+#include <kernel/display.h>
 
 // ANSI Color Codes
 bool vmm_ready = false;

@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <limine.h>
 #include <stdlib.h>
+#include <kernel/display.h>
 #include <kernel/tty.h>
 #include <idt.h>
 #include <lapic.h>
@@ -325,6 +326,9 @@ void kmain(void) {
     debugln("[kernel_debug] About to initialize namespace..");
     status = uacpi_namespace_initialize();
     debugln("[SUCCESS] uACPI is live.");
+
+    tty_init();
+    debugln("[tty] Initialized tty");
 
     enable_syscalls();
     syscall_init();

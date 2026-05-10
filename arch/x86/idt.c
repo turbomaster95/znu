@@ -6,7 +6,7 @@
 #include <lapic.h>
 #include <timekeeper.h>
 #include <proc.h>
-#include <kernel/tty.h>
+#include <kernel/display.h>
 
 extern void hcf(void);
 struct idt_entry idt[256] __attribute__((aligned(16)));

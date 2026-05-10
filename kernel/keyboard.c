@@ -4,6 +4,7 @@
 
 #define KB_BUF_SIZE 256
 
+extern void tty_input_char(char c);
 static uint8_t kb_buffer[KB_BUF_SIZE];
 static volatile size_t kb_head = 0;
 static volatile size_t kb_tail = 0;
@@ -76,13 +77,7 @@ void keyboard_handle_scancode(uint8_t scancode) {
     }
 
     if (c) {
-        size_t next = (kb_head + 1) % KB_BUF_SIZE;
-        if (next != kb_tail) {
-            kb_buffer[kb_head] = c;
-            kb_head = next;
-        } else {
-            debugln("[kb]   Buffer full!");
-        }
+	tty_input_char(c);
     }
 }
 

@@ -1,4 +1,4 @@
-#include <kernel/tty.h>
+#include <kernel/display.h>
 #include <stdint.h>
 
 #include <kernel/colors.h>
