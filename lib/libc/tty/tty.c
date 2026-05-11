@@ -83,16 +83,16 @@ void terminal_initialize(void) {
 }
 
 void terminal_putchar(char c) {
-    if (!ft_ctx) return;
+    if (!ft_ctx)
+        return;
 
     if (c == '\n') {
-        char cr = '\r';
-        flanterm_write(ft_ctx, &cr, 1);
+       char cr = '\r';
+       flanterm_write(ft_ctx, &cr, 1);
     }
 
     flanterm_write(ft_ctx, &c, 1);
 }
-
 
 void terminal_write(const char* data, size_t size) {
     for (size_t i = 0; i < size; i++) terminal_putchar(data[i]);

@@ -11,6 +11,7 @@
 #include <page.h>
 
 extern void terminal_putchar(char c);
+extern void debug_putcharn(char c);
 
 tty_t ttys[MAX_TTYS];
 tty_device_t tty_devices[MAX_TTYS];
@@ -194,67 +195,75 @@ void tty_init(void) {
 }
 
 void tty_input_char(int id, char c) {
-    if (id < 0 || id >= MAX_TTYS)
+    tty_t *tty = &ttys[id];
+
+    if ((tty->termios.c_iflag & ICRNL) && c == '\r')
+        c = '\n';
+
+    if (!(tty->termios.c_lflag & ICANON)) {
+
+        if (tty->termios.c_lflag & ECHO) {
+            terminal_putchar(c);
+            debug_putcharn(c);
+        }
+
+        size_t next = (tty->cooked_head + 1) % TTY_BUF_SIZE;
+
+        if (next != tty->cooked_tail) {
+            tty->cooked_buf[tty->cooked_head] = c;
+            tty->cooked_head = next;
+        }
+
+        tty_wake_reader(tty);
         return;
-
-    tty_t* tty = &ttys[id];
-
-    if (tty->termios.c_iflag & ICRNL) {
-        if (c == '\r')
-            c = '\n';
     }
 
-    if (c == 127 || c == '\b') {
-
+    if (c == 127) {
         if (tty->line_len > 0) {
-
             tty->line_len--;
 
             if (tty->termios.c_lflag & ECHO) {
                 terminal_putchar('\b');
+                debug_putcharn('\b');
+
                 terminal_putchar(' ');
+                debug_putcharn(' ');
+
                 terminal_putchar('\b');
+                debug_putcharn('\b');
             }
         }
-
         return;
     }
 
     if (tty->termios.c_lflag & ECHO) {
-
-        if (c == '\n')
-            terminal_putchar('\r');
-
         terminal_putchar(c);
+        debug_putcharn(c);
     }
 
-    if (tty->termios.c_lflag & ICANON) {
+    if (tty->line_len >= (TTY_BUF_SIZE - 1)) {
+        tty->line_len = 0;
+        return;
+    }
 
-        if (tty->line_len >= (TTY_BUF_SIZE - 1))
-            tty->line_len = 0;
+    tty->line_buf[tty->line_len++] = c;
 
-        tty->line_buf[tty->line_len++] = c;
+    if (c == '\n') {
 
-        if (c == '\n') {
+        for (size_t i = 0; i < tty->line_len; i++) {
 
-            for (size_t i = 0;
-                 i < tty->line_len;
-                 i++) {
+            size_t next = (tty->cooked_head + 1) % TTY_BUF_SIZE;
 
-                tty_buf_put(
-                    tty,
-                    tty->line_buf[i]
-                );
-            }
+            if (next == tty->cooked_tail)
+                break;
 
-            tty->line_len = 0;
+            tty->cooked_buf[tty->cooked_head] =
+                tty->line_buf[i];
 
-            tty_wake_reader(tty);
+            tty->cooked_head = next;
         }
 
-    } else {
-
-        tty_buf_put(tty, c);
+        tty->line_len = 0;
 
         tty_wake_reader(tty);
     }
