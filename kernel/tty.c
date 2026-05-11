@@ -10,8 +10,8 @@
 #include <stdio.h>
 #include <page.h>
 
+extern void terminal_backspace(void);
 extern void terminal_putchar(char c);
-extern void debug_putcharn(char c);
 
 tty_t ttys[MAX_TTYS];
 tty_device_t tty_devices[MAX_TTYS];
@@ -204,7 +204,6 @@ void tty_input_char(int id, char c) {
 
         if (tty->termios.c_lflag & ECHO) {
             terminal_putchar(c);
-            debug_putcharn(c);
         }
 
         size_t next = (tty->cooked_head + 1) % TTY_BUF_SIZE;
@@ -223,22 +222,14 @@ void tty_input_char(int id, char c) {
             tty->line_len--;
 
             if (tty->termios.c_lflag & ECHO) {
-                terminal_putchar('\b');
-                debug_putcharn('\b');
-
-                terminal_putchar(' ');
-                debug_putcharn(' ');
-
-                terminal_putchar('\b');
-                debug_putcharn('\b');
-            }
+		terminal_backspace();
+	    }
         }
         return;
     }
 
     if (tty->termios.c_lflag & ECHO) {
         terminal_putchar(c);
-        debug_putcharn(c);
     }
 
     if (tty->line_len >= (TTY_BUF_SIZE - 1)) {
