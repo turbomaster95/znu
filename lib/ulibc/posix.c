@@ -301,12 +301,14 @@ off_t lseek(int fd, off_t offset, int whence) {
 }
 
 int ioctl(int fd, unsigned long request, ...) {
-    // 0x5401 is TCGETS on Linux
-    if (request == 0x5401) {
-        // Just return 0 to say "it's a terminal" but we don't support settings
-        return 0;
-    }
-    return 0;
+    void* argp;
+
+    __builtin_va_list ap;
+    __builtin_va_start(ap, request);
+    argp = __builtin_va_arg(ap, void*);
+    __builtin_va_end(ap);
+
+    return (int)sys_ioctl(fd, request, argp);
 }
 
 DIR *opendir(const char *name) {
@@ -345,17 +347,12 @@ sighandler_t signal(int signum, sighandler_t handler) {
 }
 
 int tcgetattr(int fd, struct termios *termios_p) {
-    if (!termios_p) return -1;
-    memset(termios_p, 0, sizeof(struct termios));
-    // Provide some basic flags so dash doesn't panic
-    termios_p->c_iflag = 0x0500; // ICRNL | IXON
-    termios_p->c_oflag = 0x0005; // OPOST | ONLCR
-    termios_p->c_lflag = 0x8a3b; // ISIG | ICANON | ECHO | ...
-    return 0;
+    return ioctl(fd, TCGETS, termios_p);
 }
 
 int tcsetattr(int fd, int optional_actions, const struct termios *termios_p) {
-    return 0;
+    (void)optional_actions;
+    return ioctl(fd, TCSETS, (void*)termios_p);
 }
 
 pid_t tcgetpgrp(int fd) {

@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
+
 #include <proc.h>
 #include <devfs.h>
 #include <kernel/tty.h>
@@ -10,39 +11,98 @@
 #include <page.h>
 
 extern void terminal_putchar(char c);
-extern void debug_putcharn(char c);
 
-#define MAX_TTYS 2
-
-static tty_t ttys[MAX_TTYS];
+tty_t ttys[MAX_TTYS];
 tty_device_t tty_devices[MAX_TTYS];
-
-int active_tty = 0;
 
 static vfs_node_t tty_nodes[MAX_TTYS];
 
-static inline int tty_buffer_empty(tty_t *tty) {
+int active_tty = 0;
+
+static inline bool tty_buf_empty(tty_t* tty) {
     return tty->cooked_head == tty->cooked_tail;
 }
 
-static inline tty_t *tty_get(int id) {
-    if (id < 0 || id >= MAX_TTYS)
-        return &ttys[0];
-
-    return &ttys[id];
+static inline bool tty_buf_full(tty_t* tty) {
+    return ((tty->cooked_head + 1) % TTY_BUF_SIZE)
+        == tty->cooked_tail;
 }
 
-static void tty_wake_readers(tty_t *tty) {
-    tty_waiter_t *w = tty->readers;
+static inline void tty_buf_put(tty_t* tty, char c) {
+    if (tty_buf_full(tty))
+        return;
 
-    while (w) {
-        if (w->proc) {
-            w->proc->state = TASK_READY;
+    tty->cooked_buf[tty->cooked_head] = c;
+    tty->cooked_head =
+        (tty->cooked_head + 1) % TTY_BUF_SIZE;
+}
+
+static inline char tty_buf_get(tty_t* tty) {
+    char c = tty->cooked_buf[tty->cooked_tail];
+
+    tty->cooked_tail =
+        (tty->cooked_tail + 1) % TTY_BUF_SIZE;
+
+    return c;
+}
+
+static void tty_wake_reader(tty_t* tty) {
+    if (tty->waiting_reader) {
+        tty->waiting_reader->state = TASK_READY;
+        tty->waiting_reader = NULL;
+    }
+}
+
+size_t tty_read(tty_t* tty, char* buf, size_t count) {
+    if (!tty || !buf || count == 0)
+        return 0;
+
+    size_t got = 0;
+
+    while (got < count) {
+
+        while (tty_buf_empty(tty)) {
+
+            if (!current_process)
+                break;
+
+            tty->waiting_reader = current_process;
+
+            current_process->state = TASK_WAITING;
+
+            asm volatile("sti");
+            asm volatile("hlt");
+            asm volatile("cli");
         }
-        w = w->next;
+
+        if (tty_buf_empty(tty))
+            break;
+
+        buf[got++] = tty_buf_get(tty);
+
+        if (tty->termios.c_lflag & ICANON) {
+            if (buf[got - 1] == '\n')
+                break;
+        }
     }
 
-    tty->readers = NULL;
+    return got;
+}
+
+long tty_write(tty_t* tty, const char* buf, size_t count) {
+    if (!tty || !buf)
+        return -1;
+
+    for (size_t i = 0; i < count; i++) {
+        char c = buf[i];
+
+        if (c == '\n')
+            terminal_putchar('\r');
+	    
+        terminal_putchar(c);
+    }
+
+    return (long)count;
 }
 
 static int tty_vfs_read(vfs_node_t* node,
@@ -51,35 +111,16 @@ static int tty_vfs_read(vfs_node_t* node,
                         size_t offset) {
     (void)offset;
 
-    tty_device_t* dev = (tty_device_t*)node->internal_data;
-    
-    if (!dev || !dev->tty) return -1;
+    if (!node || !buf)
+        return -1;
 
-    tty_t* tty = dev->tty;
+    tty_device_t* dev =
+        (tty_device_t*)node->internal_data;
 
-    if (!tty) return -1;
+    if (!dev || !dev->tty)
+        return -1;
 
-    size_t got = 0;
-
-    while (tty->cooked_head == tty->cooked_tail) {
-
-        if (current_process)
-            current_process->state = TASK_WAITING;
-
-        __asm__ volatile("sti; hlt");
-    }
-
-    while (got < size &&
-           tty->cooked_head != tty->cooked_tail) {
-
-        ((char*)buf)[got++] =
-            tty->cooked_buf[tty->cooked_tail];
-
-        tty->cooked_tail =
-            (tty->cooked_tail + 1) % TTY_BUF_SIZE;
-    }
-
-    return (int)got;
+    return (int)tty_read(dev->tty, buf, size);
 }
 
 static int tty_vfs_write(vfs_node_t* node,
@@ -88,33 +129,31 @@ static int tty_vfs_write(vfs_node_t* node,
                          size_t offset) {
     (void)offset;
 
-    tty_device_t* dev = (tty_device_t*)node->internal_data;
+    if (!node || !buf)
+        return -1;
 
-    if (!dev || !dev->tty) return -1;
+    tty_device_t* dev =
+        (tty_device_t*)node->internal_data;
 
-    tty_t* tty = dev->tty;
+    if (!dev || !dev->tty)
+        return -1;
 
-    if (!tty) return -1;
-
-    const char* cbuf = buf;
-
-    for (size_t i = 0; i < size; i++) {
-        terminal_putchar(cbuf[i]);
-	debug_putcharn(cbuf[i]);
-    }
-
-    return (int)size;
+    return (int)tty_write(
+        dev->tty,
+        (const char*)buf,
+        size
+    );
 }
 
-vfs_ops_t tty_vfs_ops = {
+static vfs_ops_t tty_vfs_ops = {
     .read = tty_vfs_read,
     .write = tty_vfs_write
 };
 
-
 void tty_init(void) {
     memset(ttys, 0, sizeof(ttys));
     memset(tty_devices, 0, sizeof(tty_devices));
+    memset(tty_nodes, 0, sizeof(tty_nodes));
 
     vfs_node_t* dev = vfs_path_to_node("/dev");
 
@@ -122,20 +161,27 @@ void tty_init(void) {
 
         tty_t* tty = &ttys[i];
 
-        tty->termios.c_lflag = ICANON | ECHO | ISIG;
+        tty->termios.c_lflag =
+            ICANON | ECHO | ISIG;
+
         tty->termios.c_iflag = ICRNL;
+
         tty->termios.c_oflag = OPOST;
 
-        tty_device_t* devobj = &tty_devices[i];
+        tty_device_t* devobj =
+            &tty_devices[i];
 
-	devobj->tty = tty;
+        devobj->tty = tty;
 
-        vfs_node_t* node = &tty_nodes[i];
+        vfs_node_t* node =
+            &tty_nodes[i];
 
-        memset(node, 0, sizeof(vfs_node_t));
-
-        snprintf(node->name, sizeof(node->name),
-                 "tty%d", i);
+        snprintf(
+            node->name,
+            sizeof(node->name),
+            "tty%d",
+            i
+        );
 
         node->type = VFS_DEVICE;
         node->ops = &tty_vfs_ops;
@@ -148,120 +194,101 @@ void tty_init(void) {
 }
 
 void tty_input_char(int id, char c) {
-    tty_t *tty = &ttys[id];
- 
-    /* normalize CR */
-    if (c == '\r')
-        c = '\n';
+    if (id < 0 || id >= MAX_TTYS)
+        return;
 
-    if (c == '\b' || c == 127) {
+    tty_t* tty = &ttys[id];
+
+    if (tty->termios.c_iflag & ICRNL) {
+        if (c == '\r')
+            c = '\n';
+    }
+
+    if (c == 127 || c == '\b') {
+
         if (tty->line_len > 0) {
+
             tty->line_len--;
 
             if (tty->termios.c_lflag & ECHO) {
                 terminal_putchar('\b');
-		debug_putcharn('\b');
                 terminal_putchar(' ');
-                debug_putcharn(' ');
                 terminal_putchar('\b');
-                debug_putcharn('\b');
             }
         }
+
         return;
     }
 
     if (tty->termios.c_lflag & ECHO) {
+
+        if (c == '\n')
+            terminal_putchar('\r');
+
         terminal_putchar(c);
-	debug_putcharn(c);
     }
 
-    if (tty->line_len >= (TTY_BUF_SIZE - 1)) {
-        tty->line_len = 0;
-        return;
-    }
+    if (tty->termios.c_lflag & ICANON) {
 
-    tty->line_buf[tty->line_len++] = c;
+        if (tty->line_len >= (TTY_BUF_SIZE - 1))
+            tty->line_len = 0;
 
-    if (c == '\n') {
+        tty->line_buf[tty->line_len++] = c;
 
-        for (size_t i = 0; i < tty->line_len; i++) {
+        if (c == '\n') {
 
-            size_t next = (tty->cooked_head + 1) % TTY_BUF_SIZE;
+            for (size_t i = 0;
+                 i < tty->line_len;
+                 i++) {
 
-            if (next == tty->cooked_tail)
-                break;
+                tty_buf_put(
+                    tty,
+                    tty->line_buf[i]
+                );
+            }
 
-            tty->cooked_buf[tty->cooked_head] =
-                tty->line_buf[i];
+            tty->line_len = 0;
 
-            tty->cooked_head = next;
+            tty_wake_reader(tty);
         }
 
-        tty->line_len = 0;
+    } else {
 
-        tty_wake_readers(tty);
+        tty_buf_put(tty, c);
+
+        tty_wake_reader(tty);
     }
 }
 
-size_t tty_read(char *buf, size_t count) {
-    tty_t *tty = tty_get(active_tty);
-    size_t got = 0;
-
-    if (!buf || count == 0)
-        return 0;
-
-    while (tty_buffer_empty(tty)) {
-
-        if (current_process) {
-            current_process->state = TASK_WAITING;
-        }
-
-        __asm__ volatile("sti; hlt");
-    }
-
-    while (got < count &&
-           tty->cooked_head != tty->cooked_tail) {
-
-        buf[got++] =
-            tty->cooked_buf[tty->cooked_tail];
-
-        tty->cooked_tail =
-            (tty->cooked_tail + 1) % TTY_BUF_SIZE;
-    }
-
-    return got;
-}
-
-long tty_write(const char *buf, size_t count) {
-    if (!buf)
-        return -1;
-
-    for (size_t i = 0; i < count; i++) {
-        terminal_putchar(buf[i]);
-        debug_putcharn(buf[i]);
-    }
-    return (long)count;
-}
-
-int tty_ioctl(unsigned long request, void *argp) {
-    tty_t *tty = tty_get(active_tty);
+int tty_ioctl(unsigned long request, void* argp) {
+    tty_t* tty = &ttys[active_tty];
+    debugln("tty_ioctl req=%lx", request);
     if (!argp)
         return -1;
 
     switch (request) {
 
-        case 0x5401: /* TCGETS */
-            memcpy(argp, &tty->termios, sizeof(struct termios));
+        case 0x5401:
+            memcpy(
+                argp,
+                &tty->termios,
+                sizeof(struct termios)
+            );
             return 0;
 
-        case 0x5402: /* TCSETS */
+        case 0x5402:
         case 0x5403:
         case 0x5404:
-            memcpy(&tty->termios, argp, sizeof(struct termios));
+            memcpy(
+                &tty->termios,
+                argp,
+                sizeof(struct termios)
+            );
             return 0;
 
-        case 0x5413: { /* TIOCGWINSZ */
-            uint16_t *ws = (uint16_t *)argp;
+        case 0x5413: {
+            uint16_t* ws =
+                (uint16_t*)argp;
 
             ws[0] = 25;
             ws[1] = 80;
@@ -279,7 +306,9 @@ vfs_file_t* tty_open_file(int id, int flags) {
     if (id < 0 || id >= MAX_TTYS)
         return NULL;
 
-    vfs_file_t* file = kmalloc(sizeof(vfs_file_t));
+    vfs_file_t* file =
+        kmalloc(sizeof(vfs_file_t));
+
     if (!file)
         return NULL;
 

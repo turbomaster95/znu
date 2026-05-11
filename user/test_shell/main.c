@@ -1,130 +1,52 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/select.h>
 #include <linenoise.h>
 
+/* Minimal completion: Tab will suggest "hello" or "help" if you type 'h' */
 void completion(const char *buf, linenoiseCompletions *lc) {
     if (buf[0] == 'h') {
-        linenoiseAddCompletion(lc,"hello");
-        linenoiseAddCompletion(lc,"hello there");
+        linenoiseAddCompletion(lc, "hello");
+        linenoiseAddCompletion(lc, "help");
     }
-}
-
-char *hints(const char *buf, int *color, int *bold) {
-    if (!strcasecmp(buf,"hello")) {
-        *color = 35;
-        *bold = 0;
-        return " World";
-    }
-    return NULL;
 }
 
 int main(int argc, char **argv) {
     char *line;
-    char *prgname = argv[0];
-    int async = 0;
-    const char *prompt = "hello> ";
+    const char *prompt = "znu> ";
 
-    /* Parse options, with --multiline we enable multi line editing. */
-    while(argc > 1) {
-        argc--;
-        argv++;
-        if (!strcmp(*argv,"--multiline")) {
-            linenoiseSetMultiLine(1);
-            printf("Multi-line mode enabled.\n");
-        } else if (!strcmp(*argv,"--keycodes")) {
-            linenoisePrintKeyCodes();
-            exit(0);
-        } else if (!strcmp(*argv,"--async")) {
-            async = 1;
-        } else if (!strcmp(*argv,"--ansi-prompt")) {
-            /* "red" in red, "green" in green, then "> " in default color.
-             * Visible width is 10 columns; the raw string contains ANSI
-             * CSI escape sequences that must be treated as zero-width. */
-            prompt = "\x1b[31mred\x1b[32mgreen\x1b[0m> ";
-        } else {
-            fprintf(stderr, "Usage: %s [--multiline] [--keycodes] [--async] [--ansi-prompt]\n", prgname);
-            exit(1);
-        }
-    }
-
-    /* Set the completion callback. This will be called every time the
-     * user uses the <tab> key. */
+    /* Set the completion callback for basic TAB support */
     linenoiseSetCompletionCallback(completion);
-    linenoiseSetHintsCallback(hints);
 
-    /* Load history from file. The history file is just a plain text file
-     * where entries are separated by newlines. */
-    linenoiseHistoryLoad("history.txt"); /* Load the history at startup */
-
-    /* Now this is the main loop of the typical linenoise-based application.
-     * The call to linenoise() will block as long as the user types something
-     * and presses enter.
-     *
-     * The typed string is returned as a malloc() allocated string by
-     * linenoise, so the user needs to free() it. */
+    printf("ZNU Shell Initialized. Type 'exit' to quit.\n");
 
     while(1) {
-        if (!async) {
-            line = linenoise(prompt);
-            if (line == NULL) break;
-        } else {
-            /* Asynchronous mode using the multiplexing API: wait for
-             * data on stdin, and simulate async data coming from some source
-             * using the select(2) timeout. */
-            struct linenoiseState ls;
-            char buf[1024];
-            linenoiseEditStart(&ls,-1,-1,buf,sizeof(buf),prompt);
-            while(1) {
-		fd_set readfds;
-		struct timeval tv;
-		int retval;
+        /* This is the simplest way to use linenoise. 
+           It blocks until the user presses Enter. */
+        line = linenoise(prompt);
 
-		FD_ZERO(&readfds);
-		FD_SET(ls.ifd, &readfds);
-		tv.tv_sec = 1; // 1 sec timeout
-		tv.tv_usec = 0;
+        /* Check for Ctrl+C or Ctrl+D (EOF) */
+        if (line == NULL) break;
 
-		retval = select(ls.ifd+1, &readfds, NULL, NULL, &tv);
-		if (retval == -1) {
-		    perror("select()");
-                    exit(1);
-		} else if (retval) {
-		    line = linenoiseEditFeed(&ls);
-                    /* A NULL return means: line editing is continuing.
-                     * Otherwise the user hit enter or stopped editing
-                     * (CTRL+C/D). */
-                    if (line != linenoiseEditMore) break;
-		} else {
-		    // Timeout occurred
-                    static int counter = 0;
-                    linenoiseHide(&ls);
-		    printf("Async output %d.\n", counter++);
-                    linenoiseShow(&ls);
-		}
+        /* Skip empty lines */
+        if (line[0] != '\0') {
+            
+            /* Simple command handling */
+            if (strcmp(line, "exit") == 0) {
+                free(line);
+                break;
             }
-            linenoiseEditStop(&ls);
-            if (line == NULL) exit(0); /* Ctrl+D/C. */
+
+            /* Echo the command back (replace this with your shell logic) */
+            printf("You entered: %s\n", line);
+
+            /* Add to in-memory history (up arrow will work) */
+            linenoiseHistoryAdd(line);
         }
 
-        /* Do something with the string. */
-        if (line[0] != '\0' && line[0] != '/') {
-            printf("echo: '%s'\n", line);
-            linenoiseHistoryAdd(line); /* Add to the history. */
-            linenoiseHistorySave("history.txt"); /* Save the history on disk. */
-        } else if (!strncmp(line,"/historylen",11)) {
-            /* The "/historylen" command will change the history len. */
-            int len = atoi(line+11);
-            linenoiseHistorySetMaxLen(len);
-        } else if (!strncmp(line, "/mask", 5)) {
-            linenoiseMaskModeEnable();
-        } else if (!strncmp(line, "/unmask", 7)) {
-            linenoiseMaskModeDisable();
-        } else if (line[0] == '/') {
-            printf("Unreconized command: %s\n", line);
-        }
+        /* linenoise returns a heap-allocated string; we must free it */
         free(line);
     }
+
     return 0;
 }

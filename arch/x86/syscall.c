@@ -476,8 +476,28 @@ long sys_execve(const char* path, char** argv, char** envp, registers_t* regs) {
 }
 
 long sys_ioctl(int fd, unsigned long request, void* argp) {
-    if (fd < 0 || fd >= MAX_FILES) return -1;
-    if (fd >= 0 && fd <= 2) return tty_ioctl(request, argp);
+    if (!current_process)
+        return -1;
+
+    if (fd < 0 || fd >= MAX_FILES)
+        return -1;
+
+    vfs_file_t* file = current_process->files[fd];
+
+    if (!file || !file->node)
+        return -1;
+
+    // tty device
+    if (file->node->type == VFS_DEVICE) {
+        tty_device_t* dev =
+            (tty_device_t*)file->node->internal_data;
+
+        if (dev && dev->tty) {
+            return tty_ioctl(request, argp);
+        }
+    }
+
+    return -1;
 }
 
 uint64_t syscall_handler(registers_t* regs) {

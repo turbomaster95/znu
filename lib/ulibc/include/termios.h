@@ -15,6 +15,10 @@ struct termios {
     cc_t c_cc[NCCS];     /* control characters */
 };
 
+#define TCGETS  0x5401
+#define TCSETS  0x5402
+#define TCSETSW 0x5403
+#define TCSETSF 0x5404
 
 /* c_iflag bits */
 #define BRKINT  0000002

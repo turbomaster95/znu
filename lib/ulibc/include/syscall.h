@@ -105,3 +105,14 @@ static inline int sys_wait(int pid, int* status) {
     __asm__ volatile ("syscall" : "=a"(ret) : "a"(61), "D"(pid), "S"(status) : "rcx", "r11", "memory");
     return ret;
 }
+
+static inline long sys_ioctl(int fd, unsigned long request, void* argp) {
+    long ret;
+    __asm__ volatile (
+        "syscall"
+        : "=a"(ret)
+        : "a"(16), "D"(fd), "S"(request), "d"(argp)
+        : "rcx", "r11", "memory"
+    );
+    return ret;
+}

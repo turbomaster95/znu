@@ -6,5 +6,6 @@ subdir-y += dash
 subdir-y += test_shell
 subdir-y += ls
 subdir-y += fuzz
+subdir-y += ttytest
 
 #subdir-y += skeleton/
