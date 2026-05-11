@@ -15,6 +15,10 @@ void debug_putchar(char c) {
     }
 }
 
+void debug_putcharn(char c) {
+    outb(0xe9, c);
+}
+
 void debug_write(const char* data) {
     while (*data) {
         debug_putchar(*data++);

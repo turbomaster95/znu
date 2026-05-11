@@ -4,6 +4,8 @@
 #include <string.h>
 #include <page.h>
 #include <proc.h>
+#include <kernel/tty.h>
+#include <fcntl.h>
 
 extern void jump_to_usermode(uintptr_t entry, uintptr_t stack);
 extern uint64_t* kernel_pml4;
@@ -176,13 +178,13 @@ process_t* create_process_from_elf(uint8_t* elf_data, char** argv, char** envp) 
     // Set default MXCSR (bits 7-12 are masks, they should be 1 to mask exceptions)
     *(uint32_t*)&proc->sse_state[24] = 0x1F80; 
 
-    debugln("[proc] Init process created. Entry: %p, PML4: %p", proc->entry, proc->pml4);
+    debugln("[proc] Process created. Entry: %p, PML4: %p", proc->entry, proc->pml4);
     
-    // Explicitly reserve FD 0, 1, 2 for console/keyboard
-    for (int i = 0; i < 16; i++) proc->files[i] = NULL;
-    proc->files[0] = (void*)0x1; // stdin marker
-    proc->files[1] = (void*)0x1; // stdout marker
-    proc->files[2] = (void*)0x1; // stderr marker
+    for (int i = 0; i < MAX_FILES; i++) proc->files[i] = NULL;
+
+    proc->files[0] = tty_open_file(0, O_RDONLY);
+    proc->files[1] = tty_open_file(0, O_WRONLY);
+    proc->files[2] = tty_open_file(0, O_WRONLY);
 
     return proc;
 }

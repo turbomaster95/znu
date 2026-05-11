@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <page.h>
-
+#include <devfs.h>
 
 vfs_node_t* root_node = NULL;
 
@@ -124,6 +124,7 @@ int vfs_read(vfs_node_t* node, void* buf, size_t size, size_t offset) {
 
 void init_vfs() {
     root_node = vfs_create_node("/", VFS_DIRECTORY);
+    devfs_init();
 }
 
 int vfs_write(vfs_node_t* node, const void* buf, size_t size, size_t offset) {

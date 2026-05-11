@@ -327,6 +327,9 @@ void kmain(void) {
     status = uacpi_namespace_initialize();
     debugln("[SUCCESS] uACPI is live.");
 
+    init_vfs();
+    debugln("[vfs] Initialized VFS");
+
     tty_init();
     debugln("[tty] Initialized tty");
 
@@ -334,7 +337,6 @@ void kmain(void) {
     syscall_init();
     gs_init(stack_top);
 
-    init_vfs();
 
     struct limine_module_response *mod_res = module_request.response;
     if (mod_res == NULL || mod_res->module_count == 0) {

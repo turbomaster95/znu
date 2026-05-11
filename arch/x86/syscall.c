@@ -55,10 +55,6 @@ void gs_init(uintptr_t kernel_stack_top) {
 
     uintptr_t addr = (uintptr_t)&main_cpu_context;
 
-    // IMPORTANT: In Ring 0 (now), GS_BASE is active.
-    // For SYSCALL from Ring 3, the CPU will 'swapgs' to pull this address 
-    // into the active slot. So we store it in KERNEL_GS_BASE for now.
-    
     wrmsr(MSR_GS_BASE, (uint32_t)addr, (uint32_t)(addr >> 32));
     wrmsr(MSR_KERNEL_GS_BASE, 0, 0); 
 
@@ -99,24 +95,16 @@ long sys_read(int fd, void* buf, size_t count) {
     if (!buf || !is_user_addr(buf, count)) return -1;
     if (!current_process) return -1;
     
-    if (fd == 0) {
-        char *user_buf = buf;
-
-        while (1) {
-            size_t got = tty_read(user_buf, count);
-            if (got > 0) {
-               return got;
-            }
-            __asm__ volatile("sti; hlt; cli");
-        }
-    }
-
     vfs_file_t* file = current_process->files[fd];
-    if (file == (void*)0x1 || !file) {
-        return -1;
-    }
 
-    int ret = vfs_read(file->node, buf, count, file->pos);
+    if (!file) return -1;
+
+    int ret = file->node->ops->read(
+  	  file->node,
+  	  buf,
+  	  count,
+  	  file->pos
+    );
     if (ret > 0) file->pos += ret;
     return (long)ret;
 }
@@ -130,40 +118,20 @@ long sys_write(int fd, const void* buf, size_t count) {
     if (!buf || !is_user_addr((void*)buf, count))
         return -1;
 
-    /*
-     * Temporary kernel console handling.
-     *
-     * stdin/stdout/stderr are not real files yet,
-     * so route stdout/stderr to the debug console.
-     */
-    if (fd == 1 || fd == 2) {
-        const char* ptr = (const char*)buf;
-
-        for (size_t i = 0; i < count; i++) {
-            char c = ptr[i];
-
-            /*
-             * Optional CRLF handling for serial terminals.
-             */
-            if (c == '\n')
-                debug_putchar('\r');
-
-            debug_putchar(c);
-        }
-
-        return (long)count;
-    }
-
     vfs_file_t* file = current_process->files[fd];
 
-    if (!file || file == (void*)0x1)
-        return -1;
+    if (!file) return -1;
 
     if (!(file->flags & O_WRONLY) &&
         !(file->flags & O_RDWR))
         return -1;
 
-    int ret = vfs_write(file->node, buf, count, file->pos);
+    int ret = file->node->ops->write(
+  	  file->node,
+  	  buf,
+  	  count,
+  	  file->pos
+    );
 
     if (ret > 0)
         file->pos += ret;

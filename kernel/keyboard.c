@@ -1,10 +1,12 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <devfs.h>
+#include <kernel/tty.h>
 
 #define KB_BUF_SIZE 256
 
-extern void tty_input_char(char c);
+extern int active_tty;
 
 static uint8_t kb_buffer[KB_BUF_SIZE];
 static volatile size_t kb_head = 0;
@@ -77,7 +79,7 @@ void keyboard_handle_scancode(uint8_t scancode) {
     kb_buffer[kb_head] = (uint8_t)c;
     kb_head = (kb_head + 1) % KB_BUF_SIZE;
 
-    tty_input_char(c);
+    tty_input_char(active_tty, c);
 }
 
 size_t keyboard_read(char *buf, size_t count) {
