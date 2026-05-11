@@ -15,7 +15,6 @@ struct termios {
     cc_t c_cc[NCCS];     /* control characters */
 };
 
-
 #define TCGETS  0x5401
 #define TCSETS  0x5402
 #define TCSETSW 0x5403
@@ -30,6 +29,7 @@ struct termios {
 
 /* c_oflag bits */
 #define OPOST   0000001
+#define ONLCR 0000004
 
 /* c_cflag bits */
 #define CS8     0000060

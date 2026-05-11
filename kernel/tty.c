@@ -91,18 +91,19 @@ size_t tty_read(tty_t* tty, char* buf, size_t count) {
 }
 
 long tty_write(tty_t* tty, const char* buf, size_t count) {
+    debugln("tty_write called");
     if (!tty || !buf)
         return -1;
 
     for (size_t i = 0; i < count; i++) {
-        char c = buf[i];
+       char c = buf[i];
 
-        if (c == '\n')
-            terminal_putchar('\r');
-	    
-        terminal_putchar(c);
+       if ((tty->termios.c_oflag & OPOST) && (tty->termios.c_oflag & ONLCR) && c == '\n') {
+          terminal_putchar('\r');
+       }
+
+       terminal_putchar(c);
     }
-
     return (long)count;
 }
 
@@ -167,7 +168,7 @@ void tty_init(void) {
 
         tty->termios.c_iflag = ICRNL;
 
-        tty->termios.c_oflag = OPOST;
+        tty->termios.c_oflag = OPOST | ONLCR; 
 
         tty_device_t* devobj =
             &tty_devices[i];
@@ -202,19 +203,24 @@ void tty_input_char(int id, char c) {
 
     if (!(tty->termios.c_lflag & ICANON)) {
 
-        if (tty->termios.c_lflag & ECHO) {
-            terminal_putchar(c);
-        }
+       if (tty->termios.c_lflag & ECHO) {
 
-        size_t next = (tty->cooked_head + 1) % TTY_BUF_SIZE;
+          if (c == 127) {
+              terminal_backspace();
+          } else {
+              terminal_putchar(c);
+          }
+       }
 
-        if (next != tty->cooked_tail) {
-            tty->cooked_buf[tty->cooked_head] = c;
-            tty->cooked_head = next;
-        }
+       size_t next = (tty->cooked_head + 1) % TTY_BUF_SIZE;
 
-        tty_wake_reader(tty);
-        return;
+       if (next != tty->cooked_tail) {
+          tty->cooked_buf[tty->cooked_head] = c;
+          tty->cooked_head = next;
+       }
+
+       tty_wake_reader(tty);
+       return;
     }
 
     if (c == 127) {
@@ -262,7 +268,7 @@ void tty_input_char(int id, char c) {
 
 int tty_ioctl(unsigned long request, void* argp) {
     tty_t* tty = &ttys[active_tty];
-    debugln("tty_ioctl req=%lx", request);
+    // debugln("tty_ioctl req=%lx", request);
     if (!argp)
         return -1;
 

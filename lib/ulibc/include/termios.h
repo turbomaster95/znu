@@ -29,6 +29,7 @@ struct termios {
 
 /* c_oflag bits */
 #define OPOST   0000001
+#define ONLCR 0000004
 
 /* c_cflag bits */
 #define CS8     0000060

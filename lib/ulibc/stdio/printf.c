@@ -5,20 +5,6 @@
 #include <unistd.h>
 
 void putchar(char c) {
-    if (c == '\n') {
-        char cr = '\r';
-        register long rax_cr __asm__("rax") = 1; 
-        register long rdi_cr __asm__("rdi") = 1; 
-        register long rsi_cr __asm__("rsi") = (long)&cr; 
-        register long rdx_cr __asm__("rdx") = 1; 
-        __asm__ volatile (
-            "syscall"
-            : "+r"(rax_cr)
-            : "r"(rdi_cr), "r"(rsi_cr), "r"(rdx_cr)
-            : "rcx", "r11", "memory"
-        );
-    }
-
     register long rax __asm__("rax") = 1; 
     register long rdi __asm__("rdi") = 1; 
     register long rsi __asm__("rsi") = (long)&c; 

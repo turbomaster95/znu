@@ -11,6 +11,7 @@ bool vmm_ready = false;
 void debug_putchar(char c) {
     outb(0xe9, c);
     if (vmm_ready) {
+       if (c == '\n') terminal_putchar('\r');
        terminal_putchar(c);
     }
 }

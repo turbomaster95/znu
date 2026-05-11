@@ -33,7 +33,7 @@ void readline(char* buf, size_t n) {
            // putchar(c); // Kernel echoes for us
         } else if (c == '\n' || c == '\r') {
             // putchar('\n'); // Kernel echoes for us
-            buf[i++] = '\n';
+            // buf[i++] = '\n';
             break;
         } else {
             // Control chars — don't echo or store

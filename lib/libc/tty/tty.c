@@ -84,18 +84,19 @@ void terminal_initialize(void) {
 
 void terminal_putchar(char c) {
     if (!ft_ctx) return;
-
-    if (c == '\n') {
-        char cr = '\r';
-        flanterm_write(ft_ctx, &cr, 1);
-    }
-
     flanterm_write(ft_ctx, &c, 1);
 }
 
 void terminal_backspace(void) {
-    static const char seq[] = "\x1b[D \x1b[D";
-    flanterm_write(ft_ctx, seq, sizeof(seq) - 1);
+    if (!ft_ctx)
+        return;
+
+    char bs = '\b';
+    char sp = ' ';
+
+    flanterm_write(ft_ctx, &bs, 1);
+    flanterm_write(ft_ctx, &sp, 1);
+    flanterm_write(ft_ctx, &bs, 1);
 }
 
 void terminal_write(const char* data, size_t size) {
