@@ -19,6 +19,7 @@
 #include <proc.h>
 #include <vfs.h>
 #include <x86.h>
+#include <cpuid.h>
 #include <kernel.h>
 
 bool krnl_init_done = false;
@@ -105,14 +106,19 @@ volatile void hcf(void) {
     }
 }
 
-
 void force_sync(void* addr) {
     volatile uint32_t* fb = (volatile uint32_t*)addr;
     uint32_t dummy = *fb; // Force a read
     (void)dummy;
 }
 
-void sse_init(void) {
+void simd_init(void) {
+    if (!cpuid_has_feature(CPUID_GETFEATURES, 3, 25)) {
+	debugln("[simd] Basic SSE Support is unavailable on this cpu!");
+	debugln("[simd] Some apps might not run properly or crash the system..");
+        return; 
+    }
+
     uint64_t cr0;
     asm volatile("mov %%cr0, %0" : "=r"(cr0));
     cr0 &= ~(1 << 2); // Clear EM
@@ -124,6 +130,22 @@ void sse_init(void) {
     cr4 |= (1 << 9);  // Set OSFXSR
     cr4 |= (1 << 10); // Set OSXMMEXCPT
     asm volatile("mov %0, %%cr4" : : "r"(cr4));
+    debugln("[simd] Enabled Basic SSE/FPU Operations.");
+
+    if (cpuid_has_feature(CPUID_GETFEATURES, 2, 26)) {        
+        cr4 |= (1 << 18); // Set OSXSAVE
+        asm volatile("mov %0, %%cr4" : : "r"(cr4));
+
+        uint32_t xcr0_eax = (1 << 0) | (1 << 1); // Always enable x87 and SSE
+        
+        if (cpuid_has_feature(CPUID_GETFEATURES, 2, 28)) {
+            xcr0_eax |= (1 << 2); // Enable AVX state
+        }
+
+        uint32_t edx = 0;
+        asm volatile("xsetbv" : : "a"(xcr0_eax), "d"(edx), "c"(0));
+	debugln("[simd] Enabled XSAVE!");
+    }
 }
 
 uint64_t* kernel_pml4;
@@ -168,23 +190,7 @@ void kmain(void) {
         hcf();
     }
 
-    // 1. Enable OS support for XSAVE and AVX
-    uint64_t cr4;
-    __asm__ volatile("mov %%cr4, %0" : "=r"(cr4));
-    cr4 |= (1 << 18); // OSXSAVE bit
-    __asm__ volatile("mov %0, %%cr4" : : "r"(cr4));
-    
-    // 2. Enable SSE, AVX, and x87 in XCR0
-    uint32_t eax, edx;
-    // xgetbv reads XCR0 into edx:eax
-    __asm__ volatile("xgetbv" : "=a"(eax), "=d"(edx) : "c"(0));
-    
-    eax |= (1 << 0); // x87 state
-    eax |= (1 << 1); // SSE state
-    eax |= (1 << 2); // AVX state (This is the one you're missing!)
-    
-    // xsetbv writes edx:eax back to XCR0
-    __asm__ volatile("xsetbv" : : "a"(eax), "d"(edx), "c"(0));
+    simd_init();
 
     // Ensure we got a framebuffer.
     if (framebuffer_request.response == NULL
@@ -252,9 +258,6 @@ void kmain(void) {
 
     init_scheduler();
     debugln("[sched] Initialized Scheduler.");
-
-    sse_init();
-    debugln("[cpu] SSE initialized.");
 
     debugln("[kernel] HHDM Offset: %p", hhdm_request.response->offset);
     debugln("[kernel] RSDP Address: %p", rsdp_request.response->address);

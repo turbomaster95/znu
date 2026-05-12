@@ -14,6 +14,7 @@ static volatile size_t kb_tail = 0;
 
 static uint8_t shift_pressed = 0;
 static uint8_t ctrl_pressed = 0;
+static uint8_t extended = 0;
 
 static const char ascii[128] = {
     [0x01] = 27,
@@ -76,6 +77,12 @@ void keyboard_handle_scancode(uint8_t scancode) {
         ctrl_pressed = 0;
         return;
     }
+    
+    // ARROW KEYS / EXTENDED KEYS
+    if (scancode == 0xE0) {
+        extended = 1;
+        return;
+    }
 
     // KEY RELEASE
     if (scancode & 0x80)
@@ -83,7 +90,39 @@ void keyboard_handle_scancode(uint8_t scancode) {
 
     char c = 0;
 
-    if (scancode < 128) {
+    if (extended) {
+        extended = 0;
+    
+        switch (scancode) {
+            case 0x48: // UP
+                tty_input_char(active_tty, 27);
+                tty_input_char(active_tty, '[');
+                tty_input_char(active_tty, 'A');
+                return;
+    
+            case 0x50: // DOWN
+                tty_input_char(active_tty, 27);
+                tty_input_char(active_tty, '[');
+                tty_input_char(active_tty, 'B');
+                return;
+    
+            case 0x4D: // RIGHT
+                tty_input_char(active_tty, 27);
+                tty_input_char(active_tty, '[');
+                tty_input_char(active_tty, 'C');
+                return;
+    
+            case 0x4B: // LEFT
+                tty_input_char(active_tty, 27);
+                tty_input_char(active_tty, '[');
+                tty_input_char(active_tty, 'D');
+                return;
+        }
+    
+        return;
+    }
+
+    if (scancode < 127) {
         c = shift_pressed && ascii_shifted[scancode]
                 ? ascii_shifted[scancode]
                 : ascii[scancode];

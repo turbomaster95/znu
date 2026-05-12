@@ -1,4 +1,5 @@
-KBUILD_CPPFLAGS := -I$(srctree)/lib/ulibc/third-party/linenoise
+KBUILD_CPPFLAGS := -I$(srctree)/lib/ulibc/third-party/zline
+export KBUILD_CPPFLAGS
 
 subdir-y += hello
 subdir-y += poweroff

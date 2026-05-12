@@ -14,3 +14,6 @@
 	path = user/dash
 	url = https://git.kernel.org/pub/scm/utils/dash/dash.git
 	shallow = true
+[submodule "lib/ulibc/third-party/zline"]
+	path = lib/ulibc/third-party/zline
+	url = https://github.com/turbomaster95/zline
