@@ -103,6 +103,9 @@ typedef struct {
     zl_completion_callback *completion_cb;
 } zline_t;
 
+static struct termios zl_orig_termios;
+static int zl_raw_enabled = 0;
+static int zl_registered_atexit = 0;
 
 static char *zl_strncat(char *dest, const char *src, size_t n) {
     size_t dest_len = ZL_STRLEN(dest);
@@ -147,6 +150,37 @@ static void zl_refresh(zline_t *z) {
         zl_puts(seq);
 #endif
     }
+}
+
+static void zl_disable_raw_mode(void) {
+    if (!zl_raw_enabled)
+        return;
+
+    tcsetattr(0, TCSAFLUSH, &zl_orig_termios);
+    zl_raw_enabled = 0;
+}
+
+static int zl_enable_raw_mode(void) {
+    struct termios raw;
+
+    if (tcgetattr(0, &zl_orig_termios) == -1)
+        return -1;
+
+    raw = zl_orig_termios;
+
+    raw.c_lflag &= ~(ICANON | ECHO);
+
+    if (tcsetattr(0, TCSAFLUSH, &raw) == -1)
+        return -1;
+
+    zl_raw_enabled = 1;
+
+    if (!zl_registered_atexit) {
+        atexit(zl_disable_raw_mode);
+        zl_registered_atexit = 1;
+    }
+
+    return 0;
 }
 
 static size_t zl_common_prefix(zl_completions_t *lc) {
@@ -251,6 +285,7 @@ static void zl_handle_search(zline_t *z, char c) {
 }
 
 static char* zline_read(zline_t *z) {
+    zl_enable_raw_mode();
     z->len = z->pos = 0;
     z->buf[0] = '\0';
     z->temp_buf[0] = '\0';
@@ -270,8 +305,9 @@ static char* zline_read(zline_t *z) {
         switch (c) {
             case 1:  z->pos = 0; break;
             case 5:  z->pos = z->len; break;
-            case 3:  zl_puts("^C\n"); return NULL;
-            case 13: zl_puts("\n"); zl_history_add(z, z->buf); return z->buf;
+            case 3:  zl_disable_raw_mode(); zl_puts("^C\n"); return NULL;
+            case '\r': 
+	    case '\n': zl_disable_raw_mode(); zl_puts("\n"); zl_history_add(z, z->buf); return z->buf;
             case 18: z->search_mode = true; z->search_buf[0] = '\0'; break;
             case 127:
                 if (z->pos > 0) {

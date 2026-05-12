@@ -3,6 +3,7 @@ default rel
 section .text
 global _start
 extern main
+extern exit
 extern environ
 
 _start:
@@ -27,9 +28,9 @@ _start:
     
     call main
     
+    ; This calls the exit handler in which in turn runs the atexit handlers and then exits cleanly
     mov rdi, rax
-    mov rax, 60
-    syscall
+    call exit
 
 .loop:
     hlt

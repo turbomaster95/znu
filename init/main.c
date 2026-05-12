@@ -132,10 +132,10 @@ int main() {
             }
             
             if (pid >= 0) {
-                printf("[zInit] Spawned %s (PID: %d)\n", line, pid);
+                // printf("[zInit] Spawned %s (PID: %d)\n", line, pid);
                 int status = 0;
                 int waited_pid = sys_wait(pid, &status);
-                printf("[zInit] Process %d exited with status %d\n", waited_pid, status);
+                // printf("[zInit] Process %d exited with status %d\n", waited_pid, status);
             } else {
                 printf("?: %s\n", line);
             }

@@ -14,6 +14,3 @@
 	path = user/dash
 	url = https://git.kernel.org/pub/scm/utils/dash/dash.git
 	shallow = true
-[submodule "lib/ulibc/third-party/linenoise"]
-	path = lib/ulibc/third-party/linenoise
-	url = https://github.com/antirez/linenoise

@@ -13,6 +13,7 @@ static volatile size_t kb_head = 0;
 static volatile size_t kb_tail = 0;
 
 static uint8_t shift_pressed = 0;
+static uint8_t ctrl_pressed = 0;
 
 static const char ascii[128] = {
     [0x01] = 27,
@@ -52,16 +53,31 @@ static const char ascii_shifted[128] = {
 
 void keyboard_handle_scancode(uint8_t scancode) {
 
+    // SHIFT PRESSED
     if (scancode == 0x2A || scancode == 0x36) {
         shift_pressed = 1;
         return;
     }
 
+    // SHIFT RELEASED
     if (scancode == 0xAA || scancode == 0xB6) {
         shift_pressed = 0;
         return;
     }
 
+    // CTRL PRESSED
+    if (scancode == 0x1D) {
+        ctrl_pressed = 1;
+        return;
+    }
+
+    // CTRL RELEASED
+    if (scancode == 0x9D) {
+        ctrl_pressed = 0;
+        return;
+    }
+
+    // KEY RELEASE
     if (scancode & 0x80)
         return;
 
@@ -75,6 +91,14 @@ void keyboard_handle_scancode(uint8_t scancode) {
 
     if (!c)
         return;
+
+    // CTRL KEY COMBOS
+    if (ctrl_pressed) {
+        if (c >= 'a' && c <= 'z')
+            c = c - 'a' + 1;
+        else if (c >= 'A' && c <= 'Z')
+            c = c - 'A' + 1;
+    }
 
     kb_buffer[kb_head] = (uint8_t)c;
     kb_head = (kb_head + 1) % KB_BUF_SIZE;

@@ -178,7 +178,7 @@ process_t* create_process_from_elf(uint8_t* elf_data, char** argv, char** envp) 
     // Set default MXCSR (bits 7-12 are masks, they should be 1 to mask exceptions)
     *(uint32_t*)&proc->sse_state[24] = 0x1F80; 
 
-    debugln("[proc] Process created. Entry: %p, PML4: %p", proc->entry, proc->pml4);
+    // debugln("[proc] Process created. Entry: %p, PML4: %p", proc->entry, proc->pml4);
     
     for (int i = 0; i < MAX_FILES; i++) proc->files[i] = NULL;
 
@@ -293,7 +293,7 @@ int replace_process_with_elf(process_t* proc, uint8_t* elf_data, char** argv, ch
     extern void vmm_switch(uint64_t* pml4);
     vmm_switch(new_pml4);
 
-    debugln("[proc] PID %d replaced with new image. Entry: %p", proc->pid, proc->entry);
+    //debugln("[proc] PID %d replaced with new image. Entry: %p", proc->pid, proc->entry);
 
     return 0;
 }

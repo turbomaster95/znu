@@ -1,52 +1,65 @@
 #include <stdio.h>
+#include <termios.h>
+#include <unistd.h>
 #include <stdlib.h>
-#include <string.h>
-#include <linenoise.h>
+#define ZL_FREESTANDING
+#define ZL_MALLOC malloc
+#define ZL_FREE free
+#define ZL_WRITE write
+#define ZL_READ read
 
-/* Minimal completion: Tab will suggest "hello" or "help" if you type 'h' */
-void completion(const char *buf, linenoiseCompletions *lc) {
-    if (buf[0] == 'h') {
-        linenoiseAddCompletion(lc, "hello");
-        linenoiseAddCompletion(lc, "help");
+#include <zline.h>
+
+struct termios orig_termios;
+
+void disableRawMode() {
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
+}
+
+void enableRawMode() {
+    tcgetattr(STDIN_FILENO, &orig_termios);
+    atexit(disableRawMode); // Ensure restore on crash/exit
+
+    struct termios raw = orig_termios;
+    raw.c_lflag &= ~(ECHO | ICANON | ISIG | IEXTEN);
+    /* Disable flow control (Ctrl-S/Ctrl-Q) and CR to NL mapping */
+    raw.c_iflag &= ~(IXON | ICRNL);
+    
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+}
+
+void my_completion(const char *buf, zl_completions_t *lc) {
+    // List of all possible commands
+    const char *commands[] = {"ls", "lscpu", "lsblk", "znu-kernel", NULL};
+
+    for (int i = 0; commands[i] != NULL; i++) {
+        // Only add to the suggestions if the command starts with 
+        // what the user has typed so far
+        if (zl_startswith(commands[i], buf)) {
+            zl_add_completion(lc, commands[i]);
+        }
     }
 }
 
-int main(int argc, char **argv) {
-    char *line;
-    const char *prompt = "znu> ";
+int main() {
+    printf("ZLINE 2.0 - Press Ctrl-C to exit, Ctrl-R to search\n");
 
-    /* Set the completion callback for basic TAB support */
-    linenoiseSetCompletionCallback(completion);
+    enableRawMode();
 
-    printf("ZNU Shell Initialized. Type 'exit' to quit.\n");
+    zline_t *zl = zline_init("\033[1;32mzline\033[0m> ");
+    zline_set_completion_callback(zl, my_completion);
 
-    while(1) {
-        /* This is the simplest way to use linenoise. 
-           It blocks until the user presses Enter. */
-        line = linenoise(prompt);
-
-        /* Check for Ctrl+C or Ctrl+D (EOF) */
-        if (line == NULL) break;
-
-        /* Skip empty lines */
-        if (line[0] != '\0') {
-            
-            /* Simple command handling */
-            if (strcmp(line, "exit") == 0) {
-                free(line);
-                break;
-            }
-
-            /* Echo the command back (replace this with your shell logic) */
-            printf("You entered: %s\n", line);
-
-            /* Add to in-memory history (up arrow will work) */
-            linenoiseHistoryAdd(line);
+    while (1) {
+        char *line = zline_read(zl);
+        
+        if (line == NULL) { // Ctrl-C returns NULL
+	    printf("Goodbye!\n");
+            break;
         }
 
-        /* linenoise returns a heap-allocated string; we must free it */
-        free(line);
+        disableRawMode();
+        printf("You entered: [%s]\n", line);
+        enableRawMode();
     }
-
-    return 0;
+    exit(0);
 }

@@ -123,7 +123,7 @@ int do_wait(int pid, int* status) {
 }
 
 void do_exit(int code) {
-    debugln("[proc] PID %d exiting with code %d", current_process->pid, code);
+//    debugln("[proc] PID %d exiting with code %d", current_process->pid, code);
     current_process->state = TASK_ZOMBIE;
     current_process->exit_code = code;
     
