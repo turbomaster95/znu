@@ -1,6 +1,11 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <syscall.h>
+
+FILE _stdin  = { .fd = 0 };
+FILE _stdout = { .fd = 1 };
+FILE _stderr = { .fd = 2 };
 
 int fflush(FILE *stream) {
     return 0; // Success, nothing to flush in a simple kernel console
@@ -9,7 +14,7 @@ int fflush(FILE *stream) {
 int fgetc(FILE *stream) {
     // You'll eventually want to call your read() syscall here
     unsigned char c;
-    if (read((int)(uintptr_t)stream, &c, 1) <= 0) return EOF;
+    if (read(stream->fd, &c, 1) <= 0) return EOF;
     return c;
 }
 
@@ -26,12 +31,15 @@ int ferror(FILE *stream) {
 }
 
 int fileno(FILE *stream) {
-    return (int)(uintptr_t)stream;
+    if (!stream)
+        return -1;
+
+    return stream->fd;
 }
 
 int fputc(int c, FILE *stream) {
     char ch = (char)c;
-    if (write((int)(uintptr_t)stream, &ch, 1) <= 0) return EOF;
+    if (sys_write(stream->fd, &ch, 1) <= 0) return EOF;
     return c;
 }
 

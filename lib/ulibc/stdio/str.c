@@ -46,7 +46,7 @@ void readline(char* buf, size_t n) {
 }
 
 char* fgets(char* str, int n, FILE* stream) {
-    int fd = (int)(uintptr_t)stream;
+    int fd = stream->fd;
     int i = 0;
     while (i < n - 1) {
         char c;

@@ -12,10 +12,17 @@
 #define ROUND_DOWN(v, n) ((v) - ((v) % (n)))
 #define ROUND_UP(v, n) ROUND_DOWN((v) + (n) - 1, n)
 
-typedef int FILE;
-#define stdin  ((FILE*)0)
-#define stdout ((FILE*)1)
-#define stderr ((FILE*)2)
+typedef struct {
+    int fd;
+} FILE;
+
+extern FILE _stdin;
+extern FILE _stdout;
+extern FILE _stderr;
+
+#define stdin  (&_stdin)
+#define stdout (&_stdout)
+#define stderr (&_stderr)
 
 int printf(const char* format, ...);
 int fprintf(FILE* stream, const char* format, ...);

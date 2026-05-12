@@ -1,20 +1,12 @@
 #include "stdio.h"
 #include <stdarg.h>
+#include <syscall.h>
 #include <string.h>
 #include <stdint.h>
 #include <unistd.h>
 
 void putchar(char c) {
-    register long rax __asm__("rax") = 1; 
-    register long rdi __asm__("rdi") = 1; 
-    register long rsi __asm__("rsi") = (long)&c; 
-    register long rdx __asm__("rdx") = 1; 
-    __asm__ volatile (
-        "syscall"
-        : "+r"(rax)
-        : "r"(rdi), "r"(rsi), "r"(rdx)
-        : "rcx", "r11", "memory"
-    );
+    sys_write(1, &c, 1);
 }
 
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
@@ -23,7 +15,7 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
 
     // Assuming you have a write() syscall or similar
     // We cast the FILE* back to an int because your typedef is 'int'
-    int fd = (int)(uintptr_t)stream;
+    int fd = stream->fd;
     
     // Replace 'write_syscall' with whatever your actual 
     // kernel-entry or hardware-write function is called.
@@ -166,15 +158,20 @@ int vsprintf(char* str, const char* format, va_list ap) {
 }
 
 int printf(const char* format, ...) {
-    char buf[1024]; // hope it's enough
+    char buf[4096];
+
     va_list args;
     va_start(args, format);
+
     int count = vsnprintf(buf, sizeof(buf), format, args);
+
     va_end(args);
-    
-    for (int i = 0; i < count && i < (int)sizeof(buf) - 1; i++) {
-        putchar(buf[i]);
-    }
+
+    if (count <= 0)
+        return count;
+
+    write(1, buf, count);
+
     return count;
 }
 
@@ -198,7 +195,7 @@ int vfprintf(FILE* stream, const char* format, va_list ap) {
     char buf[1024];
     int count = vsnprintf(buf, sizeof(buf), format, ap);
     register long rax __asm__("rax") = 1; // sys_write
-    register long rdi __asm__("rdi") = (long)stream;
+    register long rdi __asm__("rdi") = stream->fd;
     register long rsi __asm__("rsi") = (long)buf;
     register long rdx __asm__("rdx") = (long)count;
     __asm__ volatile (
@@ -223,20 +220,15 @@ int puts(const char* string) {
 }
 
 int fputs(const char* s, FILE* stream) {
-    while (*s) {
-        char c = *s++;
-        register long rax __asm__("rax") = 1; // sys_write
-        register long rdi __asm__("rdi") = (long)stream;
-        register long rsi __asm__("rsi") = (long)&c;
-        register long rdx __asm__("rdx") = 1;
-        __asm__ volatile (
-            "syscall"
-            : "+r"(rax)
-            : "r"(rdi), "r"(rsi), "r"(rdx)
-            : "rcx", "r11", "memory"
-        );
-    }
-    return 0;
+    if (!s)
+        return -1;
+
+    size_t len = strlen(s);
+
+    if (len == 0)
+        return 0;
+
+    return write(stream->fd, s, len);
 }
 
 void perror(const char *s) {

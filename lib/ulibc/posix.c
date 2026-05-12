@@ -23,6 +23,10 @@
 int errno = 0;
 char **environ = NULL;
 
+#define ATEXIT_MAX 32
+
+static void (*atexit_funcs[ATEXIT_MAX])(void);
+static int atexit_count = 0;
 
 static inline uint64_t syscall0(uint64_t n) {
     uint64_t ret;
@@ -150,6 +154,20 @@ clock_t times(struct tms *buf) {
     return 0;
 }
 
+int atexit(void (*function)(void)) {
+    if (atexit_count >= ATEXIT_MAX) {
+        return -1; 
+    }
+    atexit_funcs[atexit_count++] = function;
+    return 0;
+}
+
+void atexit_handle_exit(void) {
+    while (atexit_count > 0) {
+        atexit_funcs[--atexit_count]();
+    }
+}
+
 int fstat(int fd, struct stat* statbuf) {
     return (int)syscall2(5, (uint64_t)fd, (uint64_t)statbuf);
 }
@@ -195,6 +213,7 @@ int select(int nfds, fd_set *readfds, fd_set *writefds,
 }
 
 void exit(int status) {
+    atexit_handle_exit();
     __asm__ volatile ("syscall" : : "a"(60), "D"(status) : "rcx", "r11", "memory");
     while(1);
 }

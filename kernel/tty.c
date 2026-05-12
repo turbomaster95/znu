@@ -91,7 +91,7 @@ size_t tty_read(tty_t* tty, char* buf, size_t count) {
 }
 
 long tty_write(tty_t* tty, const char* buf, size_t count) {
-    debugln("tty_write called");
+    //debugln("tty_write called");
     if (!tty || !buf)
         return -1;
 

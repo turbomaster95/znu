@@ -36,6 +36,7 @@ int sigsuspend(const sigset_t *mask);
 off_t lseek(int fd, off_t offset, int whence);
 int chdir(const char *path);
 char *getcwd(char *buf, size_t size);
+int atexit(void (*function)(void));
 
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
