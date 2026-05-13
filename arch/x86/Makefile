@@ -17,4 +17,8 @@ obj-y += pat.o
 obj-y += pci.o
 obj-y += ahci.o
 obj-y += cpu_speed.o
+obj-y += spinlock.o
+obj-y += mutex.o
+obj-y += rwlock.o
+obj-y += semaphore.o
 

@@ -314,23 +314,20 @@ void kmain(void) {
     debugln("[kernel] Basic System Initialization done!");
     debugln("[kernel] Starting uACPI...");
 
-    // Stage 1: Table initialization
     uacpi_status status = uacpi_initialize(UACPI_LOG_DEBUG);
     if (status != UACPI_STATUS_OK) {
         debugerr("[ERROR] uACPI init failed: %s", uacpi_status_to_string(status));
         hcf();
     }
-    debugln("[kernel] uACPI Initialized!");
+    //debugln("[kernel] uACPI Initialized!");
 
-    // Stage 2: Load the AML namespace
     status = uacpi_namespace_load();
     if (status != UACPI_STATUS_OK) {
         debugerr("[ERROR] Namespace load failed!");
     }
-    debugln("[kernel] uACPI Namespace Loaded!");
+    //debugln("[kernel] uACPI Namespace Loaded!");
 
-    // Stage 3: Initialize devices
-    debugln("[kernel_debug] About to initialize namespace..");
+    //debugln("[kernel_debug] About to initialize namespace..");
     status = uacpi_namespace_initialize();
     debugln("[SUCCESS] uACPI is live.");
 
