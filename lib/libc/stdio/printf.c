@@ -30,7 +30,7 @@ static void itoa(uint64_t n, char* str, int base, bool uppercase) {
 
 static int base_vprintf(void (*putc)(char), const char* restrict format, va_list parameters) {
     int written = 0;
-
+    stac();
     while (*format != '\0') {
         if (*format != '%') {
             putc(*format++);
@@ -180,6 +180,7 @@ static int base_vprintf(void (*putc)(char), const char* restrict format, va_list
             while (width-- > actual_len) { putc(' '); written++; }
         }
     }
+    clac();
     return written;
 }
 

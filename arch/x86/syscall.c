@@ -140,10 +140,10 @@ long sys_write(int fd, const void* buf, size_t count) {
 }
 
 int sys_open(const char* path, int flags) {
+    stac();
     if (!path || !is_user_addr((void*)path, 1)) return -1;
     if (!current_process) return -1;
 
-    // Copy path to kernel buffer to avoid SMAP issues and ensure null termination
     char kpath[256];
     size_t i;
     for (i = 0; i < 255; i++) {
@@ -170,6 +170,7 @@ int sys_open(const char* path, int flags) {
             return i;
         }
     }
+    clac();
     return -1;
 }
 
@@ -316,7 +317,7 @@ int sys_fstat(int fd, struct stat* buf) {
 
 int sys_spawn(const char* path, char** argv, char** envp) {
     if (!path || !is_user_addr((void*)path, 1)) return -1;
- 
+    stac();
     char kpath[256];
     size_t i;
     for (i = 0; i < 255; i++) {
@@ -425,6 +426,7 @@ int sys_spawn(const char* path, char** argv, char** envp) {
         proc->parent_pid = current_process->pid;
     }
     add_process(proc);
+    clac();
     return (int)proc->pid;
 }
 
@@ -533,6 +535,7 @@ long sys_ioctl(int fd, unsigned long request, void* argp) {
 }
 
 uint64_t sys_mount(uint64_t source_ptr, uint64_t target_ptr, uint64_t fstype_ptr) {
+    disable_smap();
     // 1. Cast the raw register values to usable C strings
     const char* source = (const char*)source_ptr;
     const char* target = (const char*)target_ptr;
@@ -540,6 +543,7 @@ uint64_t sys_mount(uint64_t source_ptr, uint64_t target_ptr, uint64_t fstype_ptr
 
     // 2. Safety Check: Ensure the pointers aren't null
     if (!source || !target || !fstype) {
+        enable_smap();
         return -22; // Invalid argument
     }
 
@@ -550,9 +554,10 @@ uint64_t sys_mount(uint64_t source_ptr, uint64_t target_ptr, uint64_t fstype_ptr
     // Note: Ensure your vfs_mount argument order matches!
     // Based on your previous code, it looked like: vfs_mount(device, type, path)
     if (!vfs_mount(source, fstype, target)) {
+        enable_smap();
         return -1; // Or a more specific error like -ENODEV
     }
-
+    enable_smap();
     return 0; // Success
 }
 

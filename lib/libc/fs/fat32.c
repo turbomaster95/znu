@@ -80,14 +80,6 @@ uint32_t g_root_cluster;
 static disk_t* g_fat_disk = NULL;
 static bool g_initialized = false;
 
-/*
- * A single DMA-safe 512-byte scratch sector.
- * AHCI requires the target buffer to be in the HHDM so virt_to_phys()
- * can trivially compute its physical address.  Stack buffers and
- * kmalloc() heap buffers are NOT guaranteed to be in the HHDM, so we
- * allocate one page with palloc_zero() at init time and reuse it for
- * every sector read that does not already supply a palloc'd HHDM buffer.
- */
 static uint8_t* g_dma_sector = NULL; /* virtual (HHDM) pointer, set by fat32_init_on_disk */
 
 
@@ -104,7 +96,9 @@ uint32_t cluster_to_lba(uint32_t cluster) {
 }
 
 static void fat32_format_name(const char* fat_name, char* dest) {
+    disable_smap();
     int i, j;
+
     // Copy name part
     for (i = 0; i < 8 && fat_name[i] != ' '; i++) {
         dest[i] = fat_name[i];
@@ -117,12 +111,14 @@ static void fat32_format_name(const char* fat_name, char* dest) {
         }
     }
     dest[i] = '\0';
+    enable_smap();
 }
 
 static uint32_t fat_next(uint32_t cluster) {
     if (!valid_cluster(cluster))
         return FAT32_EOC;
 
+    disable_smap();
     uint32_t fat_offset = cluster * 4;
     uint32_t sector = g_fat_lba + (fat_offset / 512);
     uint32_t off = fat_offset % 512;
@@ -131,12 +127,15 @@ static uint32_t fat_next(uint32_t cluster) {
         return FAT32_EOC;
 
     uint32_t val = *(uint32_t*)(g_dma_sector + off);
+    enable_smap();
     return val & 0x0FFFFFFF;
 }
 
 static bool read_cluster(uint32_t cluster, void* out) {
     if (!valid_cluster(cluster))
         return false;
+
+    disable_smap();
 
     uint32_t lba = cluster_to_lba(cluster);
 
@@ -145,7 +144,7 @@ static bool read_cluster(uint32_t cluster, void* out) {
             return false;
         memcpy((uint8_t*)out + i * FAT32_SECTOR_SIZE, g_dma_sector, FAT32_SECTOR_SIZE);
     }
-
+    enable_smap();
     return true;
 }
 
@@ -320,23 +319,19 @@ bool fat32_init_on_disk(disk_t* d) {
     if (!d) return false;
     debugln("[fat32-debug] starting mount for dev: %s", d->name);
     g_fat_disk = d;
+    disable_smap();
 
-    // 1. Allocate the permanent DMA-safe sector scratch buffer.
-    //    This page is kept for the lifetime of the driver — every function
-    //    that reads a single sector reuses it instead of using the stack.
     if (!g_dma_sector) {
         void* p = palloc_zero();
         if (!p) return false;
         g_dma_sector = (uint8_t*)phys_to_virt((uintptr_t)p);
     }
 
-    // 2. Read Boot Sector (LBA 0)
     if (!disk_read_sector(d, 0, g_dma_sector)) {
         debugln("[fat32] disk_read_sector failed at LBA 0");
         return false;
     }
 
-    // 3. Copy to global BPB
     memcpy(&g_bpb, g_dma_sector, sizeof(FAT32_BPB));
 
     debugln("[fat32] BPB Loaded. OEM: %.8s", g_bpb.oem);
@@ -350,14 +345,12 @@ bool fat32_init_on_disk(disk_t* d) {
     g_fat_info.first_fat_sector = g_bpb.reserved_sectors;
     g_fat_info.first_data_sector = g_bpb.reserved_sectors + (g_bpb.fat_count * g_bpb.fat_size32);
 
-    // 4. Calculate LBA positions for internal driver use
     g_fat_lba = g_fat_info.first_fat_sector;
     g_data_lba = g_fat_info.first_data_sector;
     g_root_cluster = g_bpb.root_cluster;
 
     g_initialized = true;
 
-    // 5. Read Root Directory (Debug listing)
     uint32_t root_lba = g_data_lba + (g_root_cluster - 2) * g_fat_info.sectors_per_cluster;
 
     debugln("[fat32] Root Dir LBA: %u", root_lba);
@@ -377,6 +370,7 @@ bool fat32_init_on_disk(disk_t* d) {
     }
 
     debugln("[fat32] Mount successful. SPC: %u", g_fat_info.sectors_per_cluster);
+    enable_smap();
     return true;
 }
 
@@ -416,7 +410,7 @@ uint32_t get_fat_entry(uint32_t cluster);
 vfs_node_t* fat32_vfs_find(vfs_node_t* parent, const char* name) {
     /* parent->data stores the cluster number of the directory */
     uint32_t cluster = (uint32_t)parent->data;
-
+    disable_smap();
     /* Allocate one DMA-safe sector buffer */
     void* dma_phys = palloc_zero();
     if (!dma_phys) return NULL;
@@ -462,6 +456,7 @@ vfs_node_t* fat32_vfs_find(vfs_node_t* parent, const char* name) {
 
 done:
     pfree(dma_phys);
+    enable_smap();
     return found_node;
 }
 
@@ -543,7 +538,7 @@ int fat32_vfs_read(vfs_node_t* node, void* buf, size_t size, size_t offset) {
 
 int fat32_vfs_readdir(vfs_node_t* node, uint32_t start_index, void* buf, size_t count) {
     uint32_t cluster = (uint32_t)node->data;
-
+    disable_smap();
     void* dma_phys = palloc_zero();
     if (!dma_phys) return -1;
     uint8_t* sector_buf = (uint8_t*)phys_to_virt((uintptr_t)dma_phys);
@@ -590,6 +585,7 @@ int fat32_vfs_readdir(vfs_node_t* node, uint32_t start_index, void* buf, size_t 
     }
 
     pfree(dma_phys);
+    enable_smap();
     return user_idx * sizeof(znu_dirent_t);
 }
 

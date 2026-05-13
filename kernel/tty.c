@@ -57,7 +57,7 @@ static void tty_wake_reader(tty_t* tty) {
 size_t tty_read(tty_t* tty, char* buf, size_t count) {
     if (!tty || !buf || count == 0)
         return 0;
-
+    stac();
     size_t got = 0;
 
     while (got < count) {
@@ -86,7 +86,7 @@ size_t tty_read(tty_t* tty, char* buf, size_t count) {
                 break;
         }
     }
-
+    clac();
     return got;
 }
 
@@ -95,6 +95,7 @@ long tty_write(tty_t* tty, const char* buf, size_t count) {
     if (!tty || !buf)
         return -1;
 
+    stac(); // THIS FRICKS UP SMAP AND KILLS THE KERNEL PLS DONT REMOVE!!
     for (size_t i = 0; i < count; i++) {
        char c = buf[i];
 
@@ -104,6 +105,8 @@ long tty_write(tty_t* tty, const char* buf, size_t count) {
 
        terminal_putchar(c);
     }
+    clac(); // SAME AS STAC();
+
     return (long)count;
 }
 

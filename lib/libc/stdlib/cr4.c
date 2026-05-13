@@ -15,3 +15,9 @@ void disable_smap(void) {
     cr4 &= ~(1ULL << 21); // Bit 21 is SMAP
     write_cr4(cr4);
 }
+
+void enable_smap(void) {
+    uint64_t cr4 = read_cr4();
+    cr4 |= (1ULL << 21); // Bit 21 is SMAP
+    // write_cr4(cr4);
+}

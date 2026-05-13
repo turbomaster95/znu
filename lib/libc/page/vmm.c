@@ -90,14 +90,14 @@ void init_vmm(struct limine_memmap_response* memmap) {
     map_page(kernel_pml4, 
          PAGE_ALIGN_DOWN(main_cpu_context.kernel_stack - 8), 
          PAGE_ALIGN_DOWN(stack_phys), 
-         PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+         PTE_PRESENT | PTE_WRITABLE); // | PTE_USER
 
     debugln("[VMM] Explicitly mapped kernel stack at %p (Phys: %p)", 
         main_cpu_context.kernel_stack, stack_phys);
 
-    map_page(kernel_pml4, (uintptr_t)syscall_handler, handler_phys, PTE_PRESENT | PTE_USER);
-    map_page(kernel_pml4, (uintptr_t)syscall_entry, entry_phys, PTE_PRESENT | PTE_USER);
-    map_page(kernel_pml4, (uintptr_t)&main_cpu_context, ctx_phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+    map_page(kernel_pml4, (uintptr_t)syscall_handler, handler_phys, PTE_PRESENT); // | PTE_USER
+    map_page(kernel_pml4, (uintptr_t)syscall_entry, entry_phys, PTE_PRESENT); // | PTE_USER
+    map_page(kernel_pml4, (uintptr_t)&main_cpu_context, ctx_phys, PTE_PRESENT | PTE_WRITABLE); // | PTE_USER
 
     // uintptr_t stack_phys = vmm_virt_to_phys(boot_pml4, stack_top_address);
     // map_page(kernel_pml4, stack_top_address, stack_phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);

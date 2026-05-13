@@ -91,6 +91,7 @@ uint64_t rdmsr(uint32_t msr);
 void write_cr4(uint64_t cr4);
 uint64_t read_cr4(void);
 void disable_smap(void);
+void enable_smap(void);
 int vdebugprintf(const char* format, va_list args);
 int rand(void);
 void srand(unsigned int seed);
