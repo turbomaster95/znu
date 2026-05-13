@@ -11,16 +11,16 @@
 
 // Forward declaration
 struct vfs_node;
-
+typedef struct vfs_node vfs_node_t;
 
 typedef struct vfs_ops {
     int (*read)(struct vfs_node* node, void* buf, size_t size, size_t offset);
     int (*write)(struct vfs_node* node, const void* buf, size_t size, size_t offset);
+    int (*readdir)(vfs_node_t* node, uint32_t index, void* buf, size_t count);
     struct vfs_node* (*find_node)(struct vfs_node* parent, const char* name);
 } vfs_ops_t;
 
-// 2. Update the Node structure
-typedef struct vfs_node {
+struct vfs_node {
     char name[128];
     int type;
     int mode;
@@ -37,7 +37,8 @@ typedef struct vfs_node {
     struct vfs_node* parent;
     struct vfs_node* children;
     struct vfs_node* next;
-} vfs_node_t;
+};
+
 
 typedef struct vfs_file_instance {
     vfs_node_t* node;
@@ -61,6 +62,7 @@ void vfs_add_child(vfs_node_t* parent, vfs_node_t* child);
 vfs_node_t* vfs_find_child(vfs_node_t* parent, const char* name);
 vfs_node_t* vfs_path_to_node(const char* path);
 void vfs_register_file(const char* path, uintptr_t data, size_t size);
+bool vfs_mount(const char* device, const char* fs_type, const char* path);
 
 // File access functions (Now backend-aware)
 int vfs_read(vfs_node_t* node, void* buf, size_t size, size_t offset);

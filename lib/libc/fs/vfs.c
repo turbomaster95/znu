@@ -1,11 +1,16 @@
 #include <vfs.h>
+#include <disk.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <page.h>
 #include <devfs.h>
+#include <fat32.h>
 
 vfs_node_t* root_node = NULL;
+
+extern uint32_t g_root_cluster;
+extern vfs_ops_t fat32_ops;
 
 int mem_vfs_read(vfs_node_t* node, void* buf, size_t size, size_t offset) {
     if (!node->data || offset >= node->size) return 0;
@@ -69,7 +74,12 @@ vfs_node_t* vfs_path_to_node(const char* path) {
         part[len] = '\0';
 
         if (curr->is_mountpoint && curr->ops && curr->ops->find_node) {
-            return curr->ops->find_node(curr, part);
+	    vfs_node_t* disk_node = curr->ops->find_node(curr, part);
+            if (disk_node) {
+                vfs_add_child(curr, disk_node);
+                curr = disk_node;
+                continue; 
+            }
         }
 
         vfs_node_t* next = vfs_find_child(curr, part);
@@ -133,4 +143,33 @@ int vfs_write(vfs_node_t* node, const void* buf, size_t size, size_t offset) {
         return -1; 
     }
     return node->ops->write(node, buf, size, offset);
+}
+
+bool vfs_mount(const char* device, const char* fs_type, const char* path) {
+    if (!device || !fs_type || !path)
+        return false;
+
+    debugln("[vfs] mount request: %s -> %s at %s",
+        device, fs_type, path);
+
+    if (strcmp(fs_type, "fat32") == 0) {
+        disk_t* d = disk_get_by_name(device);
+        if (!d) return false;
+
+        // 1. Initialize the driver (hardware side)
+        if (!fat32_init_on_disk(d)) return false;
+
+        vfs_node_t* mount_node = vfs_create_node("mnt", VFS_DIRECTORY);
+        mount_node->is_mountpoint = 1;
+        mount_node->ops = &fat32_ops; // Use the FAT32 ops!
+        mount_node->data = g_root_cluster; // Store root cluster in the node
+
+        vfs_add_child(root_node, mount_node);
+
+        debugln("[vfs] fat32 successfully hooked to %s", path);
+        return true;
+    }
+
+    debugln("[vfs] unknown filesystem: %s", fs_type);
+    return false;
 }

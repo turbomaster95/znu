@@ -99,12 +99,12 @@ typedef struct {
 } __attribute__((packed)) HBA_CMD_HEADER;
 
 typedef struct {
-    uint64_t dba;
-    uint32_t reserved0;
-
-    uint32_t dbc : 22;
-    uint32_t reserved1 : 9;
-    uint32_t i : 1;
+    uint32_t dba;       // Data Base Address (bits 31:0)
+    uint32_t dbau;      // Data Base Address Upper (bits 63:32)
+    uint32_t reserved0; // Reserved
+    uint32_t dbc:22;    // Byte Count
+    uint32_t reserved1:9;
+    uint32_t i:1;       // Interrupt
 } __attribute__((packed)) HBA_PRDT_ENTRY;
 
 typedef struct {
@@ -121,5 +121,8 @@ void ahci_init(void);
 bool ahci_read_sector(int port_num, uint64_t lba, void* buf);
 bool ahci_write_sector(int port_num, uint64_t lba, void* buf);
 bool ahci_port_is_present(int port);
+
+extern inline void* phys_to_virt(uintptr_t phys);
+extern inline uintptr_t virt_to_phys(void* ptr);
 
 #endif

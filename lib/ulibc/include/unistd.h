@@ -37,6 +37,7 @@ off_t lseek(int fd, off_t offset, int whence);
 int chdir(const char *path);
 char *getcwd(char *buf, size_t size);
 int atexit(void (*function)(void));
+int mount(const char *source, const char *target, const char *fstype);
 
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1

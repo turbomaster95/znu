@@ -27,6 +27,7 @@ extern disk_t g_disks[MAX_DISKS];
 extern int g_disk_count;
 
 disk_t* disk_get_boot(void);
+disk_t* disk_get_by_name(const char* name);
 disk_t* disk_get(int idx);
 
 bool disk_read_sector(disk_t* d, uint64_t lba, void* buf);

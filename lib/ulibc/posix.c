@@ -459,3 +459,13 @@ char* getenv(const char* name) {
     }
     return NULL;
 }
+
+int mount(const char *source, const char *target, const char *fstype) {
+    long ret = (long)syscall3(165, (uint64_t)source, (uint64_t)target, (uint64_t)fstype);
+    
+    if (ret < 0) {
+        return -1;
+    }
+    
+    return 0;
+}

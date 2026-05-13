@@ -184,18 +184,19 @@ int sys_close(int fd) {
     return -1;
 }
 
-typedef struct {
-    char name[128];
-    uint32_t type;
-    uint32_t size;
-} znu_dirent_t;
-
 int sys_getdents(int fd, void* buf, size_t count) {
-    if (fd < 0 || fd >= MAX_FILES) return -1;
-    if (!buf || !is_user_addr(buf, count)) return -1;
-    
     vfs_file_t* file = current_process->files[fd];
     if (!file || file->node->type != VFS_DIRECTORY) return -1;
+
+    // BRIDGE: If this is a FAT32/Disk mount, use the driver's readdir
+    if (file->node->is_mountpoint && file->node->ops->readdir) {
+        int bytes = file->node->ops->readdir(file->node, file->pos, buf, count);
+        if (bytes > 0) {
+            // Increment position by number of entries read
+            file->pos += (bytes / sizeof(znu_dirent_t));
+        }
+        return bytes;
+    }
 
     // Use a kernel buffer to avoid SMAP issues during population
     znu_dirent_t kdent;
@@ -372,7 +373,39 @@ int sys_spawn(const char* path, char** argv, char** envp) {
         k_envp[envc] = NULL;
     }
 
-    process_t* proc = create_process_from_elf((uint8_t*)node->data, k_argv, k_envp);
+    uint8_t* elf_data = NULL;
+    debugln("about to reach if node->mntpoint");
+
+    if (node->ops && node->ops->read) {
+       debugln("[spawn] Node has driver ops. Reading from disk (Cluster: %d)\n", node->data);
+    
+       elf_data = kmalloc(node->size);
+       if (!elf_data) return -1;
+
+       int read_bytes = node->ops->read(node, elf_data, node->size, 0);
+    
+       if (read_bytes <= 0) {
+          kfree(elf_data);
+          return -1;
+       }
+    } else {
+    // No specific driver 'read' op? Assume it's a raw pointer (CPIO/RAM)
+       debugln("[spawn] No driver ops. Assuming RAM pointer: %p\n", node->data);
+       elf_data = (uint8_t*)node->data;
+    }
+
+    int bytes = node->ops->read(node, elf_data, node->size, 0);
+    debugln("[spawn] Read %d bytes from disk. Expected %d.\n", bytes, node->size);
+
+    if (node->size > 0x1000) {
+       debugln("[spawn] Data at 4KB offset: %02x %02x\n", elf_data[0x1000], elf_data[0x1001]);
+    }
+
+    process_t* proc = create_process_from_elf(elf_data, k_argv, k_envp);
+
+    if (node->is_mountpoint && elf_data) {
+        kfree(elf_data);
+    }
     
     // Clean up temporary kernel buffers
     if (k_argv) {
@@ -500,6 +533,30 @@ long sys_ioctl(int fd, unsigned long request, void* argp) {
     return -1;
 }
 
+uint64_t sys_mount(uint64_t source_ptr, uint64_t target_ptr, uint64_t fstype_ptr) {
+    // 1. Cast the raw register values to usable C strings
+    const char* source = (const char*)source_ptr;
+    const char* target = (const char*)target_ptr;
+    const char* fstype = (const char*)fstype_ptr;
+
+    // 2. Safety Check: Ensure the pointers aren't null
+    if (!source || !target || !fstype) {
+        return -22; // Invalid argument
+    }
+
+    // 3. Debug logging (helpful for your Znu boot logs)
+    debugln("[sys] mount: dev=%s, path=%s, type=%s", source, target, fstype);
+
+    // 4. Call your internal VFS function
+    // Note: Ensure your vfs_mount argument order matches!
+    // Based on your previous code, it looked like: vfs_mount(device, type, path)
+    if (!vfs_mount(source, fstype, target)) {
+        return -1; // Or a more specific error like -ENODEV
+    }
+
+    return 0; // Success
+}
+
 uint64_t syscall_handler(registers_t* regs) {
     uint64_t num = regs->rax;
     uint64_t arg1 = regs->rdi;
@@ -532,6 +589,8 @@ uint64_t syscall_handler(registers_t* regs) {
             return (uint64_t)sys_stat((const char*)arg1, (struct stat*)arg2);
         case 9: // mmap
             return (uint64_t)sys_mmap((void*)arg1, (size_t)arg2, (int)arg3, (int)arg4, (int)arg5, 0); // simplified
+        case 165: // mount
+            return (uint64_t)sys_mount(arg1, arg2, arg3);
         case 12: // brk
             return (uint64_t)sys_brk((void*)arg1);
         case 16: // ioctl
@@ -540,15 +599,12 @@ uint64_t syscall_handler(registers_t* regs) {
             return (uint64_t)sys_fork(regs);
         case 59: // execve
             return (uint64_t)sys_execve((const char*)arg1, (char**)arg2, (char**)arg3, regs);
-        case 159: // spawn (custom)
+        case 159: // spawn
             return (uint64_t)sys_spawn((const char*)arg1, (char**)arg2, (char**)arg3);
-
         case 217: // getdents64
             return (uint64_t)sys_getdents((int)arg1, (void*)arg2, (size_t)arg3);
-
         case 99: // sysinfo
             return (uint64_t)sys_sysinfo((struct sysinfo*)arg1);
-
         case 39: // getpid
             if (current_process) return current_process->pid;
             return 0;

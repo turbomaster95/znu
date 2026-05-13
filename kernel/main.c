@@ -22,6 +22,7 @@
 #include <pci.h>
 #include <ahci.h>
 #include <fat32.h>
+#include <disk.h>
 #include <cpuid.h>
 #include <kernel.h>
 
@@ -339,8 +340,10 @@ void kmain(void) {
     ahci_init();
     debugln("[ahci] Init done!");
     
-    fat32_init();
-    debugln("[fat32] Init done!");
+    disk_init();
+
+    //fat32_init();
+    //debugln("[fat32] Init done!");
 
     init_vfs();
     debugln("[vfs] Initialized VFS");
@@ -352,6 +355,11 @@ void kmain(void) {
     syscall_init();
     gs_init(stack_top);
 
+    void* test_buf = (void*)(0x200000 + hhdm_offset); 
+    ahci_read_sector(ahci_port, 0, test_buf);
+
+    uint8_t* d = (uint8_t*)test_buf;
+    debugln("Boot Sector Signature: %x %x", d[510], d[511]);
 
     struct limine_module_response *mod_res = module_request.response;
     if (mod_res == NULL || mod_res->module_count == 0) {

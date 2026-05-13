@@ -4,6 +4,12 @@
 #include <stdint.h>
 
 typedef struct {
+    char name[128];
+    uint32_t type;
+    uint32_t size;
+} znu_dirent_t;
+
+typedef struct {
     uint64_t kernel_stack;
     uint64_t user_stack_scratch;
     uint64_t user_rdx_scratch;

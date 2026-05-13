@@ -1,4 +1,3 @@
-// kernel_prelude.h
 #ifndef _PRELUDE_H
 #define _PRELUDE_H
 

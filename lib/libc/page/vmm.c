@@ -25,7 +25,6 @@ void vmm_map_region(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t size,
     debugln("[VMM] Mapping region: %p -> %p (Size: %d KB)", virt, phys, (int)(size / 1024));
     
     for (uint64_t offset = 0; offset < size; offset += PAGE_SIZE) {
-        // CALL map_page WITHOUT individual debugln inside it
         map_page(pml4, virt + offset, phys + offset, flags);
     }
     
@@ -102,6 +101,9 @@ void init_vmm(struct limine_memmap_response* memmap) {
 
     // uintptr_t stack_phys = vmm_virt_to_phys(boot_pml4, stack_top_address);
     // map_page(kernel_pml4, stack_top_address, stack_phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+
+    map_page(kernel_pml4, hhdm_offset, 0, PTE_PRESENT | PTE_WRITABLE);
+    debugln("[VMM] Force-mapped HHDM base (page 0)");
 
     debugln("[VMM] Mapping HHDM regions into new table...");
     for (uint64_t i = 0; i < memmap->entry_count; i++) {

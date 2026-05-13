@@ -28,6 +28,7 @@ void shell_completion(const char *buf, zl_completions_t *lc) {
         "mem",
         "echo",
         "exit",
+	"mount",
         NULL
     };
 
@@ -248,6 +249,52 @@ void cmd_mem() {
     );
 }
 
+static int split_args(char *line, char **argv, int max_args) {
+    int argc = 0;
+
+    while (*line && argc < max_args) {
+        while (*line == ' ')
+            line++;
+
+        if (*line == '\0')
+            break;
+
+        argv[argc++] = line;
+
+        while (*line && *line != ' ')
+            line++;
+
+        if (*line == ' ') {
+            *line = '\0';
+            line++;
+        }
+    }
+
+    return argc;
+}
+
+static void cmd_mount(int argc, char** argv) {
+    if (argc < 4) {
+        printf("usage: mount <device> <fstype> <mountpoint>\n");
+        printf("example: mount /dev/ahci0 fat32 /mnt\n");
+        return;
+    }
+
+    const char* device = argv[1];
+    const char* fstype = argv[2];
+    const char* path   = argv[3];
+
+    printf("[shell] mounting %s (%s) -> %s\n",
+        device, fstype, path);
+
+    if (mount(device, path, fstype) == -22) {
+        printf("[shell] mount failed\n");
+        return;
+    }
+
+    printf("[shell] mount ok\n");
+}
+
 int main() {
 
     printf("Hello!\n");
@@ -329,6 +376,12 @@ int main() {
 
             sys_shutdown();
             sys_exit(0);
+
+        } else if (strncmp(line, "mount", 5) == 0) {
+	    
+	    char *argv[8];
+            int argc = split_args(line, argv, 8);
+	    cmd_mount(argc, argv);
 
         } else {
 

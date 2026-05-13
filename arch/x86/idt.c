@@ -54,6 +54,8 @@ registers_t* k_exception_handler(registers_t *regs) {
 
         if (int_no == 14) {
             debugln("Faulting Address: %p", (void*)cr2);
+	    uint8_t *instruction = (uint8_t*)regs->rip;
+	    debugln("Opcode at RIP: %02x %02x %02x %02x", instruction[0], instruction[1], instruction[2], instruction[3]);
         }
 
         hcf();
