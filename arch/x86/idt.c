@@ -37,6 +37,49 @@ void idt_set_gate(uint8_t vector, void *isr) {
 
 static int frame_count = 0;
 
+void print_stacktrace(uint64_t* rbp, uint64_t max_frames) {
+    debugln("\n--- STACK TRACE ---");
+    
+    for (uint64_t i = 0; i < max_frames; i++) {
+        if (!rbp) {
+            debugln("  (rbp is null, stopping)");
+            break;
+        }
+        
+        uintptr_t rbp_val = (uintptr_t)rbp;
+        if (rbp_val < 0xffff800000000000 || rbp_val > 0xffffffffffffffff) {
+            debugln("  (rbp %p out of range, stopping)", (void*)rbp);
+            break;
+        }
+
+        if (rbp_val & 0x7) {
+            debugln("  (rbp %p misaligned, stopping)", (void*)rbp);
+            break;
+        }
+
+        uintptr_t saved_rbp;
+        uintptr_t rip;
+        
+        saved_rbp = rbp[0];
+        rip = rbp[1];
+
+        debugln("  #%lu  rip=%p  rbp=%p", i, (void*)rip, (void*)rbp);
+
+        if (saved_rbp == 0) {
+            debugln("  (saved rbp is null, done)");
+            break;
+        }
+        
+        if (saved_rbp <= rbp_val) {
+            debugln("  (saved rbp %p <= current %p, stopping)", 
+                    (void*)saved_rbp, (void*)rbp);
+            break;
+        }
+
+        rbp = (uint64_t*)saved_rbp;
+    }
+}
+
 registers_t* k_exception_handler(registers_t *regs) {
     uint8_t int_no = regs->int_no;
 
@@ -44,21 +87,28 @@ registers_t* k_exception_handler(registers_t *regs) {
         uint64_t cr2;
         __asm__ volatile("mov %%cr2, %0" : "=r"(cr2));
 
-        debugln("\n--- CRITICAL CPU EXCEPTION: %d ---", int_no);
-        debugln(
-            "Error Code: 0x%x | RIP: %p | RSP: %p",
-            regs->err_code,
-            (void*)regs->rip,
-            (void*)regs->rsp
-        );
+        debugln("\n--- CRITICAL CPU EXCEPTION: %d ---", (int)int_no);
+        debugln("Error Code: 0x%x | RIP: %p | RSP: %p",
+                (unsigned)regs->err_code, (void*)regs->rip, (void*)regs->rsp);
 
         if (int_no == 14) {
             debugln("Faulting Address: %p", (void*)cr2);
-	    uint8_t *instruction = (uint8_t*)regs->rip;
-	    debugln("Opcode at RIP: %02x %02x %02x %02x", instruction[0], instruction[1], instruction[2], instruction[3]);
+            
+            if (regs->rip >= 0xffff800000000000 && regs->rip < 0xffffffffffffffff) {
+                uint8_t *instruction = (uint8_t*)regs->rip;
+                debugln("Opcode at RIP: %02x %02x %02x %02x", 
+                        instruction[0], instruction[1], instruction[2], instruction[3]);
+            } else {
+                debugln("RIP is invalid, cannot read opcode");
+            }
         }
 
-        hcf();
+        print_stacktrace((uint64_t*)regs->rbp, 12);
+
+        __asm__ volatile("cli");
+        while (1) {
+            __asm__ volatile("hlt");
+        }
     } else if (int_no == LAPIC_TIMER_VECTOR) {
         timer_ticks++;
         lapic_timer_fired = true;
