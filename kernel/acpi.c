@@ -117,7 +117,7 @@ uacpi_status uacpi_kernel_io_read16(uacpi_handle handle, uacpi_size offset, uacp
 }
 
 uacpi_status uacpi_kernel_io_read32(uacpi_handle handle, uacpi_size offset, uacpi_u32 *out) {
-	*out = ind((uacpi_io_addr)handle + offset);
+	*out = inl((uacpi_io_addr)handle + offset);
 	for(int i = 0; i < 10; i++) outb(0x80, 0);
         return UACPI_STATUS_OK;
 }
@@ -133,7 +133,7 @@ uacpi_status uacpi_kernel_io_write16(uacpi_handle handle, uacpi_size offset, uac
 }
 
 uacpi_status uacpi_kernel_io_write32(uacpi_handle handle, uacpi_size offset, uacpi_u32 v) {
-	outd((uacpi_io_addr)handle + offset, v);
+	outl((uacpi_io_addr)handle + offset, v);
         return UACPI_STATUS_OK;
 }
 
@@ -158,7 +158,7 @@ uacpi_status uacpi_kernel_raw_io_read(uacpi_io_addr addr, uacpi_u8 width, uacpi_
     switch (width) {
         case 1: *out = inb(addr); break;
         case 2: *out = inw(addr); break;
-        case 4: *out = ind(addr); break;
+        case 4: *out = inl(addr); break;
         default: return UACPI_STATUS_INVALID_ARGUMENT;
     }
     return UACPI_STATUS_OK;
@@ -168,7 +168,7 @@ uacpi_status uacpi_kernel_raw_io_write(uacpi_io_addr addr, uacpi_u8 width, uacpi
     switch (width) {
         case 1: outb(addr, val); break;
         case 2: outw(addr, val); break;
-        case 4: outd(addr, val); break;
+        case 4: outl(addr, val); break;
         default: return UACPI_STATUS_INVALID_ARGUMENT;
     }
     return UACPI_STATUS_OK;
@@ -326,19 +326,19 @@ uacpi_status uacpi_kernel_initialize(uacpi_init_level current_init_lvl) {
 }
 
 uacpi_status uacpi_kernel_pci_write32(uacpi_handle device, uacpi_size offset, uacpi_u32 val) {
-    outd(0xCF8, pci_get_addr(device, offset));
-    outd(0xCFC, val);
+    outl(0xCF8, pci_get_addr(device, offset));
+    outl(0xCFC, val);
     return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_pci_write16(uacpi_handle device, uacpi_size offset, uacpi_u16 val) {
-    outd(0xCF8, pci_get_addr(device, offset));
+    outl(0xCF8, pci_get_addr(device, offset));
     outw(0xCFC + (offset & 2), val);
     return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_pci_write8(uacpi_handle device, uacpi_size offset, uacpi_u8 val) {
-    outd(0xCF8, pci_get_addr(device, offset));
+    outl(0xCF8, pci_get_addr(device, offset));
     outb(0xCFC + (offset & 3), val);
     return UACPI_STATUS_OK;
 }
@@ -348,20 +348,20 @@ void uacpi_kernel_deinitialize(void) {
 
 // Ensure these names match the undefined references exactly
 uacpi_status uacpi_kernel_pci_read8(uacpi_handle device, uacpi_size offset, uacpi_u8 *out) {
-    outd(0xCF8, pci_get_addr(device, offset));
+    outl(0xCF8, pci_get_addr(device, offset));
     *out = inb(0xCFC + (offset & 3));
     return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_pci_read16(uacpi_handle device, uacpi_size offset, uacpi_u16 *out) {
-    outd(0xCF8, pci_get_addr(device, offset));
+    outl(0xCF8, pci_get_addr(device, offset));
     *out = inw(0xCFC + (offset & 2));
     return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_pci_read32(uacpi_handle device, uacpi_size offset, uacpi_u32 *out) {
-    outd(0xCF8, pci_get_addr(device, offset));
-    *out = ind(0xCFC);
+    outl(0xCF8, pci_get_addr(device, offset));
+    *out = inl(0xCFC);
     return UACPI_STATUS_OK;
 }
 

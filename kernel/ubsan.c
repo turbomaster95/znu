@@ -1,8 +1,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-// --- Metadata Structures ---
-
 struct ubsan_source_location {
     const char *filename;
     uint32_t line;
@@ -12,7 +10,7 @@ struct ubsan_source_location {
 struct ubsan_type_descriptor {
     uint16_t type_kind;
     uint16_t type_info;
-    char type_name[]; // Flexible array member for the string name
+    char type_name[];
 };
 
 struct ubsan_type_mismatch_data {
@@ -39,15 +37,16 @@ struct ubsan_out_of_bounds_data {
     struct ubsan_type_descriptor *index_type;
 };
 
-// --- Logger Core ---
+struct ubsan_invalid_value_data {
+    struct ubsan_source_location location;
+    struct ubsan_type_descriptor *type;
+};
 
 static void ubsan_log_header(const char *err, struct ubsan_source_location *loc) {
     debugln("\n[UBSAN FATAL ERROR]\n");
     debugln("  Condition: %s\n", err);
     debugln("  Location : %s:%d:%d\n", loc->filename, loc->line, loc->column);
 }
-
-// --- Specialized Handlers with Full Value Dumping ---
 
 void __ubsan_handle_type_mismatch_v1_abort(struct ubsan_type_mismatch_data *data, uintptr_t ptr) {
     ubsan_log_header("Type Mismatch", &data->location);
@@ -109,4 +108,9 @@ void __ubsan_handle_negate_overflow_abort(void* data, void* location) {
 void __ubsan_handle_divrem_overflow_abort(struct ubsan_overflow_data *data, uintptr_t lhs, uintptr_t rhs) {
     ubsan_log_header("Division Overflow", &data->location);
     panic("[ubsan] Arithmetic Overflow");
+}
+
+void __ubsan_handle_load_invalid_value_abort(void *data, uintptr_t lhs, uintptr_t rhs) {
+    ubsan_log_header("Invalid Load Value", &((struct ubsan_invalid_value_data *)data)->location);
+    panic("[ubsan] Invalid Value Loaded");
 }

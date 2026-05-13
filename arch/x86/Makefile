@@ -14,5 +14,7 @@ obj-y += syscall.o
 obj-y += syscall_entry.o
 obj-y += ps2.o
 obj-y += pat.o
+obj-y += pci.o
+obj-y += ahci.o
 obj-y += cpu_speed.o
 

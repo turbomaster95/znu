@@ -21,3 +21,4 @@ obj-y += image.o
 obj-y += stack_guard.o
 obj-y += tty.o
 obj-y += devfs.o
+obj-y += disk.o

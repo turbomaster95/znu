@@ -19,6 +19,9 @@
 #include <proc.h>
 #include <vfs.h>
 #include <x86.h>
+#include <pci.h>
+#include <ahci.h>
+#include <fat32.h>
 #include <cpuid.h>
 #include <kernel.h>
 
@@ -329,6 +332,15 @@ void kmain(void) {
     debugln("[kernel_debug] About to initialize namespace..");
     status = uacpi_namespace_initialize();
     debugln("[SUCCESS] uACPI is live.");
+
+    pci_init();
+    debugln("[pci] Init done!");
+
+    ahci_init();
+    debugln("[ahci] Init done!");
+    
+    fat32_init();
+    debugln("[fat32] Init done!");
 
     init_vfs();
     debugln("[vfs] Initialized VFS");

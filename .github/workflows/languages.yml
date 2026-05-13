@@ -2,7 +2,7 @@ name: Generate Languages used
 
 on:
   push:
-    branches: [testing]
+    branches: [testing, uacpi]
   workflow_dispatch:
 
 jobs:
