@@ -80,6 +80,16 @@ uint32_t g_root_cluster;
 static disk_t* g_fat_disk = NULL;
 static bool g_initialized = false;
 
+/*
+ * A single DMA-safe 512-byte scratch sector.
+ * AHCI requires the target buffer to be in the HHDM so virt_to_phys()
+ * can trivially compute its physical address.  Stack buffers and
+ * kmalloc() heap buffers are NOT guaranteed to be in the HHDM, so we
+ * allocate one page with palloc_zero() at init time and reuse it for
+ * every sector read that does not already supply a palloc'd HHDM buffer.
+ */
+static uint8_t* g_dma_sector = NULL; /* virtual (HHDM) pointer, set by fat32_init_on_disk */
+
 
 static inline disk_t* disk(void) {
     return g_fat_disk;
@@ -117,12 +127,10 @@ static uint32_t fat_next(uint32_t cluster) {
     uint32_t sector = g_fat_lba + (fat_offset / 512);
     uint32_t off = fat_offset % 512;
 
-    uint8_t buf[512];
-
-    if (!disk_read_sector(disk(), sector, buf))
+    if (!disk_read_sector(disk(), sector, g_dma_sector))
         return FAT32_EOC;
 
-    uint32_t val = *(uint32_t*)(buf + off);
+    uint32_t val = *(uint32_t*)(g_dma_sector + off);
     return val & 0x0FFFFFFF;
 }
 
@@ -133,9 +141,9 @@ static bool read_cluster(uint32_t cluster, void* out) {
     uint32_t lba = cluster_to_lba(cluster);
 
     for (uint32_t i = 0; i < g_bpb.sectors_per_cluster; i++) {
-        if (!disk_read_sector(disk(), lba + i,
-            (uint8_t*)out + i * FAT32_SECTOR_SIZE))
+        if (!disk_read_sector(disk(), lba + i, g_dma_sector))
             return false;
+        memcpy((uint8_t*)out + i * FAT32_SECTOR_SIZE, g_dma_sector, FAT32_SECTOR_SIZE);
     }
 
     return true;
@@ -146,13 +154,17 @@ bool fat32_init(void) {
         return false;
     debugln("[fat32] disk=%p", disk_get_boot());
 
-    uint8_t sector[512];
+    if (!g_dma_sector) {
+        void* p = palloc_zero();
+        if (!p) return false;
+        g_dma_sector = (uint8_t*)phys_to_virt((uintptr_t)p);
+    }
 
-    if (!disk_read_sector(disk(), 0, sector)) 
+    if (!disk_read_sector(disk(), 0, g_dma_sector))
         return false;
 
     // Copy the raw sector into your BPB structure
-    memcpy(&g_bpb, sector, sizeof(g_bpb));
+    memcpy(&g_bpb, g_dma_sector, sizeof(g_bpb));
 
     // Validation
     if (g_bpb.bytes_per_sector != 512 || g_bpb.fat_size32 == 0) {
@@ -309,28 +321,28 @@ bool fat32_init_on_disk(disk_t* d) {
     debugln("[fat32-debug] starting mount for dev: %s", d->name);
     g_fat_disk = d;
 
-    // 1. Allocate a DMA-safe page
-    void* dma_buffer = palloc_zero();
-    if (!dma_buffer) return false;
-
-    // Map physical to virtual (HHDM)
-    uint8_t* sector = (uint8_t*)phys_to_virt((uintptr_t)dma_buffer);
+    // 1. Allocate the permanent DMA-safe sector scratch buffer.
+    //    This page is kept for the lifetime of the driver — every function
+    //    that reads a single sector reuses it instead of using the stack.
+    if (!g_dma_sector) {
+        void* p = palloc_zero();
+        if (!p) return false;
+        g_dma_sector = (uint8_t*)phys_to_virt((uintptr_t)p);
+    }
 
     // 2. Read Boot Sector (LBA 0)
-    if (!disk_read_sector(d, 0, sector)) {
+    if (!disk_read_sector(d, 0, g_dma_sector)) {
         debugln("[fat32] disk_read_sector failed at LBA 0");
-        pfree(dma_buffer);
         return false;
     }
 
     // 3. Copy to global BPB
-    memcpy(&g_bpb, sector, sizeof(FAT32_BPB));
+    memcpy(&g_bpb, g_dma_sector, sizeof(FAT32_BPB));
 
     debugln("[fat32] BPB Loaded. OEM: %.8s", g_bpb.oem);
 
     if (g_bpb.bytes_per_sector != 512 || g_bpb.fat_size32 == 0) {
         debugln("[fat32] Error: Not a valid FAT32 volume");
-        pfree(dma_buffer);
         return false;
     }
 
@@ -345,13 +357,13 @@ bool fat32_init_on_disk(disk_t* d) {
 
     g_initialized = true;
 
-    // 5. Read Root Directory (Debug)
+    // 5. Read Root Directory (Debug listing)
     uint32_t root_lba = g_data_lba + (g_root_cluster - 2) * g_fat_info.sectors_per_cluster;
 
     debugln("[fat32] Root Dir LBA: %u", root_lba);
 
-    if (disk_read_sector(d, root_lba, sector)) {
-        FAT32_DIR_ENTRY* debug_ent = (FAT32_DIR_ENTRY*)sector;
+    if (disk_read_sector(d, root_lba, g_dma_sector)) {
+        FAT32_DIR_ENTRY* debug_ent = (FAT32_DIR_ENTRY*)g_dma_sector;
         for (int i = 0; i < 16; i++) {
             if (debug_ent[i].name[0] == 0x00) break;
             if (debug_ent[i].name[0] == 0xE5) continue;
@@ -364,7 +376,6 @@ bool fat32_init_on_disk(disk_t* d) {
         }
     }
 
-    pfree(dma_buffer);
     debugln("[fat32] Mount successful. SPC: %u", g_fat_info.sectors_per_cluster);
     return true;
 }
@@ -400,47 +411,57 @@ bool fat32_compare_name(const char* name, const char* fat_name) {
     // Case-insensitive comparison (FAT32 is usually uppercase)
     return fat32_strcasecmp(name, clean_name) == 0;
 }
+uint32_t get_fat_entry(uint32_t cluster);
 
 vfs_node_t* fat32_vfs_find(vfs_node_t* parent, const char* name) {
-    // parent->data stores the cluster number of the directory
+    /* parent->data stores the cluster number of the directory */
     uint32_t cluster = (uint32_t)parent->data;
-    
-    // Allocate a buffer to read the directory cluster
-    void* dma_buffer = palloc_zero();
-    uint8_t* sector_buf = (uint8_t*)phys_to_virt((uintptr_t)dma_buffer);
-    
-    uint32_t lba = cluster_to_lba(cluster);
-    
-    if (!disk_read_sector(g_fat_disk, lba, sector_buf)) {
-        pfree(dma_buffer);
-        return NULL;
-    }
 
-    FAT32_DIR_ENTRY* entries = (FAT32_DIR_ENTRY*)sector_buf;
+    /* Allocate one DMA-safe sector buffer */
+    void* dma_phys = palloc_zero();
+    if (!dma_phys) return NULL;
+    uint8_t* sector_buf = (uint8_t*)phys_to_virt((uintptr_t)dma_phys);
+
     vfs_node_t* found_node = NULL;
 
-    // Loop through the 16 entries in this sector
-    for (int i = 0; i < 16; i++) {
-        if (entries[i].name[0] == 0x00) break;
-        if (entries[i].name[0] == 0xE5 || (entries[i].attr & 0x0F) == 0x0F) continue;
+    /* Walk every cluster in the directory chain */
+    while (valid_cluster(cluster) && !found_node) {
+        uint32_t lba = cluster_to_lba(cluster);
 
-        // FAT32 names are space-padded (e.g., "HELLO      ")
-        // We need a helper to compare "HELLO" with the padded name
-        if (fat32_compare_name(name, (const char*)entries[i].name)) {
-            int type = (entries[i].attr & 0x10) ? VFS_DIRECTORY : VFS_FILE;
-            found_node = vfs_create_node(name, type);
-            
-            if (found_node) {
-                // Store the starting cluster in 'data' and file size in 'size'
-                found_node->data = (uintptr_t)((uint32_t)entries[i].cluster_low | ((uint32_t)entries[i].cluster_high << 16));
-                found_node->size = entries[i].size;
-                found_node->ops = parent->ops; // Inherit FAT32 operations
+        /* Walk every sector in this cluster */
+        for (uint32_t s = 0; s < g_fat_info.sectors_per_cluster && !found_node; s++) {
+            if (!disk_read_sector(g_fat_disk, lba + s, sector_buf)) {
+                pfree(dma_phys);
+                return NULL;
             }
-            break;
+
+            FAT32_DIR_ENTRY* entries = (FAT32_DIR_ENTRY*)sector_buf;
+            int entries_per_sector = 512 / sizeof(FAT32_DIR_ENTRY);
+
+            for (int i = 0; i < entries_per_sector; i++) {
+                if (entries[i].name[0] == 0x00) goto done; /* end of directory */
+                if (entries[i].name[0] == 0xE5) continue;  /* deleted */
+                if ((entries[i].attr & 0x0F) == 0x0F) continue; /* LFN */
+
+                if (fat32_compare_name(name, (const char*)entries[i].name)) {
+                    int type = (entries[i].attr & 0x10) ? VFS_DIRECTORY : VFS_FILE;
+                    found_node = vfs_create_node(name, type);
+                    if (found_node) {
+                        found_node->data = (uintptr_t)((uint32_t)entries[i].cluster_low |
+                                           ((uint32_t)entries[i].cluster_high << 16));
+                        found_node->size = entries[i].size;
+                        found_node->ops  = parent->ops;
+                    }
+                    break;
+                }
+            }
         }
+
+        cluster = get_fat_entry(cluster);
     }
 
-    pfree(dma_buffer);
+done:
+    pfree(dma_phys);
     return found_node;
 }
 
@@ -449,13 +470,12 @@ uint32_t get_fat_entry(uint32_t cluster) {
     uint32_t fat_sector = g_fat_info.first_fat_sector + (fat_offset / 512);
     uint32_t ent_offset = fat_offset % 512;
 
-    uint8_t buffer[512];
-    if (!disk_read_sector(g_fat_disk, fat_sector, buffer)) {
+    if (!disk_read_sector(g_fat_disk, fat_sector, g_dma_sector)) {
         debugln("[fat32] Failed to read FAT sector %u", fat_sector);
-        return 0x0FFFFFF7; // Mark as bad cluster
+        return 0x0FFFFFF7; // Return a "Bad Cluster" marker
     }
 
-    uint32_t next_cluster = *(uint32_t*)(&buffer[ent_offset]);
+    uint32_t next_cluster = *(uint32_t*)(g_dma_sector + ent_offset);
 
     return next_cluster & 0x0FFFFFFF;
 }
@@ -465,67 +485,111 @@ int fat32_vfs_read(vfs_node_t* node, void* buf, size_t size, size_t offset) {
         debugln("[FAT32] ERROR: Geometry not initialized! sectors_per_cluster is 0.");
         return -1;
     }
+    if (!g_fat_disk) {
+        debugln("[FAT32] ERROR: g_fat_disk is NULL.");
+        return -1;
+    }
+
     uint32_t cluster = (uint32_t)node->data;
     uint32_t bytes_per_cluster = g_fat_info.sectors_per_cluster * 512;
-    uint32_t total_read = 0;
 
-    while (total_read < size && cluster < 0x0ffffff8) {
+    /* Skip clusters that are entirely before the requested offset */
+    size_t cluster_byte_offset = offset;
+    while (cluster_byte_offset >= bytes_per_cluster && valid_cluster(cluster)) {
+        cluster = get_fat_entry(cluster);
+        cluster_byte_offset -= bytes_per_cluster;
+    }
+
+    /* Allocate a single DMA-safe sector buffer (page-aligned, in the HHDM) */
+    void* dma_phys = palloc_zero();
+    if (!dma_phys) return -1;
+    uint8_t* dma_buf = (uint8_t*)phys_to_virt((uintptr_t)dma_phys);
+
+    uint8_t* dst = (uint8_t*)buf;
+    size_t total_read = 0;
+
+    while (total_read < size && valid_cluster(cluster)) {
         uint32_t lba = cluster_to_lba(cluster);
-        
-        // Read sectors for this cluster one by one
+
         for (uint32_t i = 0; i < g_fat_info.sectors_per_cluster && total_read < size; i++) {
-            if (!ahci_read_sector(0, lba + i, (uint8_t*)buf + total_read)) {
+            /* Read this sector into the DMA buffer */
+            if (!disk_read_sector(g_fat_disk, lba + i, dma_buf)) {
                 debugln("[fat32] Read failed at cluster %u, LBA %u", cluster, lba + i);
-                return total_read; // Return what we got
+                pfree(dma_phys);
+                return (int)total_read;
             }
-            total_read += 512;
+
+            /* On the first sector of the read we may need to skip intra-sector bytes */
+            size_t sector_start = 0;
+            if (cluster_byte_offset > 0) {
+                sector_start = cluster_byte_offset < 512 ? cluster_byte_offset : 512;
+                cluster_byte_offset -= sector_start;
+            }
+
+            size_t to_copy = 512 - sector_start;
+            if (to_copy > size - total_read)
+                to_copy = size - total_read;
+
+            memcpy(dst + total_read, dma_buf + sector_start, to_copy);
+            total_read += to_copy;
         }
 
-        cluster = get_fat_entry(cluster); // Get the next cluster in the chain
+        cluster = get_fat_entry(cluster);
     }
-    return total_read;
+
+    pfree(dma_phys);
+    return (int)total_read;
 }
 
 int fat32_vfs_readdir(vfs_node_t* node, uint32_t start_index, void* buf, size_t count) {
     uint32_t cluster = (uint32_t)node->data;
-    void* dma_buffer = (void*)palloc_zero();
-    uint8_t* sector_buf = (uint8_t*)phys_to_virt((uintptr_t)dma_buffer);
-    
-    if (!disk_read_sector(g_fat_disk, cluster_to_lba(cluster), sector_buf)) {
-        pfree(dma_buffer);
-        return -1;
-    }
 
-    FAT32_DIR_ENTRY* entries = (FAT32_DIR_ENTRY*)sector_buf;
+    void* dma_phys = palloc_zero();
+    if (!dma_phys) return -1;
+    uint8_t* sector_buf = (uint8_t*)phys_to_virt((uintptr_t)dma_phys);
+
     znu_dirent_t* user_ents = (znu_dirent_t*)buf;
-    int found_count = 0;
-    int user_idx = 0;
     size_t max_ents = count / sizeof(znu_dirent_t);
+    int found_count = 0; /* total valid entries seen so far (for skip logic) */
+    int user_idx = 0;    /* entries written into user buf */
+    bool done = false;
 
-    for (int i = 0; i < 16; i++) {
-        // Skip empty/deleted/LongFileName entries
-        if (entries[i].name[0] == 0x00) break;
-        if (entries[i].name[0] == 0xE5 || (entries[i].attr & 0x0F) == 0x0F) continue;
+    while (valid_cluster(cluster) && !done && (size_t)user_idx < max_ents) {
+        uint32_t lba = cluster_to_lba(cluster);
 
-        // Skip entries until we reach the current file position
-        if (found_count < start_index) {
-            found_count++;
-            continue;
+        for (uint32_t s = 0; s < g_fat_info.sectors_per_cluster && !done && (size_t)user_idx < max_ents; s++) {
+            if (!disk_read_sector(g_fat_disk, lba + s, sector_buf)) {
+                pfree(dma_phys);
+                return -1;
+            }
+
+            FAT32_DIR_ENTRY* entries = (FAT32_DIR_ENTRY*)sector_buf;
+            int entries_per_sector = 512 / sizeof(FAT32_DIR_ENTRY);
+
+            for (int i = 0; i < entries_per_sector; i++) {
+                if (entries[i].name[0] == 0x00) { done = true; break; }
+                if (entries[i].name[0] == 0xE5) continue;
+                if ((entries[i].attr & 0x0F) == 0x0F) continue;
+
+                if (found_count < (int)start_index) {
+                    found_count++;
+                    continue;
+                }
+
+                if ((size_t)user_idx < max_ents) {
+                    fat32_format_name((char*)entries[i].name, user_ents[user_idx].name);
+                    user_ents[user_idx].type = (entries[i].attr & 0x10) ? VFS_DIRECTORY : VFS_FILE;
+                    user_ents[user_idx].size = entries[i].size;
+                    user_idx++;
+                }
+                found_count++;
+            }
         }
 
-        if (user_idx < max_ents) {
-            // Format the FAT name (e.g., "HELLO   " -> "HELLO")
-            fat32_format_name((char*)entries[i].name, user_ents[user_idx].name);
-            
-            user_ents[user_idx].type = (entries[i].attr & 0x10) ? VFS_DIRECTORY : VFS_FILE;
-            user_ents[user_idx].size = entries[i].size;
-            
-            user_idx++;
-        }
-        found_count++;
+        cluster = get_fat_entry(cluster);
     }
 
-    pfree(dma_buffer);
+    pfree(dma_phys);
     return user_idx * sizeof(znu_dirent_t);
 }
 
@@ -535,4 +599,3 @@ vfs_ops_t fat32_ops = {
     .readdir = fat32_vfs_readdir,
     .find_node = fat32_vfs_find
 };
-

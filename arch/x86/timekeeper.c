@@ -58,7 +58,6 @@ PERFORM void timekeeper_on_tick(void) {
     system_nanoseconds += 1000000; // 1ms = 1,000,000ns
 }
 
-
 PERFORM uint64_t timekeeper_timefromboot(void) {
     return system_nanoseconds;
 }

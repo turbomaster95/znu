@@ -316,7 +316,7 @@ int sys_fstat(int fd, struct stat* buf) {
 
 int sys_spawn(const char* path, char** argv, char** envp) {
     if (!path || !is_user_addr((void*)path, 1)) return -1;
-
+ 
     char kpath[256];
     size_t i;
     for (i = 0; i < 255; i++) {
@@ -325,13 +325,13 @@ int sys_spawn(const char* path, char** argv, char** envp) {
         if (kpath[i] == '\0') break;
     }
     kpath[i] = '\0';
-
+ 
     vfs_node_t* node = vfs_path_to_node(kpath);
     if (!node || node->type != VFS_FILE) {
         // debugerr("[sys] Failed to find executable at %s", kpath);
         return -1;
     }
-
+ 
     // Copy argv and envp to kernel space
     char** k_argv = NULL;
     if (argv && is_user_addr(argv, sizeof(char*))) {
@@ -352,7 +352,7 @@ int sys_spawn(const char* path, char** argv, char** envp) {
         }
         k_argv[argc] = NULL;
     }
-
+ 
     char** k_envp = NULL;
     if (envp && is_user_addr(envp, sizeof(char*))) {
         int envc = 0;
@@ -372,37 +372,36 @@ int sys_spawn(const char* path, char** argv, char** envp) {
         }
         k_envp[envc] = NULL;
     }
-
+ 
     uint8_t* elf_data = NULL;
     debugln("about to reach if node->mntpoint");
-
+ 
     if (node->ops && node->ops->read) {
        debugln("[spawn] Node has driver ops. Reading from disk (Cluster: %d)\n", node->data);
     
        elf_data = kmalloc(node->size);
        if (!elf_data) return -1;
-
+ 
        int read_bytes = node->ops->read(node, elf_data, node->size, 0);
     
        if (read_bytes <= 0) {
           kfree(elf_data);
           return -1;
        }
+ 
+       debugln("[spawn] Read %d bytes from disk. Expected %d.\n", read_bytes, node->size);
+ 
+       if (node->size > 0x1000) {
+          debugln("[spawn] Data at 4KB offset: %02x %02x\n", elf_data[0x1000], elf_data[0x1001]);
+       }
     } else {
     // No specific driver 'read' op? Assume it's a raw pointer (CPIO/RAM)
        debugln("[spawn] No driver ops. Assuming RAM pointer: %p\n", node->data);
        elf_data = (uint8_t*)node->data;
     }
-
-    int bytes = node->ops->read(node, elf_data, node->size, 0);
-    debugln("[spawn] Read %d bytes from disk. Expected %d.\n", bytes, node->size);
-
-    if (node->size > 0x1000) {
-       debugln("[spawn] Data at 4KB offset: %02x %02x\n", elf_data[0x1000], elf_data[0x1001]);
-    }
-
+ 
     process_t* proc = create_process_from_elf(elf_data, k_argv, k_envp);
-
+ 
     if (node->is_mountpoint && elf_data) {
         kfree(elf_data);
     }
@@ -416,12 +415,12 @@ int sys_spawn(const char* path, char** argv, char** envp) {
         for (int j = 0; k_envp[j]; j++) kfree(k_envp[j]);
         kfree(k_envp);
     }
-
+ 
     if (!proc) {
         debugerr("[sys] Failed to create process from ELF for %s", kpath);
         return -1;
     }
-
+ 
     if (current_process) {
         proc->parent_pid = current_process->pid;
     }

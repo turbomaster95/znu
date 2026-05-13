@@ -196,6 +196,7 @@ void uacpi_kernel_pci_device_close(uacpi_handle handle) {
 uacpi_u64 uacpi_kernel_get_nanoseconds_since_boot(void) {
     uint64_t extra = __atomic_add_fetch(&sub_tick_inc, 100, __ATOMIC_RELAXED);
     debugln("getnanoseconds called");
+    debugln("nanosnds + extra = %i", (uacpi_u64)timekeeper_timefromboot() + extra);
     return (uacpi_u64)timekeeper_timefromboot() + extra;
 }
 
