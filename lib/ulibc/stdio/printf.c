@@ -5,8 +5,9 @@
 #include <stdint.h>
 #include <unistd.h>
 
-void putchar(char c) {
+int putchar(char c) {
     sys_write(1, &c, 1);
+    return 0;
 }
 
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {

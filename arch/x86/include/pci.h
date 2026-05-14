@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 typedef struct {
     uint8_t  bus;
@@ -23,6 +24,26 @@ typedef struct {
 
     bool present;
 } pci_device_t;
+
+typedef struct {
+    uint8_t class_code;
+    uint8_t subclass;
+    uint8_t prog_if;
+    const char* name;
+} pci_class_name_t;
+
+static const pci_class_name_t pci_class_names[] = {
+    {0x01, 0x01, 0x00, "IDE Controller"},
+    {0x01, 0x06, 0x01, "SATA AHCI Controller"},
+    {0x02, 0x00, 0x00, "Ethernet Controller"},
+    {0x03, 0x00, 0x00, "VGA Compatible Controller"},
+    {0x06, 0x00, 0x00, "Host Bridge"},
+    {0x06, 0x01, 0x00, "ISA Bridge"},
+    {0x0C, 0x03, 0x20, "USB2 (EHCI) Controller"},
+    {0x0C, 0x03, 0x30, "USB3 (xHCI) Controller"},
+    {0x0C, 0x05, 0x00, "SMBus Controller"},
+    {0, 0, 0, NULL}
+};
 
 #define PCI_MAX_DEVICES 256
 

@@ -13,4 +13,6 @@
 #define LONG_MIN (-LONG_MAX - 1L)
 #define ULONG_MAX 18446744073709551615UL
 
+#define UCHAR_MAX 255
+
 #endif

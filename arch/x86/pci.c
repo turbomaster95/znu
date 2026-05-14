@@ -27,6 +27,27 @@ static void pci_scan_function(
 
 static void pci_scan_bus(uint8_t bus);
 
+const char* pci_get_class_name(uint8_t class_code, uint8_t subclass, uint8_t prog_if) {
+    for (int i = 0; pci_class_names[i].name != NULL; i++) {
+        if (pci_class_names[i].class_code == class_code &&
+            pci_class_names[i].subclass == subclass) {
+            
+            return pci_class_names[i].name;
+        }
+    }
+    return "Unknown Device";
+}
+
+const char* pci_get_vendor_name(uint16_t vendor_id) {
+    switch (vendor_id) {
+        case 0x8086: return "Intel Corp";
+        case 0x1234: return "Bochs/QEMU";
+        case 0x10EC: return "Realtek";
+        case 0x1AF4: return "VirtIO";
+        default:     return "Unknown Vendor";
+    }
+}
+
 uint32_t pci_read_dword(
     uint8_t bus,
     uint8_t slot,
@@ -149,10 +170,13 @@ static void pci_add_device(
 
     dev->present = true;
 
+    const char* vendor_name = pci_get_vendor_name(dev->vendor_id);
+    const char* device_name = pci_get_class_name(dev->class_code, dev->subclass, dev->prog_if);
+
     debugln(
         "PCI %02X:%02X.%u "
         "class=%02X subclass=%02X progif=%02X "
-        "vendor=%04X device=%04X",
+        "vendor=%04X device=%04X [%s %s]",
         bus,
         slot,
         func,
@@ -160,7 +184,9 @@ static void pci_add_device(
         dev->subclass,
         dev->prog_if,
         dev->vendor_id,
-        dev->device_id
+        dev->device_id,
+	vendor_name,
+	device_name
     );
 }
 

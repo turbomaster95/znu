@@ -11,6 +11,7 @@
 #define SEEK_END 2
 #define ROUND_DOWN(v, n) ((v) - ((v) % (n)))
 #define ROUND_UP(v, n) ROUND_DOWN((v) + (n) - 1, n)
+#define FILENAME_MAX 4096
 
 typedef struct {
     int fd;
@@ -34,7 +35,7 @@ int vsprintf(char* str, const char* format, va_list ap);
 
 char* fgets(char* str, int n, FILE* stream);
 void readline(char* buf, size_t n);
-void putchar(char c);
+int putchar(char c);
 int fputc(int c, FILE* stream);
 int fputs(const char* s, FILE* stream);
 int fflush(FILE *stream);
