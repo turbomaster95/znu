@@ -10,7 +10,7 @@ void gdt_init();
 
 struct tss {
     uint32_t reserved0;
-    uint64_t rsp0;      // Stack pointer for Ring 0
+    uint64_t rsp0;
     uint64_t rsp1;
     uint64_t rsp2;
     uint64_t reserved1;

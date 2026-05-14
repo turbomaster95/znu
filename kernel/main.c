@@ -9,6 +9,7 @@
 #include <kernel/tty.h>
 #include <idt.h>
 #include <lapic.h>
+#include <symbols.h>
 #include <pi.h>
 #include <page.h>
 #include <uacpi/uacpi.h>
@@ -271,7 +272,6 @@ void kmain(void) {
     map_page(kernel_pml4, 0xffff8000fee00000, 0xfee00000, PTE_WRITABLE | PTE_CACHE_DISABLE);
     debugln("[SUCCESS] Mapped page!");
 
-    // Initialize LAPIC first
     lapic_init();
     debugln("[lapic] LAPIC initialized.");
 
@@ -330,6 +330,8 @@ void kmain(void) {
     //debugln("[kernel_debug] About to initialize namespace..");
     status = uacpi_namespace_initialize();
     debugln("[SUCCESS] uACPI is live.");
+
+    symbols_init();
 
     pci_init();
     debugln("[pci] Init done!");

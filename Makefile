@@ -1,4 +1,4 @@
-# Include the config to access vars 
+# Include the config to access vars
 -include .config
 
 # *DOCUMENTATION*
@@ -365,14 +365,18 @@ $(TARGET)-objs	:= $(patsubst %,%/built-in.o, $(objs-y))
 $(TARGET)-libs	:= $(patsubst %,%/built-in.o, $(libs-y))
 $(TARGET)-all	:= $($(TARGET)-objs) $($(TARGET)-libs) $(LEGAL_OBJ)
 
-# Do modpost on a prelinked vmlinux. The finally linked vmlinux has
-# relevant sections renamed as per the linker script.
+scripts/embsym/embsym: scripts/embsym/embsym.c
+	$(Q)$(HOSTCC) $(HOSTCFLAGS) scripts/embsym/embsym.c -o scripts/embsym/embsym
+
 quiet_cmd_$(TARGET) = KRNLD   $@
-      cmd_$(TARGET) = $(CC) $(LDFLAGS) $(KBUILD_LDFLAGS) -o $@    \
+      cmd_$(TARGET) = $(CC) $(LDFLAGS) $(KBUILD_LDFLAGS) -o $@ \
       -Wl,--start-group $($(TARGET)-libs) $($(TARGET)-objs) $(LEGAL_OBJ) -Wl,--end-group -T $(srctree)/scripts/linker.ld
 
+quiet_cmd_syms = SYMS    $@
+      cmd_syms = $(srctree)/scripts/gensyms $(TARGET) $(srctree) $(OBJCOPY) $(TARGET)
+
 quiet_cmd_strip = STRIP   $@ -> $(STARGET)
-      cmd_strip = $(OBJCOPY) --strip-all --strip-unneeded --strip-debug --keep-section=.legal --set-section-flags .legal=alloc,contents,load $@ $(STARGET)
+      cmd_strip = $(OBJCOPY) --strip-debug $(TARGET) $(STARGET)
 
 quiet_cmd_build_limine = LIMINE  scripts/limine
       cmd_build_limine = $(srctree)/scripts/mklimine.sh $(srctree) "$(MAKEFLAGS)" > /dev/null 2>&1
@@ -383,8 +387,9 @@ quiet_cmd_mkiso = MKISO   $(STARGET) -> $(ISOIMAGE)
 quiet_cmd_mkuki = MKUKI   uki/Znu.efi
       cmd_mkuki = $(srctree)/scripts/mkuki.sh $(srctree)
 
-$(TARGET): $($(TARGET)-all) FORCE
+$(TARGET): $($(TARGET)-all) FORCE scripts/embsym/embsym
 	$(call if_changed,$(TARGET))
+	$(call if_changed,syms)
 	$(call if_changed,strip)
 ifeq ($(CONFIG_GENERATE_ISO),y)
 	$(call if_changed,build_limine)
@@ -431,7 +436,7 @@ $($(TARGET)-dirs): scripts_basic
 
 # Directories & files removed with 'make clean'
 CLEAN_DIRS  += 
-CLEAN_FILES +=	$(TARGET) $(STARGET) uki/Znu.efi uki/ramdisk.img $(ISOIMAGE) configs/iso_root/boot/initramfs.cpio configs/iso_root/boot/kernel.bin configs/sysroot/bin/*
+CLEAN_FILES +=	$(TARGET) $(STARGET) System.map uki/Znu.efi uki/ramdisk.img $(ISOIMAGE) configs/iso_root/boot/initramfs.cpio configs/iso_root/boot/kernel.bin configs/sysroot/bin/* scripts/embsym/embsym
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include/generated lib/uacpi scripts/limine build/ $(CLEAN_DIRS) lib/uacpi/.uacpi_out lib/flanterm/.flt_out

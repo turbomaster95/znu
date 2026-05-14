@@ -14,6 +14,8 @@
 #hostprogs-$(CONFIG_IKCONFIG)     += bin2c
 #hostprogs-$(BUILD_C_RECORDMCOUNT) += recordmcount
 
+hostprogs-y += embsym/
+
 always		:= $(hostprogs-y) $(hostprogs-m)
 
 # The following hostprogs-y programs are only build on demand
@@ -26,6 +28,7 @@ always		:= $(hostprogs-y) $(hostprogs-m)
 #build_docproc: scripts/docproc FORCE
 #	@:
 
+subdir-y 		      += embsym
 #subdir-$(CONFIG_MODVERSIONS) += genksyms
 #subdir-y                     += mod
 #subdir-$(CONFIG_SECURITY_SELINUX) += selinux
@@ -33,4 +36,4 @@ always		:= $(hostprogs-y) $(hostprogs-m)
 
 # Let clean descend into subdirs
 #subdir-	+= basic kconfig package selinux
-subdir-	+= basic kconfig
+subdir-	+= basic kconfig embsym

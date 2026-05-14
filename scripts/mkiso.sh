@@ -9,7 +9,7 @@ if [ -z "$SRCTREE" ] || [ -z "$IMG_NAME" ]; then
     exit 1
 fi
 
-llvm-objcopy --strip-all --strip-unneeded --strip-debug znus znu
+# llvm-objcopy --strip-all --strip-unneeded --strip-debug znus znu
 
 rm -f "$IMG_NAME"
 

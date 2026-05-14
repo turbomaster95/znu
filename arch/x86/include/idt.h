@@ -19,11 +19,11 @@ struct idtr {
 } __attribute__((packed));
 
 typedef struct {
-    uint64_t es, ds;        // Pushed last in isr_stub (Lowest addresses)
+    uint64_t es, ds;
     uint64_t r15, r14, r13, r12, r11, r10, r9, r8;
-    uint64_t rdi, rsi, rbp, rbx, rdx, rcx, rax; // rax was pushed first by pushaq
-    uint64_t int_no, err_code;    // Pushed by isr_wrapper
-    uint64_t rip, cs, rflags, rsp, ss; // Pushed by CPU (Highest addresses)
+    uint64_t rdi, rsi, rbp, rbx, rdx, rcx, rax;
+    uint64_t int_no, err_code;
+    uint64_t rip, cs, rflags, rsp, ss;
 } __attribute__((packed)) registers_t;
 
 

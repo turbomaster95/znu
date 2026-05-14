@@ -1,5 +1,5 @@
 #include <idt.h>
-#include <stdlib.h> // for outb
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <pi.h>
@@ -7,6 +7,7 @@
 #include <timekeeper.h>
 #include <proc.h>
 #include <kernel/display.h>
+#include <symbols.h>
 
 extern void hcf(void);
 struct idt_entry idt[256] __attribute__((aligned(16)));
@@ -37,7 +38,7 @@ void idt_set_gate(uint8_t vector, void *isr) {
 
 static int frame_count = 0;
 
-void print_stacktrace(uint64_t* rbp, uint64_t max_frames) {
+void old_print_stacktrace(uint64_t* rbp, uint64_t max_frames) {
     debugln("\n--- STACK TRACE ---");
     
     for (uint64_t i = 0; i < max_frames; i++) {
@@ -144,7 +145,6 @@ registers_t* k_exception_handler(registers_t *regs) {
 void idt_init() {
     memset(idt, 0, sizeof(struct idt_entry) * 256);
 
-    // Install all ISR stubs
     for (int i = 0; i < 256; i++) {
         idt_set_gate(i, isr_ptr_table[i]);
     }

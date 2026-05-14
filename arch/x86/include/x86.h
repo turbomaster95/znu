@@ -19,7 +19,7 @@ static inline void cpu_halt(void) {
 static inline uint32_t cpu_id(void) {
     uint32_t eax, ebx, ecx, edx;
     __asm__ volatile ("cpuid" : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx) : "a"(1));
-    return (ebx >> 24);  /* APIC ID as CPU ID */
+    return (ebx >> 24);
 }
 
 static inline uint64_t rdtsc(void) {
