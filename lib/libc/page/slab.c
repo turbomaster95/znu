@@ -18,10 +18,6 @@ struct slab_header {
 static struct slab_header* buckets[8];
 static const uint32_t bucket_sizes[] = {16, 32, 64, 128, 256, 512, 1024, 2048};
 
-/**
- * init_slab: Sets up the starting virtual address for the heap.
- * Call this in kmain after init_vmm.
- */
 void init_slab(void) {
     debugln("[SLAB] Initializing Slab Allocator...");
     // Starting heap at a safe high-half address
@@ -145,11 +141,6 @@ void *krealloc(void *ptr, size_t new_size) {
         return NULL; // Keep original ptr intact on failure
     }
 
-    /* 
-     * IMPORTANT: You need the old size here. 
-     * If your allocator stores size in a header before the pointer:
-     * size_t old_size = ((header_t*)ptr - 1)->size;
-     */
     size_t old_size = get_allocation_size(ptr); 
     
     size_t copy_size = (old_size < new_size) ? old_size : new_size;
@@ -158,4 +149,3 @@ void *krealloc(void *ptr, size_t new_size) {
     kfree(ptr);
     return new_ptr;
 }
-

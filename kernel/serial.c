@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include <stdlib.h> // for outb/inb
+#include <stdlib.h>
 
 #define COM1 0x3F8
 

@@ -15,8 +15,10 @@
 #define STBI_NO_SIMD
 #define STBI_NO_HDR
 #define STBI_NO_LINEAR
+#define STBI_ONLY_BMP
+#define STBI_ONLY_PNG
+#define STBI_ONLY_JPEG
 
 #include <stb_image.h>
-
 
 #endif

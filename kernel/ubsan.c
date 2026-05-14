@@ -91,7 +91,6 @@ void __ubsan_handle_pointer_overflow_abort(struct ubsan_overflow_data *data, uin
     panic("[ubsan] Pointer Overflow");
 }
 
-// Stubs for others that you might hit later
 void __ubsan_handle_sub_overflow_abort(struct ubsan_overflow_data *data, uintptr_t lhs, uintptr_t rhs) {
     ubsan_log_header("Subtraction Overflow", &data->location);
     panic("[ubsan] Arithmetic Overflow");

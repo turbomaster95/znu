@@ -1,12 +1,9 @@
-/* kernel/symbols.c */
-
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
 #include <page.h>
 #include <stdio.h>
 
-/* These come from dummy_ksyms.o */
 extern char __ksyms_start[];
 extern char __ksyms_end[];
 

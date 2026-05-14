@@ -29,7 +29,6 @@ struct vfs_node {
     uintptr_t data;
     size_t size;
 
-    // Added for Polymorphism/FatFs
     vfs_ops_t* ops;          // Pointer to the driver functions
     int is_mountpoint;       // 1 if this node redirects to a disk driver
     void* internal_data;     // Stores filesystem-specific data (like FIL*)
@@ -64,7 +63,7 @@ vfs_node_t* vfs_path_to_node(const char* path);
 void vfs_register_file(const char* path, uintptr_t data, size_t size);
 bool vfs_mount(const char* device, const char* fs_type, const char* path);
 
-// File access functions (Now backend-aware)
+// File access functions
 int vfs_read(vfs_node_t* node, void* buf, size_t size, size_t offset);
 int vfs_write(vfs_node_t* node, const void* buf, size_t size, size_t offset);
 
