@@ -425,6 +425,7 @@ void kmain(void) {
 
        debugln("[kernel] Jumping to Ring 3...");
        jump_to_usermode(init_proc->entry, init_proc->stack_top);
+       panic("Init binary exited!!!");
     }    
 
     panic("Init binary exited!!!");

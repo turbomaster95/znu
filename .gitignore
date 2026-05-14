@@ -17,6 +17,7 @@
 !.github/
 !.vscode/
 .vscode/compile_commands.json
+!subb.json
 *.o
 *.o.*
 *.ko
@@ -96,3 +97,8 @@ NvVars
 *.efi
 *.img
 *.iso
+lib/flanterm/
+user/dash/
+scripts/limine/
+lib/uacpi/
+lib/ulibc/third-party/zline/

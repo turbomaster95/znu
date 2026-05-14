@@ -6,6 +6,7 @@ subdir-y += poweroff
 subdir-y += dash
 subdir-y += test_shell
 subdir-y += ls
+subdir-y += shz
 subdir-y += fuzz
 subdir-y += ttytest
 

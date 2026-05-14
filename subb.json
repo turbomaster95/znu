@@ -1,0 +1,29 @@
+{
+    "dependencies": {
+        "lib/flanterm": {
+            "url": "https://github.com/Mintsuki/Flanterm",
+            "branch": "trunk",
+            "hash": "dfa1922c0749faf64c4423a81b233a20c08a7db7"
+        },
+        "user/dash": {
+            "url": "https://git.kernel.org/pub/scm/utils/dash/dash.git",
+            "branch": "master",
+            "hash": "6a1533f24b646364ad514c542292b5c85b2adabf"
+        },
+        "scripts/limine": {
+            "url": "https://github.com/limine-bootloader/limine",
+            "branch": "v12.x",
+            "hash": "0a0540aec8d03700508f1be61409c7f5f7da2f74"
+        },
+        "lib/uacpi": {
+            "url": "https://github.com/uACPI/uACPI",
+            "branch": "master",
+            "hash": "71f981d4ee36bf3ae85976409734000578b5249c"
+        },
+        "lib/ulibc/third-party/zline": {
+            "url": "https://github.com/turbomaster95/zline",
+            "branch": "main",
+            "hash": "fef2878aaa8b27346d3ee69d9e55d5966a857a95"
+        }
+    }
+}
