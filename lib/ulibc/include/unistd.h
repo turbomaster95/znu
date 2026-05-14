@@ -38,6 +38,7 @@ int chdir(const char *path);
 char *getcwd(char *buf, size_t size);
 int atexit(void (*function)(void));
 int mount(const char *source, const char *target, const char *fstype);
+void _exit(int status);
 
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1

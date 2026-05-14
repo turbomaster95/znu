@@ -45,6 +45,10 @@ static inline int _ispunct(int c) {
     return (_isgraph(c) && !_isalnum(c));
 }
 
+static inline int _isblank(int c) {
+    return (c == ' ' || c == '\t');
+}
+
 #ifndef isspace
 #define isspace(c) _isspace(c)
 #endif
@@ -78,6 +82,9 @@ static inline int _ispunct(int c) {
 #ifndef ispunct
 #define ispunct(c) _ispunct(c)
 #endif
+#ifndef isblank
+#define isblank(c) _isblank(c)
+#endif
 
 static inline int toupper(int c) {
     if (_islower(c)) return c - 'a' + 'A';
@@ -88,5 +95,7 @@ static inline int tolower(int c) {
     if (_isupper(c)) return c - 'A' + 'a';
     return c;
 }
+
+int isblank(int c); // usually checks if c == ' ' || c == '\t'
 
 #endif

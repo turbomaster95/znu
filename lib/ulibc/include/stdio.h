@@ -47,5 +47,10 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
 FILE *fopen(const char *filename, const char *mode);
 void perror(const char *s);
 int sscanf(const char *str, const char *format, ...);
+int putc(int c, FILE *stream);
+int getc(FILE *stream);
+int feof(FILE *stream);
+int puts(const char *s);
+int remove(const char *pathname);
 
 #endif
