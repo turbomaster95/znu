@@ -102,6 +102,11 @@ int execve(const char* filename, char* const argv[], char* const envp[]) {
     return ret;
 }
 
+int execv(const char *path, char *const argv[]) {
+    char *env[] = { 0 };
+    return execve(path, argv, env);
+}
+
 pid_t fork(void) {
     pid_t ret;
     __asm__ volatile ("syscall" : "=a"(ret) : "a"(57) : "rcx", "r11", "memory");

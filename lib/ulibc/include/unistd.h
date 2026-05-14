@@ -39,6 +39,8 @@ char *getcwd(char *buf, size_t size);
 int atexit(void (*function)(void));
 int mount(const char *source, const char *target, const char *fstype);
 void _exit(int status);
+int execv(const char *path, char *const argv[]);
+int wait(int *status);
 
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1

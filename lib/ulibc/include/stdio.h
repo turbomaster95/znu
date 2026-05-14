@@ -35,7 +35,7 @@ int vsprintf(char* str, const char* format, va_list ap);
 
 char* fgets(char* str, int n, FILE* stream);
 void readline(char* buf, size_t n);
-int putchar(char c);
+int putchar(int c);
 int fputc(int c, FILE* stream);
 int fputs(const char* s, FILE* stream);
 int fflush(FILE *stream);

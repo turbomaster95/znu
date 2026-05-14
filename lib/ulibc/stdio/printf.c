@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <unistd.h>
 
-int putchar(char c) {
+int putchar(int c) {
     sys_write(1, &c, 1);
     return 0;
 }
