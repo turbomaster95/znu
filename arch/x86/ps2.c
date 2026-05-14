@@ -10,20 +10,16 @@ static void ps2_wait_output(void) {
 }
 
 void ps2_init(void) {
-
-    // Disable devices
     ps2_wait_input();
     outb(0x64, 0xAD);
 
     ps2_wait_input();
     outb(0x64, 0xA7);
 
-    // Flush output buffer
     while (inb(0x64) & 1) {
         inb(0x60);
     }
 
-    // Read config byte
     ps2_wait_input();
     outb(0x64, 0x20);
 

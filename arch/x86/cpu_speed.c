@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <stdbool.h>
-#include <stddef.h> // For NULL
+#include <stddef.h>
 #include <tsc.h>
 #include <rtc.h>
 #include <pi.h>
@@ -21,10 +21,8 @@ uint64_t measure_cpu_speed(void) {
         return 0;
     }
 
-    // Ensure PIT is ready
     pit_init(1000); 
 
-    // Warm up the pipeline/cache
     tsc_read();
 
     uint64_t tsc_start = tsc_read();
@@ -33,7 +31,6 @@ uint64_t measure_cpu_speed(void) {
 
     uint64_t tsc_cycles = tsc_end - tsc_start;
 
-    // Fixed Math: (Cycles * 1000) / ms = Cycles per Second (Hz)
     uint64_t cpu_frequency = (tsc_cycles * 1000) / ms_to_wait;
 
     debugln("[CPU] Measured %llu cycles in %u ms", tsc_cycles, ms_to_wait);

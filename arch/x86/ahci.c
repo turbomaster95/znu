@@ -144,11 +144,9 @@ bool ahci_read_sector(int port_num, uint64_t lba, void* buf) {
     HBA_PORT* port = port_ptr(port_num);
     //debugln("[ahci] Start read: Port=%d, LBA=%u, Buf(virt)=%p", port_num, (uint32_t)lba, buf);
 
-    // 1. Clear interrupt status for this port
     port->is = 0xFFFFFFFF;
     //debugln("[ahci] Interrupt status cleared. PxTFD=%x", port->tfd);
 
-    // 2. Find a command slot
     uint32_t slots = port->sact | port->ci;
     int slot = -1;
     for (int i = 0; i < 32; i++) {

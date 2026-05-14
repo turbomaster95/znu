@@ -31,19 +31,15 @@ extern size_t keyboard_read(char* buf, size_t count);
 
 static bool is_user_addr(void* ptr, size_t len) {
     uintptr_t addr = (uintptr_t)ptr;
-    // Just check if it's in the lower half (Canonical address)
     return addr < 0x0000800000000000ULL;
 }
 
 void enable_syscalls() {
     uint32_t low, high;
-    // Read current EFER value
     asm volatile("rdmsr" : "=a"(low), "=d"(high) : "c"(EFER_MSR));
 
-    // Set the SCE bit
     low |= EFER_SCE;
 
-    // Write it back
     asm volatile("wrmsr" : : "a"(low), "d"(high), "c"(EFER_MSR));
 }
 
@@ -64,14 +60,6 @@ void gs_init(uintptr_t kernel_stack_top) {
 void syscall_init() {
     uint32_t lo, hi;
 
-    // STAR MSR Configuration
-    // [63:48] User Segments: Base for SYSRET. 
-    //         SYSRET sets SS = (Base + 8) and CS = (Base + 16)
-    //         To get SS=0x18 and CS=0x20, we must set Base to 0x10.
-    // [47:32] Kernel Segments: Base for SYSCALL.
-    //         SYSCALL sets SS = (Base + 8) and CS = (Base)
-    //         To get CS=0x08 and SS=0x10, we set Base to 0x08.
-    
     uint32_t kernel_base = 0x08;
     uint32_t user_base = 0x10; // (0x10 + 8 = 0x18 for SS, 0x10 + 16 = 0x20 for CS)
 
@@ -79,12 +67,9 @@ void syscall_init() {
     lo = 0;
     wrmsr(MSR_STAR, lo, hi);
 
-    // LSTAR: The 64-bit entry point
     uintptr_t entry = (uintptr_t)syscall_entry;
     wrmsr(MSR_LSTAR, (uint32_t)entry, (uint32_t)(entry >> 32));
 
-    // SFMASK: Bits to clear in RFLAGS on entry.
-    // Clear Interrupts (0x200), Trap (0x100), and Direction (0x400)
     wrmsr(MSR_SFMASK, 0x700, 0);
 
     debugln("[sys] Syscall MSRs initialized.");
@@ -189,17 +174,14 @@ int sys_getdents(int fd, void* buf, size_t count) {
     vfs_file_t* file = current_process->files[fd];
     if (!file || file->node->type != VFS_DIRECTORY) return -1;
 
-    // BRIDGE: If this is a FAT32/Disk mount, use the driver's readdir
     if (file->node->is_mountpoint && file->node->ops->readdir) {
         int bytes = file->node->ops->readdir(file->node, file->pos, buf, count);
         if (bytes > 0) {
-            // Increment position by number of entries read
             file->pos += (bytes / sizeof(znu_dirent_t));
         }
         return bytes;
     }
 
-    // Use a kernel buffer to avoid SMAP issues during population
     znu_dirent_t kdent;
     int read = 0;
     int skip = file->pos;
@@ -219,7 +201,6 @@ int sys_getdents(int fd, void* buf, size_t count) {
             kdent.type = child->type;
             kdent.size = child->size;
             
-            // Perform copy
             memcpy(user_ptr + read, &kdent, sizeof(kdent));
             read += sizeof(znu_dirent_t);
             file->pos++;
@@ -396,7 +377,6 @@ int sys_spawn(const char* path, char** argv, char** envp) {
           debugln("[spawn] Data at 4KB offset: %02x %02x\n", elf_data[0x1000], elf_data[0x1001]);
        }
     } else {
-    // No specific driver 'read' op? Assume it's a raw pointer (CPIO/RAM)
        debugln("[spawn] No driver ops. Assuming RAM pointer: %p\n", node->data);
        elf_data = (uint8_t*)node->data;
     }
@@ -407,7 +387,6 @@ int sys_spawn(const char* path, char** argv, char** envp) {
         kfree(elf_data);
     }
     
-    // Clean up temporary kernel buffers
     if (k_argv) {
         for (int j = 0; k_argv[j]; j++) kfree(k_argv[j]);
         kfree(k_argv);
@@ -452,12 +431,10 @@ long sys_brk(void* addr) {
 void* sys_mmap(void* addr, size_t len, int prot, int flags, int fd, uint64_t offset) {
     if (!current_process) return (void*)-1;
     
-    // Minimal implementation: only anonymous private mappings supported for now
     if (!(flags & 0x20)) { // MAP_ANONYMOUS is 0x20 on Linux
         return (void*)-1;
     }
 
-    // Use a fixed high address area for mmaps if addr is NULL
     static uintptr_t mmap_bump = 0x0000600000000000;
     if (!addr) {
         addr = (void*)mmap_bump;
@@ -536,23 +513,17 @@ long sys_ioctl(int fd, unsigned long request, void* argp) {
 
 uint64_t sys_mount(uint64_t source_ptr, uint64_t target_ptr, uint64_t fstype_ptr) {
     disable_smap();
-    // 1. Cast the raw register values to usable C strings
     const char* source = (const char*)source_ptr;
     const char* target = (const char*)target_ptr;
     const char* fstype = (const char*)fstype_ptr;
 
-    // 2. Safety Check: Ensure the pointers aren't null
     if (!source || !target || !fstype) {
         enable_smap();
         return -22; // Invalid argument
     }
 
-    // 3. Debug logging (helpful for your Znu boot logs)
     debugln("[sys] mount: dev=%s, path=%s, type=%s", source, target, fstype);
 
-    // 4. Call your internal VFS function
-    // Note: Ensure your vfs_mount argument order matches!
-    // Based on your previous code, it looked like: vfs_mount(device, type, path)
     if (!vfs_mount(source, fstype, target)) {
         enable_smap();
         return -1; // Or a more specific error like -ENODEV
@@ -569,13 +540,6 @@ uint64_t syscall_handler(registers_t* regs) {
     uint64_t arg4 = regs->r10;
     uint64_t arg5 = regs->r8;
 
-//    if (current_process && current_process->pid == 2) {
-//        if (num == 1) {
-//            // debugln("[sys] PID 2 WRITE: fd=%d, buf=%p, len=%d", (int)arg1, (void*)arg2, (int)arg3);
-//        } else if (num != 0) { // Don't log read, it's noisy
-//            // debugln("[sys] PID 2 SYSCALL START: %d (arg1=%d, arg2=%p)", (int)num, (int)arg1, (void*)arg2);
-//        }
-//    }
     switch (num) {
         case 0: // read
             return (uint64_t)sys_read((int)arg1, (void*)arg2, (size_t)arg3);

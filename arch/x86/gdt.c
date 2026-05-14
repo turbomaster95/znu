@@ -53,7 +53,7 @@ void gdt_set_tss(int num, uint64_t base, uint32_t limit) {
     tss->length       = limit & 0xFFFF;
     tss->base_low     = base & 0xFFFF;
     tss->base_mid     = (base >> 16) & 0xFF;
-    tss->flags1       = 0x89; // Present, Type: 64-bit TSS (Available)
+    tss->flags1       = 0x89;
     tss->flags2       = (limit >> 16) & 0x0F;
     tss->base_hi      = (base >> 24) & 0xFF;
     tss->base_upper32 = (base >> 32) & 0xFFFFFFFF;
@@ -77,7 +77,7 @@ void gdt_init() {
     kernel_tss.iopb_offset = sizeof(struct tss);
     gdt_set_tss(5, (uintptr_t)&kernel_tss, sizeof(struct tss) - 1);
     debugln("[gdt] TSS RSP0 set to dedicated stack at: %p", (void*)kernel_tss.rsp0);
-    debugln("[gdt_tss] Setup TSS Done!");
+    debugln("[tss] Setup TSS Done!");
 
     asm volatile("lgdt %0" : : "m"(gdt_ptr));
     gdt_reload_segments();

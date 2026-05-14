@@ -3,32 +3,28 @@
 #include <tsc.h>
 #include <pi.h> 
 #include <rtc.h> 
-#include <stdlib.h> // For debugln, debugerr, debugwarn
-#include <limine.h> // To check for bootloader info if needed
+#include <stdlib.h>
+#include <limine.h>
 
 #define CMOS_PORT_DATA 0x71
 #define CMOS_PORT_CMD  0x70
 
-// CMOS registers for time and date
 #define RTC_SECONDS      0x00
-#define RTC_MINUTES      0x02  // Was 0x01
-#define RTC_HOURS        0x04  // Was 0x02
+#define RTC_MINUTES      0x02
+#define RTC_HOURS        0x04
 #define RTC_DAY          0x07  
 #define RTC_MONTH        0x08
 #define RTC_YEAR         0x09
 #define RTC_CENTURY 	 0x32
 
-// Status Register A bits
-#define RTC_SR_A_UIP (1 << 7) // Update In Progress bit
+#define RTC_SR_A_UIP (1 << 7)
 
 #define RTC_SR_B_24HR (1 << 1) 
 
 static void nmi_disable(void) {
-    // Read the current value of Register A
     outb(CMOS_PORT_CMD, 0x0A); 
     uint8_t reg_a = inb(CMOS_PORT_DATA);
     
-    // Set bit 7 to disable NMI
     outb(CMOS_PORT_CMD, 0x0A);
     outb(CMOS_PORT_DATA, reg_a | 0x80); 
 }
@@ -43,35 +39,27 @@ static void nmi_enable(void) {
     outb(CMOS_PORT_DATA, reg_a & ~0x80); 
 }
 
-// Helper to convert BCD to binary
 static uint8_t bcd_to_binary(uint8_t bcd) {
     return ((bcd >> 4) * 10) + (bcd & 0x0F);
 }
 
-// Function to initialize RTC communication
 bool rtc_init(void) {
     debugln("[RTC] Initializing RTC...");
 
-    // Temporarily disable NMI for CMOS access
     nmi_disable();
 
-    // Read Status Register B to check for 24-hour format
     uint8_t reg_b = 0;
     outb(CMOS_PORT_CMD, 0x0B); // Status Register B
     reg_b = inb(CMOS_PORT_DATA);
 
     bool is_24_hour_format = !(reg_b & RTC_SR_B_24HR); // Bit 1 clear means 24-hour format
 
-    // Perform a basic read to check if RTC is accessible and responding.
-    // Reading seconds is a good indicator.
     uint8_t seconds = 0;
     outb(CMOS_PORT_CMD, RTC_SECONDS);
     seconds = inb(CMOS_PORT_DATA);
 
-    // Re-enable NMI
     nmi_enable();
 
-    // Basic sanity check: seconds should be between 00 and 59 in BCD.
     if ((seconds & 0xF) > 9 || (seconds >> 4) > 5) {
         debugerr("[RTC] RTC not responding or invalid data detected (seconds: %x).", seconds);
         return false;
@@ -81,7 +69,6 @@ bool rtc_init(void) {
     return true;
 }
 
-// Function to read the current time from RTC
 bool rtc_read_time(rtc_time_t *time) {
     if (!time) {
         debugerr("[RTC] rtc_read_time: NULL time pointer provided.");
@@ -90,14 +77,12 @@ bool rtc_read_time(rtc_time_t *time) {
 
     nmi_disable();
 
-    // 1. Wait for the Update In Progress (UIP) bit to clear
     uint8_t sr_a;
     do {
         outb(CMOS_PORT_CMD, 0x0A);
         sr_a = inb(CMOS_PORT_DATA);
     } while (sr_a & RTC_SR_A_UIP);
 
-    // 2. Read all time components from CMOS
     uint8_t temp_buf[7]; 
     outb(CMOS_PORT_CMD, RTC_SECONDS);  temp_buf[0] = inb(CMOS_PORT_DATA);
     outb(CMOS_PORT_CMD, RTC_MINUTES);  temp_buf[1] = inb(CMOS_PORT_DATA);
@@ -107,7 +92,6 @@ bool rtc_read_time(rtc_time_t *time) {
     outb(CMOS_PORT_CMD, RTC_YEAR);     temp_buf[5] = inb(CMOS_PORT_DATA);
     outb(CMOS_PORT_CMD, RTC_CENTURY);  temp_buf[6] = inb(CMOS_PORT_DATA);
 
-    // 3. Read Status Register B to check format
     outb(CMOS_PORT_CMD, 0x0B);
     uint8_t sr_b = inb(CMOS_PORT_DATA);
 
@@ -116,7 +100,6 @@ bool rtc_read_time(rtc_time_t *time) {
     bool is_24_hour_format = (sr_b & RTC_SR_B_24HR); 
     bool is_binary_mode = (sr_b & 0x04); // Bit 2: Data Mode (0 = BCD, 1 = Binary)
 
-    // 4. Conversion Logic
     if (!is_binary_mode) {
         time->second = bcd_to_binary(temp_buf[0]);
         time->minute = bcd_to_binary(temp_buf[1]);
@@ -124,12 +107,10 @@ bool rtc_read_time(rtc_time_t *time) {
         if (is_24_hour_format) {
             time->hour = bcd_to_binary(temp_buf[2]);
         } else {
-            // CRITICAL: Mask Bit 7 (PM bit) before BCD conversion
             bool is_pm = temp_buf[2] & 0x80;
             uint8_t hour_bcd = temp_buf[2] & 0x7F;
             uint8_t hour_12 = bcd_to_binary(hour_bcd);
 
-            // Convert 12h to 24h format
             if (is_pm && hour_12 < 12) hour_12 += 12;
             if (!is_pm && hour_12 == 12) hour_12 = 0;
             time->hour = hour_12;
@@ -140,7 +121,6 @@ bool rtc_read_time(rtc_time_t *time) {
         time->year    = bcd_to_binary(temp_buf[5]);
         time->century = bcd_to_binary(temp_buf[6]);
     } else {
-        // Binary mode - just mask the PM bit if necessary
         time->second = temp_buf[0];
         time->minute = temp_buf[1];
         
@@ -160,7 +140,6 @@ bool rtc_read_time(rtc_time_t *time) {
         time->century = temp_buf[6];
     }
 
-    // 5. Validation
     if (time->month == 0 || time->month > 12 || 
         time->day == 0 || time->day > 31 || 
         time->hour >= 24 || time->minute >= 60 || time->second >= 60) {

@@ -35,7 +35,6 @@ static uint8_t* lz4_decompress_block(const uint8_t* source, uint8_t* dest, size_
     return op;
 }
 
-// The Main Frame Parser
 int lz4_unframe(const uint8_t* source, uint8_t* dest, size_t input_size, size_t max_output) {
     const uint8_t* ip = source;
     const uint8_t* iend = source + input_size;
@@ -44,7 +43,6 @@ int lz4_unframe(const uint8_t* source, uint8_t* dest, size_t input_size, size_t 
 
     if (input_size < 7) return -1; // Minimum frame size
 
-    // 1. Check Magic Number
     uint32_t magic = ip[0] | (ip[1] << 8) | (ip[2] << 16) | (ip[3] << 24);
     
     // Standard Frame: 0x184D2204
@@ -69,7 +67,6 @@ int lz4_unframe(const uint8_t* source, uint8_t* dest, size_t input_size, size_t 
     if (magic != 0x184D2204) return -1; 
     ip += 4;
 
-    // 2. Parse Frame Descriptor
     uint8_t flg = *ip++;
     uint8_t bd  = *ip++; (void)bd; 
     
@@ -77,7 +74,6 @@ int lz4_unframe(const uint8_t* source, uint8_t* dest, size_t input_size, size_t 
     if (flg & (1 << 0)) ip += 4; // Dictionary ID present
     ip++; // Skip Header Checksum (HC)
 
-    // 3. Parse Blocks
     while (ip < iend) {
         if (ip + 4 > iend) break;
         uint32_t block_size = ip[0] | (ip[1] << 8) | (ip[2] << 16) | (ip[3] << 24);
@@ -98,7 +94,6 @@ int lz4_unframe(const uint8_t* source, uint8_t* dest, size_t input_size, size_t 
             if (op > oend) return -4;
         }
         
-        // Skip block checksum if flag is set
         if (flg & (1 << 4)) ip += 4;
     }
 
