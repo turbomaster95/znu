@@ -18,6 +18,10 @@
 #define STBI_ONLY_BMP
 #define STBI_ONLY_PNG
 #define STBI_ONLY_JPEG
+#define STBI_LDR_TO_HDR(r,g,b) {0,0,0}
+#define STBI_STB_IMAGE_STB_IMAGE_H
+#define float int
+#define double int
 
 #include <stb_image.h>
 

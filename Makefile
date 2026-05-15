@@ -208,7 +208,7 @@ KBUILD_CFLAGS   := -Wall -Wno-unused-function -Wno-unused-variable -Wno-format-t
 LDFLAGS += -nostdlib
 
 KBUILD_AFLAGS_KERNEL :=
-KBUILD_CFLAGS_KERNEL := -fstack-protector-all -fno-delete-null-pointer-checks -fno-strict-aliasing -fno-omit-frame-pointer
+KBUILD_CFLAGS_KERNEL := -fstack-protector-all -fno-delete-null-pointer-checks -fno-strict-aliasing -fno-omit-frame-pointer -mno-80387 -mno-mmx -mno-sse -mno-sse2
 KBUILD_AFLAGS   := -D__ASSEMBLY__ -Xpreprocessor -P
 
 # Read KERNELRELEASE from include/config/kernel.release (if it exists)

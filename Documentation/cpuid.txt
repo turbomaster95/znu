@@ -1,0 +1,1018 @@
+- Deva was here :) -
+
+Last updated: May 2026
+
+This doc covers the cpuid.h header I wrote for querying x86/x64 processor 
+capabilities via the CPUID instruction. Its meant to be a single reference 
+for all the enums, helper functions, and feature flags.
+
+
+TABLE OF CONTENTS
+-----------------
+1. Overview & Design
+2. Data Structures
+3. Core Inline Functions
+4. CPUID Leaf Constants
+5. Feature Bit Definitions
+6. The cpu_has() Query Interface
+7. Enumeration & Iteration Helpers
+8. Cache Information Helpers
+9. XSAVE / Extended State Helpers
+10. RDT (Resource Director Tech) Helpers
+11. SGX Helpers
+12. Topology Helpers
+13. Vendor & Brand String Helpers
+14. Frequency & Timing Helpers
+15. Hypervisor Detection
+16. Known Issues / TODOs
+
+
+1. OVERVIEW & DESIGN
+--------------------
+
+The whole thing is a single header-only C library. No .c files to compile, 
+just #include "cpuid.h" and your good to go. Everything is static inline 
+so the compiler can optimise it away completely when not used.
+
+I wrote this because I got tired of copy-pasting cpuid snippets from 
+StackOverflow and Intel's manuals. The main idea is:
+
+  - One enum (cpu_has_query_t) that lists everything you might want to know
+  - One function (cpu_has()) that returns the value for any query
+  - A bunch of specialised helpers for common tasks (cache sizes, topology, etc)
+
+The library assumes GCC/Clang style inline assembly. It wont work on MSVC 
+without modification (you'd need __cpuid intrinsics instead).
+
+2. DATA STRUCTURES
+------------------
+
+typedef struct {
+    uint32_t eax, ebx, ecx, edx;
+} cpuid_res_t;
+
+This is the raw result from a CPUID instruction. All four registers packed 
+into a nice little struct. Most of the time you wont touch this directly 
+but its there if you need to do custom parsing.
+
+
+3. CORE INLINE FUNCTIONS
+------------------------
+
+3.1 cpuid_query(leaf, subleaf)
+    The lowest-level function. Executes CPUID with the given leaf and 
+    subleaf values and returns a cpuid_res_t. This is where the actual 
+    asm block lives.
+
+    Example:
+        cpuid_res_t r = cpuid_query(1, 0);
+        if (r.edx & (1 << 25)) printf("SSE is supported\n");
+
+3.2 cpuid_leaf_supported(leaf)
+    Checks wether a given leaf is valid on this CPU. For standard leaves 
+    (0x00000000 - 0x7FFFFFFF), it queries leaf 0 and compares against EAX. 
+    For extended leaves (0x80000000+), it queries 0x80000000 and compares. 
+    Leaf 0 is always assumed valid.
+
+    This is used internally by almost everything so you dont have to worry 
+    about invalid leaves causing problems.
+
+
+4. CPUID LEAF CONSTANTS
+-----------------------
+
+These are the leaf values you can pass to cpuid_query(). I grouped them 
+by category for easier reading.
+
+Standard Leaves (0x00000000 - 0x0000001F):
+  CPUID_VENDOR_STRING             0x00000000   - Vendor ID string (EBX,EDX,ECX)
+  CPUID_FEATURES                  0x00000001   - Basic feature flags
+  CPUID_CACHE_TLB_INFO            0x00000002   - Legacy cache/TLB desciptors
+  CPUID_PROCESSOR_SERIAL          0x00000003   - Processor serial number (Pentium III only, mostly useless now)
+  CPUID_DETERMINISTIC_CACHE       0x00000004   - Modern cache enumeration (preferred over leaf 2)
+  CPUID_MONITOR_MWAIT             0x00000005   - MONITOR/MWAIT parameters
+  CPUID_THERMAL_POWER_MGMT        0x00000006   - Thermal and power management features
+  CPUID_STRUCTURED_FEATURES       0x00000007   - Extended features (AVX2, AVX-512, etc)
+  CPUID_DIRECT_CACHE_ACCESS       0x00000009   - DCA (Data Center stuff)
+  CPUID_ARCH_PERF_MON             0x0000000A   - Architectural perf monitoring
+  CPUID_EXTENDED_TOPOLOGY         0x0000000B   - Topology enumeration v1
+  CPUID_XSAVE_FEATURES            0x0000000D   - XSAVE area sizes and offsets
+  CPUID_RDT_MONITORING            0x0000000F   - Resource monitoring (CMT, MBM)
+  CPUID_RDT_ALLOCATION            0x00000010   - Resource allocation (CAT, CDP, MBA)
+  CPUID_SGX_CAPABILITIES          0x00000012   - Intel SGX info
+  CPUID_INTEL_TRACE               0x00000014   - Intel Processor Trace
+  CPUID_TSC_INFO                  0x00000015   - TSC/core crystal clock ratio
+  CPUID_PROCESSOR_FREQUENCY       0x00000016   - Base/max/bus frequency in MHz
+  CPUID_SOC_VENDOR                0x00000017   - SoC vendor info
+  CPUID_HYBRID_INFO               0x0000001A   - Hybrid CPU core type info (Alder Lake+)
+  CPUID_PCONFIG_INFO              0x0000001B   - Platform configuration
+  CPUID_V2_EXTENDED_TOPOLOGY      0x0000001F   - Topology enumeration v2
+
+Hypervisor Leaves (0x40000000 - 0x40000001):
+  CPUID_HYPERVISOR_INTERFACE      0x40000000   - Hypervisor vendor string
+  CPUID_HYPERVISOR_FEATURES       0x40000001   - Hypervisor feature flags
+
+Extended Leaves (0x80000000 - 0x80000021):
+  CPUID_EXT_MAX_FUNCTION          0x80000000   - Max extended leaf
+  CPUID_EXT_FEATURES              0x80000001   - Extended feature flags (AMD)
+  CPUID_EXT_BRAND_STRING_1        0x80000002   - Part 1 of 48-byte brand string
+  CPUID_EXT_BRAND_STRING_2        0x80000003   - Part 2 of 48-byte brand string
+  CPUID_EXT_BRAND_STRING_3        0x80000004   - Part 3 of 48-byte brand string
+  CPUID_EXT_L1_CACHE_TLB          0x80000005   - L1 cache/TLB info (AMD)
+  CPUID_EXT_L2_L3_CACHE_TLB       0x80000006   - L2/L3 cache info (AMD)
+  CPUID_EXT_ADV_POWER_MGMT        0x80000007   - Advanced power management
+  CPUID_EXT_ADDR_SIZE             0x80000008   - Physical/virtual address sizes
+  CPUID_EXT_SVM_FEATURES          0x8000000A   - AMD SVM (virtualization)
+  CPUID_EXT_PERF_OPTIMIZATIONS    0x8000001A   - Perf optimizations
+  CPUID_EXT_INSTRUCTION_SET       0x8000001B   - Instruction set features
+  CPUID_EXT_LWP                   0x8000001C   - Light Weight Profiling
+  CPUID_EXT_CACHE_PROPERTIES      0x8000001D   - Cache properties (AMD equivalent of leaf 4)
+  CPUID_EXT_TOPOLOGY              0x8000001E   - Topology (AMD)
+  CPUID_EXT_MEM_ENCRYPTION        0x8000001F   - Memory encryption (SEV)
+  CPUID_EXT_PASID_FEATURES        0x80000020   - PASID features
+  CPUID_EXT_SVM_FEATURES_V2       0x80000021   - SVM features v2
+
+
+5. FEATURE BIT DEFINITIONS
+--------------------------
+
+These are the bit positions within each register. You usually dont need 
+these directly since cpu_has() abstracts them away, but their here if you 
+need to do manual bit twiddeling.
+
+Leaf 0x01 EDX bits:
+  CPUID_FEAT_EDX_FPU          0   - x87 FPU
+  CPUID_FEAT_EDX_VME          1   - Virtual 8086 mode
+  CPUID_FEAT_EDX_DE           2   - Debugging extensions
+  CPUID_FEAT_EDX_PSE          3   - Page size extension (4MB pages)
+  CPUID_FEAT_EDX_TSC          4   - Time stamp counter
+  CPUID_FEAT_EDX_MSR          5   - Model specific registers
+  CPUID_FEAT_EDX_PAE          6   - Physical address extension (36-bit)
+  CPUID_FEAT_EDX_MCE          7   - Machine check exception
+  CPUID_FEAT_EDX_CX8          8   - CMPXCHG8B
+  CPUID_FEAT_EDX_APIC         9   - APIC on-chip
+  CPUID_FEAT_EDX_SEP         11   - SYSENTER/SYSEXIT
+  CPUID_FEAT_EDX_MTRR        12   - Memory type range registers
+  CPUID_FEAT_EDX_PGE         13   - Page global enable
+  CPUID_FEAT_EDX_MCA         14   - Machine check architecture
+  CPUID_FEAT_EDX_CMOV        15   - Conditional move
+  CPUID_FEAT_EDX_PAT         16   - Page attribute table
+  CPUID_FEAT_EDX_PSE36       17   - 36-bit page size extension
+  CPUID_FEAT_EDX_CLFSH       19   - CLFLUSH
+  CPUID_FEAT_EDX_DS          21   - Debug store
+  CPUID_FEAT_EDX_ACPI        22   - ACPI (thermal clock control)
+  CPUID_FEAT_EDX_MMX         23   - MMX
+  CPUID_FEAT_EDX_FXSR        24   - FXSAVE/FXRSTOR
+  CPUID_FEAT_EDX_SSE         25   - SSE
+  CPUID_FEAT_EDX_SSE2        26   - SSE2
+  CPUID_FEAT_EDX_SS          27   - Self snoop
+  CPUID_FEAT_EDX_HTT         28   - Hyper-threading / multi-core
+  CPUID_FEAT_EDX_TM          29   - Thermal monitor
+  CPUID_FEAT_EDX_PBE         31   - Pending break enable
+
+Leaf 0x01 ECX bits:
+  CPUID_FEAT_ECX_SSE3             0   - SSE3
+  CPUID_FEAT_ECX_PCLMULQDQ        1   - PCLMULQDQ
+  CPUID_FEAT_ECX_DTES64           2   - 64-bit debug store
+  CPUID_FEAT_ECX_MONITOR          3   - MONITOR/MWAIT
+  CPUID_FEAT_ECX_DS_CPL           4   - CPL qualified debug store
+  CPUID_FEAT_ECX_VMX              5   - Virtualization (VT-x)
+  CPUID_FEAT_ECX_SMX              6   - Safer mode extensions (TXT)
+  CPUID_FEAT_ECX_EST              7   - Enhanced SpeedStep
+  CPUID_FEAT_ECX_TM2              8   - Thermal monitor 2
+  CPUID_FEAT_ECX_SSSE3            9   - SSSE3
+  CPUID_FEAT_ECX_CID             10   - L1 context ID
+  CPUID_FEAT_ECX_SDBG            11   - Silicon debug
+  CPUID_FEAT_ECX_FMA             12   - FMA3
+  CPUID_FEAT_ECX_CX16            13   - CMPXCHG16B
+  CPUID_FEAT_ECX_XTPR            14   - xTPR update control
+  CPUID_FEAT_ECX_PDCM            15   - Perf/debug capabilities
+  CPUID_FEAT_ECX_PCID            17   - Process context identifiers
+  CPUID_FEAT_ECX_DCA             18   - Direct cache access
+  CPUID_FEAT_ECX_SSE4_1          19   - SSE4.1
+  CPUID_FEAT_ECX_SSE4_2          20   - SSE4.2
+  CPUID_FEAT_ECX_X2APIC          21   - x2APIC
+  CPUID_FEAT_ECX_MOVBE           22   - MOVBE
+  CPUID_FEAT_ECX_POPCNT          23   - POPCNT
+  CPUID_FEAT_ECX_TSC_DEADLINE    24   - TSC deadline
+  CPUID_FEAT_ECX_AES             25   - AES-NI
+  CPUID_FEAT_ECX_XSAVE           26   - XSAVE
+  CPUID_FEAT_ECX_OSXSAVE         27   - OSXSAVE (OS has enabled XSAVE)
+  CPUID_FEAT_ECX_AVX             28   - AVX
+  CPUID_FEAT_ECX_F16C            29   - 16-bit float conversions
+  CPUID_FEAT_ECX_RDRAND          30   - RDRAND
+  CPUID_FEAT_ECX_HYPERVISOR      31   - Running under hypervisor
+
+Leaf 0x07 EBX bits (subleaf 0):
+  CPUID_FEAT_7_EBX_FSGSBASE       0   - FSGSBASE
+  CPUID_FEAT_7_EBX_TSC_ADJUST     1   - TSC adjust MSR
+  CPUID_FEAT_7_EBX_SGX            2   - Software Guard Extensions
+  CPUID_FEAT_7_EBX_BMI1           3   - Bit manipulation instruction set 1
+  CPUID_FEAT_7_EBX_HLE            4   - Hardware lock elision (TSX)
+  CPUID_FEAT_7_EBX_AVX2           5   - AVX2
+  CPUID_FEAT_7_EBX_SMEP           7   - Supervisor mode execution prevention
+  CPUID_FEAT_7_EBX_BMI2           8   - Bit manipulation instruction set 2
+  CPUID_FEAT_7_EBX_ERMS           9   - Enhanced REP MOVSB/STOSB
+  CPUID_FEAT_7_EBX_INVPCID       10   - INVPCID
+  CPUID_FEAT_7_EBX_RTM           11   - Restricted transactional memory (TSX)
+  CPUID_FEAT_7_EBX_RDT_M         12   - Intel RDT monitoring
+  CPUID_FEAT_7_EBX_MPX           14   - Memory protection extensions
+  CPUID_FEAT_7_EBX_RDT_A         15   - Intel RDT allocation
+  CPUID_FEAT_7_EBX_AVX512F       16   - AVX-512 foundation
+  CPUID_FEAT_7_EBX_AVX512DQ      17   - AVX-512 double/quadword
+  CPUID_FEAT_7_EBX_RDSEED        18   - RDSEED
+  CPUID_FEAT_7_EBX_ADX           19   - ADX
+  CPUID_FEAT_7_EBX_SMAP          20   - Supervisor mode access prevention
+  CPUID_FEAT_7_EBX_AVX512IFMA    21   - AVX-512 integer FMA
+  CPUID_FEAT_7_EBX_CLFLUSHOPT    23   - CLFLUSHOPT
+  CPUID_FEAT_7_EBX_CLWB          24   - CLWB
+  CPUID_FEAT_7_EBX_INTEL_PT      25   - Intel Processor Trace
+  CPUID_FEAT_7_EBX_AVX512PF      26   - AVX-512 prefetch
+  CPUID_FEAT_7_EBX_AVX512ER      27   - AVX-512 exponential/reciprocal
+  CPUID_FEAT_7_EBX_AVX512CD      28   - AVX-512 conflict detection
+  CPUID_FEAT_7_EBX_SHA           29   - SHA extensions
+  CPUID_FEAT_7_EBX_AVX512BW      30   - AVX-512 byte/word
+  CPUID_FEAT_7_EBX_AVX512VL      31   - AVX-512 vector length
+
+Leaf 0x07 ECX bits (subleaf 0):
+  CPUID_FEAT_7_ECX_PREFETCHWT1     0   - PREFETCHWT1
+  CPUID_FEAT_7_ECX_AVX512VBMI      1   - AVX-512 VBMI
+  CPUID_FEAT_7_ECX_UMIP            2   - User-mode instruction prevention
+  CPUID_FEAT_7_ECX_PKU             3   - Protection keys for user-mode
+  CPUID_FEAT_7_ECX_OSPKE           4   - OS has enabled PKU
+  CPUID_FEAT_7_ECX_WAITPKG         5   - UMONITOR/UMWAIT/TPAUSE
+  CPUID_FEAT_7_ECX_AVX512VBMI2     6   - AVX-512 VBMI2
+  CPUID_FEAT_7_ECX_CET_SS          7   - CET shadow stack
+  CPUID_FEAT_7_ECX_GFNI            8   - Galois field instructions
+  CPUID_FEAT_7_ECX_VAES            9   - VAES
+  CPUID_FEAT_7_ECX_VPCLMULQDQ     10   - VPCLMULQDQ
+  CPUID_FEAT_7_ECX_AVX512VNNI     11   - AVX-512 VNNI
+  CPUID_FEAT_7_ECX_AVX512BITALG   12   - AVX-512 BITALG
+  CPUID_FEAT_7_ECX_AVX512VPOPCNTDQ 14   - AVX-512 VPOPCNTDQ
+  CPUID_FEAT_7_ECX_FZM            15   - Fast zero-length MOVSB
+  CPUID_FEAT_7_ECX_FSRS           16   - Fast short REP STOSB
+  CPUID_FEAT_7_ECX_FSRCS          17   - Fast short REP CMPSB/SCASB
+  CPUID_FEAT_7_ECX_PKRS           18   - Protection keys for supervisor
+  CPUID_FEAT_7_ECX_AVX512_4VNNIW  21   - AVX-512 4VNNIW
+  CPUID_FEAT_7_ECX_AVX512_4FMAPS  22   - AVX-512 4FMAPS
+  CPUID_FEAT_7_ECX_FSRM           23   - Fast short REP MOVSB
+  CPUID_FEAT_7_ECX_UINTR          24   - User interrupts
+  CPUID_FEAT_7_ECX_AVX512_VP2INTERSECT 25   - AVX-512 VP2INTERSECT
+  CPUID_FEAT_7_ECX_SRBDS_CTRL     27   - SRBDS mitigation MSRs
+  CPUID_FEAT_7_ECX_MD_CLEAR       28   - MD_CLEAR
+  CPUID_FEAT_7_ECX_RTM_ALWAYS_ABORT 29 - RTM always abort (TSX disable)
+  CPUID_FEAT_7_ECX_TSX_LDTRK      30   - TSX load tracking
+  CPUID_FEAT_7_ECX_SERIALIZE      31   - SERIALIZE instruction
+
+Leaf 0x07 EDX bits (subleaf 0):
+  CPUID_FEAT_7_EDX_AVX512_BF16     5   - AVX-512 BF16
+  CPUID_FEAT_7_EDX_IBT            20   - Indirect branch tracking (CET)
+  CPUID_FEAT_7_EDX_SHSTK          19   - Shadow stack (CET)
+  CPUID_FEAT_7_EDX_KL             23   - Key locker
+  CPUID_FEAT_7_EDX_WIDEKL         24   - Wide key locker
+  CPUID_FEAT_7_EDX_HRESET         22   - HRESET
+  CPUID_FEAT_7_EDX_AVX_VNNI_VINT8 23   - AVX-VNNI-INT8
+  CPUID_FEAT_7_EDX_AMX_BF16       22   - AMX BF16 tile
+  CPUID_FEAT_7_EDX_AMX_TILE       24   - AMX tile architecture
+  CPUID_FEAT_7_EDX_AMX_INT8       25   - AMX INT8 tile
+  CPUID_FEAT_7_EDX_AVX512_FP16    23   - AVX-512 FP16
+
+NOTE: Some of the leaf 0x07 EDX bits have overlapping bit positions 
+(like AMX_BF16 and HRESET both at bit 22). This is because Intel uses 
+different subleaves for different feature sets. The header defines them 
+as-is from the SDM but in practice you need to check the right subleaf. 
+This is a known quirk and might be cleaned up in a future version.
+
+Leaf 0x80000001 ECX bits (AMD extended):
+  CPUID_FEAT_80000001_ECX_LAHF_LM      0   - LAHF/SAHF in long mode
+  CPUID_FEAT_80000001_ECX_CMP_LEGACY   1   - Core multi-processing legacy mode
+  CPUID_FEAT_80000001_ECX_SVM          2   - Secure virtual machine (AMD-V)
+  CPUID_FEAT_80000001_ECX_EXT_APIC     3   - Extended APIC space
+  CPUID_FEAT_80000001_ECX_CR8_LEGACY   4   - CR8 in 32-bit mode
+  CPUID_FEAT_80000001_ECX_LZCNT        5   - LZCNT
+  CPUID_FEAT_80000001_ECX_SSE4A        6   - SSE4a
+  CPUID_FEAT_80000001_ECX_MISALIGNSSE  7   - Misaligned SSE mode
+  CPUID_FEAT_80000001_ECX_3DNOWPREF    8   - PREFETCHW (3DNow! prefetch)
+  CPUID_FEAT_80000001_ECX_OSVW         9   - OS visible workaround
+  CPUID_FEAT_80000001_ECX_IBS         10   - Instruction based sampling
+  CPUID_FEAT_80000001_ECX_XOP         11   - XOP
+  CPUID_FEAT_80000001_ECX_SKINIT      12   - SKINIT/STGI
+  CPUID_FEAT_80000001_ECX_WDT         13   - Watchdog timer
+  CPUID_FEAT_80000001_ECX_LWP         15   - Light weight profiling
+  CPUID_FEAT_80000001_ECX_FMA4        16   - FMA4
+  CPUID_FEAT_80000001_ECX_TCE         17   - Translation cache extension
+  CPUID_FEAT_80000001_ECX_NODEID_MSR  19   - NodeID MSR
+  CPUID_FEAT_80000001_ECX_TBM         21   - Trailing bit manipulation
+  CPUID_FEAT_80000001_ECX_TOPOEXT     22   - Topology extensions
+  CPUID_FEAT_80000001_ECX_PERFCTREXT_CORE 23 - Perf counter ext core
+  CPUID_FEAT_80000001_ECX_PERFCTREXT_NB 24   - Perf counter ext NB
+  CPUID_FEAT_80000001_ECX_DBX         26   - Data breakpoint extensions
+  CPUID_FEAT_80000001_ECX_PERFTSC     27   - Perf TSC
+  CPUID_FEAT_80000001_ECX_PCX_L2I     28   - L2I perf counter extensions
+  CPUID_FEAT_80000001_ECX_MONITORX    29   - MONITORX/MWAITX
+  CPUID_FEAT_80000001_ECX_ADDR_MASK_EXT 30 - Address mask extension
+
+Leaf 0x80000001 EDX bits (AMD extended):
+  CPUID_FEAT_80000001_EDX_FPU        0   - x87 FPU
+  CPUID_FEAT_80000001_EDX_VME        1   - Virtual 8086 mode
+  CPUID_FEAT_80000001_EDX_DE         2   - Debugging extensions
+  CPUID_FEAT_80000001_EDX_PSE        3   - Page size extension
+  CPUID_FEAT_80000001_EDX_TSC        4   - Time stamp counter
+  CPUID_FEAT_80000001_EDX_MSR        5   - Model specific registers
+  CPUID_FEAT_80000001_EDX_PAE        6   - Physical address extension
+  CPUID_FEAT_80000001_EDX_MCE        7   - Machine check exception
+  CPUID_FEAT_80000001_EDX_CX8        8   - CMPXCHG8B
+  CPUID_FEAT_80000001_EDX_APIC       9   - APIC
+  CPUID_FEAT_80000001_EDX_SYSCALL   11   - SYSCALL/SYSRET
+  CPUID_FEAT_80000001_EDX_MTRR      12   - MTRR
+  CPUID_FEAT_80000001_EDX_PGE       13   - Page global extension
+  CPUID_FEAT_80000001_EDX_MCA       14   - Machine check architecture
+  CPUID_FEAT_80000001_EDX_CMOV      15   - Conditional move
+  CPUID_FEAT_80000001_EDX_PAT       16   - Page attribute table
+  CPUID_FEAT_80000001_EDX_PSE36     17   - 36-bit page size extension
+  CPUID_FEAT_80000001_EDX_NX        20   - No-execute bit
+  CPUID_FEAT_80000001_EDX_MMXEXT    22   - MMX extensions
+  CPUID_FEAT_80000001_EDX_MMX       23   - MMX
+  CPUID_FEAT_80000001_EDX_FXSR      24   - FXSAVE/FXRSTOR
+  CPUID_FEAT_80000001_EDX_FFXSR     25   - FXSAVE/FXRSTOR optimizations
+  CPUID_FEAT_80000001_EDX_PAGE1GB   26   - 1GB pages
+  CPUID_FEAT_80000001_EDX_RDTSCP    27   - RDTSCP
+  CPUID_FEAT_80000001_EDX_LM        29   - Long mode (64-bit)
+  CPUID_FEAT_80000001_EDX_3DNOWEXT  30   - 3DNow! extensions
+  CPUID_FEAT_80000001_EDX_3DNOW     31   - 3DNow!
+
+
+6. THE cpu_has() QUERY INTERFACE
+--------------------------------
+
+This is the main user-facing API. You pass an enum value and get back 
+either a boolean (for feature checks) or a numeric value (for fields).
+
+typedef enum {
+    /* Feature flags - return 0 or 1 */
+    FPU_SUPPORT, VME_SUPPORT, DE_SUPPORT, PSE_SUPPORT, TSC_SUPPORT,
+    MSR_SUPPORT, PAE_SUPPORT, MCE_SUPPORT, CMPXCHG8B_SUPPORT, APIC_SUPPORT,
+    SEP_SUPPORT, MTRR_SUPPORT, PGE_SUPPORT, MCA_SUPPORT, CMOV_SUPPORT,
+    PAT_SUPPORT, PSE36_SUPPORT, CLFLUSH_SUPPORT, DS_SUPPORT, ACPI_SUPPORT,
+    MMX_SUPPORT, FXSR_SUPPORT, SSE_SUPPORT, SSE2_SUPPORT, SS_SUPPORT,
+    HTT_SUPPORT, TM_SUPPORT, PBE_SUPPORT,
+
+    SSE3_SUPPORT, PCLMULQDQ_SUPPORT, DTES64_SUPPORT, MONITOR_SUPPORT,
+    DS_CPL_SUPPORT, VMX_SUPPORT, SMX_SUPPORT, EST_SUPPORT, TM2_SUPPORT,
+    SSSE3_SUPPORT, CID_SUPPORT, SDBG_SUPPORT, FMA_SUPPORT, CMPXCHG16B_SUPPORT,
+    XTPR_SUPPORT, PDCM_SUPPORT, PCID_SUPPORT, DCA_SUPPORT, SSE4_1_SUPPORT,
+    SSE4_2_SUPPORT, X2APIC_SUPPORT, MOVBE_SUPPORT, POPCNT_SUPPORT,
+    TSC_DEADLINE_SUPPORT, AESNI_SUPPORT, XSAVE_SUPPORT, OSXSAVE_SUPPORT,
+    AVX_SUPPORT, F16C_SUPPORT, RDRAND_SUPPORT, HYPERVISOR_PRESENT,
+
+    FSGSBASE_SUPPORT, TSC_ADJUST_SUPPORT, SGX_SUPPORT, BMI1_SUPPORT,
+    HLE_SUPPORT, AVX2_SUPPORT, SMEP_SUPPORT, BMI2_SUPPORT, ERMS_SUPPORT,
+    INVPCID_SUPPORT, RTM_SUPPORT, RDT_M_SUPPORT, MPX_SUPPORT, RDT_A_SUPPORT,
+    AVX512F_SUPPORT, AVX512DQ_SUPPORT, RDSEED_SUPPORT, ADX_SUPPORT,
+    SMAP_SUPPORT, AVX512IFMA_SUPPORT, CLFLUSHOPT_SUPPORT, CLWB_SUPPORT,
+    INTEL_PT_SUPPORT, AVX512PF_SUPPORT, AVX512ER_SUPPORT, AVX512CD_SUPPORT,
+    SHA_SUPPORT, AVX512BW_SUPPORT, AVX512VL_SUPPORT,
+
+    PREFETCHWT1_SUPPORT, AVX512VBMI_SUPPORT, UMIP_SUPPORT, PKU_SUPPORT,
+    OSPKE_SUPPORT, WAITPKG_SUPPORT, AVX512VBMI2_SUPPORT, CET_SS_SUPPORT,
+    GFNI_SUPPORT, VAES_SUPPORT, VPCLMULQDQ_SUPPORT, AVX512VNNI_SUPPORT,
+    AVX512BITALG_SUPPORT, AVX512VPOPCNTDQ_SUPPORT, FZM_SUPPORT, FSRS_SUPPORT,
+    FSRCS_SUPPORT, PKRS_SUPPORT, AVX512_4VNNIW_SUPPORT, AVX512_4FMAPS_SUPPORT,
+    FSRM_SUPPORT, UINTR_SUPPORT, AVX512_VP2INTERSECT_SUPPORT,
+    SRBDS_CTRL_SUPPORT, MD_CLEAR_SUPPORT, RTM_ALWAYS_ABORT_SUPPORT,
+    TSX_LDTRK_SUPPORT, SERIALIZE_SUPPORT,
+
+    AVX512_BF16_SUPPORT, AMX_BF16_SUPPORT, AMX_TILE_SUPPORT, AMX_INT8_SUPPORT,
+    IBT_SUPPORT, SHSTK_SUPPORT, KL_SUPPORT, WIDEKL_SUPPORT, HRESET_SUPPORT,
+    AVX_VNNI_VINT8_SUPPORT, AVX512_FP16_SUPPORT,
+
+    /* AMD features */
+    LAHF_LM_SUPPORT, CMP_LEGACY_SUPPORT, SVM_SUPPORT, EXT_APIC_SUPPORT,
+    CR8_LEGACY_SUPPORT, LZCNT_SUPPORT, SSE4A_SUPPORT, MISALIGNSSE_SUPPORT,
+    PREFETCHW_SUPPORT, OSVW_SUPPORT, IBS_SUPPORT, XOP_SUPPORT, SKINIT_SUPPORT,
+    WDT_SUPPORT, LWP_SUPPORT, FMA4_SUPPORT, TCE_SUPPORT, NODEID_MSR_SUPPORT,
+    TBM_SUPPORT, TOPOEXT_SUPPORT, PERFCTREXT_CORE_SUPPORT, PERFCTREXT_NB_SUPPORT,
+    DBX_SUPPORT, PERFTSC_SUPPORT, PCX_L2I_SUPPORT, MONITORX_SUPPORT,
+    ADDR_MASK_EXT_SUPPORT, SYSCALL_SUPPORT, NX_SUPPORT, MMXEXT_SUPPORT,
+    FFXSR_SUPPORT, PAGE1GB_SUPPORT, RDTSCP_SUPPORT, LM_SUPPORT,
+    THREE_DNOWEXT_SUPPORT, THREE_DNOW_SUPPORT,
+
+    /* Processor identification fields - return numeric values */
+    STEPPING_ID, MODEL_ID, FAMILY_ID, PROCESSOR_TYPE,
+    EXTENDED_MODEL_ID, EXTENDED_FAMILY_ID,
+    LOGICAL_PROCESSORS_PER_PACKAGE, INITIAL_APIC_ID,
+    BASE_FREQUENCY_MHZ, MAX_FREQUENCY_MHZ, BUS_FREQUENCY_MHZ,
+    PHYSICAL_ADDRESS_BITS, VIRTUAL_ADDRESS_BITS,
+    PMU_VERSION, PMU_GP_COUNTERS, PMU_COUNTER_BITS,
+    MAX_STANDARD_LEAF, MAX_EXTENDED_LEAF,
+    IS_HYBRID, CORE_TYPE, NATIVE_MODEL_ID,
+
+    /* String queries - return const char* (thread-local buffer) */
+    VENDOR_STRING, BRAND_STRING, MICROARCHITECTURE,
+
+    CPU_HAS_QUERY_COUNT
+} cpu_has_query_t;
+
+Usage examples:
+
+    if (cpu_has(AVX_SUPPORT)) {
+        // Use AVX instructions
+    }
+
+    int cores = cpu_has(LOGICAL_PROCESSORS_PER_PACKAGE);
+    printf("Logical processors: %d\n", cores);
+
+    const char *vendor = (const char*)cpu_has(VENDOR_STRING);
+    printf("Vendor: %s\n", vendor);
+
+    const char *uarch = (const char*)cpu_has(MICROARCHITECTURE);
+    printf("Microarchitecture: %s\n", uarch);
+
+The MICROARCHITECTURE query is particularly handy. It tries to identify 
+the exact CPU generation based on family/model/stepping. Currently supports:
+
+Intel:
+  - Atom: Bonnell, Silvermont, Airmont, Goldmont, Tremont, Gracemont
+  - Core: Nehalem, Westmere, Sandy Bridge, Ivy Bridge, Haswell, Broadwell,
+          Skylake, Kaby Lake/Coffee Lake, Comet Lake, Ice Lake, Tiger Lake,
+          Alder Lake, Raptor Lake, Meteor Lake, Lunar Lake
+  - Xeon Phi: Knights Landing/Mill
+  - Old stuff: NetBurst (Pentium 4)
+
+AMD:
+  - K8, K10, Bulldozer family, Zen family, Zen 4/5, Hygon Dhyana
+
+If it cant identify the CPU, it returns "Unknown Intel", "Unknown AMD", 
+or "Unknown Vendor" depending on the vendor string.
+
+
+7. ENUMERATION & ITERATION HELPERS
+----------------------------------
+
+7.1 cpuid_enum_subleaf(leaf, &subleaf, &out)
+    Iterates over all valid subleaves for a given leaf. You initialise 
+    subleaf to 0, then call this in a loop. It returns true while theres 
+    more data, false when done. It automatically increments subleaf.
+
+    Supported leaves for enumeration:
+      - CPUID_DETERMINISTIC_CACHE (0x04): enumerates all cache levels
+      - CPUID_EXT_CACHE_PROPERTIES (0x8000001D): AMD cache enumeration
+      - CPUID_EXTENDED_TOPOLOGY (0x0B): topology levels
+      - CPUID_V2_EXTENDED_TOPOLOGY (0x1F): topology v2
+      - CPUID_XSAVE_FEATURES (0x0D): XSAVE components 0-63
+      - CPUID_STRUCTURED_FEATURES (0x07): all subleaves
+      - CPUID_SGX_CAPABILITIES (0x12): subleaves 0-2
+      - CPUID_INTEL_TRACE (0x14): subleaves 0-1
+      - CPUID_SOC_VENDOR (0x17): all subleaves
+
+    Example - enumerate caches:
+        uint32_t sub = 0;
+        cpuid_res_t res;
+        while (cpuid_enum_subleaf(CPUID_DETERMINISTIC_CACHE, &sub, &res)) {
+            // process cache info
+        }
+
+7.2 cpuid_display_family()
+    Returns the "display family" as per Intel/AMD convention. This is 
+    family + extended_family when family == 0x0F, otherwise just family.
+
+7.3 cpuid_display_model()
+    Returns the "display model". This is (extended_model << 4) | model 
+    when family is 0x06 or 0x0F, otherwise just model.
+
+
+8. CACHE INFORMATION HELPERS
+----------------------------
+
+8.1 cpuid_cache_info(subleaf, &level, &type, &size_kb)
+    Queries a specific cache subleaf and extracts the level (1, 2, 3), 
+    type (1=data, 2=instruction, 3=unified), and size in KB.
+
+    Returns false if the subleaf is invalid.
+
+8.2 cpuid_cache_shared_threads(subleaf)
+    Returns how many logical processors share this cache. This is useful 
+    for figuring out cache topology.
+
+8.3 cpuid_num_caches()
+    Returns the total number of cache levels reported by the CPU. 
+    Just iterates through all valid subleaves of leaf 0x04 and counts them.
+
+    Example:
+        uint32_t n = cpuid_num_caches();
+        printf("This CPU reports %u cache entries\n", n);
+
+
+9. XSAVE / EXTENDED STATE HELPERS
+---------------------------------
+
+9.1 cpuid_xsave_component_supported(component)
+    Checks if a specific XSAVE component (0-63) is supported. Queries 
+    leaf 0x0D with the component number as subleaf. Returns true if 
+    either EAX or EBX is non-zero.
+
+9.2 cpuid_xsave_component_size(component)
+    Returns the size in bytes of the save area for this component.
+
+9.3 cpuid_xsave_component_offset(component)
+    Returns the offset in the XSAVE area where this component starts.
+
+    These are usefull if your writing an OS or hypervisor that needs to 
+    manage XSAVE state manually. Most application code can just use 
+    the XGETBV instruction via compiler intrinsics.
+
+
+10. RDT (RESOURCE DIRECTOR TECHNOLOGY) HELPERS
+-----------------------------------------------
+
+10.1 cpuid_rdt_monitoring_supported(resource)
+     Checks if a specific monitoring resource is available. The resource 
+     parameter goes into ECX (subleaf). Returns true if EDX[4:0] is non-zero.
+
+10.2 cpuid_rdt_allocation_supported(resource)
+     Checks if a specific allocation resource is available. Returns true 
+     if EAX[4:0] is non-zero.
+
+     RDT is mostly relevant for data centers and cloud providers who want 
+     to enforce cache/memory bandwidth QoS. If your just writing normal 
+     software you probably dont need this.
+
+
+11. SGX HELPERS
+---------------
+
+11.1 cpuid_sgx_info(&sgx1, &sgx2, &max_enclave_64, &max_enclave_32)
+     Queries SGX capabilities. Sets sgx1 and sgx2 booleans, and returns 
+     the maximum enclave size as a power-of-two exponent for 64-bit and 
+     32-bit modes.
+
+     For example, if max_enclave_64 is 36, the max enclave size is 2^36 
+     bytes (64 GB).
+
+     Note: SGX has been deprecated on newer Intel consumer CPUs but is 
+     still present on some Xeons. Also, just because the CPU supports it 
+     doesnt mean the BIOS has enabled it.
+
+
+12. TOPOLOGY HELPERS
+--------------------
+
+12.1 cpuid_topology_level(subleaf, &level_type, &num_logical)
+     Queries leaf 0x0B (extended topology) and returns the level type 
+     and number of logical processors at that level.
+
+     Level types:
+       1 = SMT (hyperthread)
+       2 = Core
+       3 = Module (AMD)
+       4+ = Higher levels (die, package, etc)
+
+     Returns false if the subleaf is invalid (ECX[15:8] == 0).
+
+
+13. VENDOR & BRAND STRING HELPERS
+---------------------------------
+
+13.1 __cpuid_get_vendor(buf)
+     Internal function that fills a 13-byte buffer with the vendor string. 
+     Usually "GenuineIntel" or "AuthenticAMD". Also seen: "CentaurHauls", 
+     "CyrixInstead", "TransmetaCPU", "GenuineTMx86", "Geode by NSC", 
+     "NexGenDriven", "RiseRiseRise", "SiS SiS SiS ", "UMC UMC UMC ", 
+     "VIA VIA VIA ", "Vortex86 SoC", "  Shanghai  " (Zhaoxin), etc.
+
+13.2 __cpuid_get_brand(buf)
+     Internal function that fills a 49-byte buffer with the processor 
+     brand string from leaves 0x80000002-0x80000004. Also strips leading 
+     spaces because Intel likes to pad with spaces for some reason.
+
+     Note: Some older CPUs dont support extended leaves, in which case 
+     the buffer will be empty (just a null terminator).
+
+13.3 cpuid_hypervisor_vendor(buf)
+     If running under a hypervisor (HYPERVISOR_PRESENT is true), fills 
+     a 13-byte buffer with the hypervisor vendor string. Common values:
+       "VMwareVMware" - VMware
+       "Microsoft Hv" - Hyper-V
+       "KVMKVMKVM"    - KVM
+       "XenVMMXenVMM" - Xen
+       "prl hyperv  " - Parallels
+       "VBoxVBoxVBox" - VirtualBox
+
+     Returns false if not running under a hypervisor.
+
+
+14. FREQUENCY & TIMING HELPERS
+------------------------------
+
+14.1 cpuid_tsc_frequency_hz()
+     Attempts to calculate the TSC frequency from leaf 0x15. Returns 
+     (crystal_hz * numer) / denom. If crystal_hz is zero, assumes 
+     24 MHz for Intel CPUs (which is the common case).
+
+     Returns 0 if leaf 0x15 is unsupported or if denom/numer are zero.
+
+     Note: This gives the nominal TSC frequency, not the current 
+     operating frequency. For current frequency you need MSR reads 
+     or OS APIs.
+
+14.2 BASE_FREQUENCY_MHZ, MAX_FREQUENCY_MHZ, BUS_FREQUENCY_MHZ
+     These are cpu_has() queries that read leaf 0x16. Not all CPUs 
+     support this leaf (its relatively recent). Returns 0 if unsupported.
+
+
+15. HYPERVISOR DETECTION
+------------------------
+
+The HYPERVISOR_PRESENT query checks bit 31 of leaf 1 ECX. This is the 
+official way to detect if your running virtualised. However, some 
+hypervisors (looking at you, older VMware versions) didnt set this bit 
+properly. If you need more robust detection, combine it with:
+
+  - Checking for hypervisor-specific CPUID leaves (0x40000000+)
+  - Timing attacks (TSC behaviour differs under virt)
+  - Checking known hypervisor signatures in DMI/ACPI tables
+
+For most purposes though, HYPERVISOR_PRESENT + cpuid_hypervisor_vendor() 
+is good enough.
+
+
+16. KNOWN ISSUES / TODOS
+------------------------
+
+- The leaf 0x07 EDX feature bits have some collisions (same bit number 
+  used for different features on different subleaves). The header defines 
+  them all on subleaf 0 which is technically incorrect for some. Need to 
+  figure out a cleaner way to handle subleaf-specific bits.
+
+- MICROARCHITECTURE detection is incomplete. Missing lots of older CPUs 
+  (Pentium M, Core Duo, various AMD K7s, etc) and very new ones might 
+  not be in there yet. I add them if i need to support them, you can make a PR if you need one.
+
+- No support for ARM or other architectures. This is x86/x64 only by 
+  design. If you need ARM CPU feature detection, look at HWCAP on Linux 
+  or IsProcessorFeaturePresent on Windows.
+
+- The __cpuid_check_feature and __cpuid_extract_field functions are 
+  technically internal (double underscore prefix) but their exposed in 
+  the header. Might wrap them better in a future version.
+
+- Thread-local storage for string buffers uses static __thread which 
+  is GCC/Clang specific. MSVC would need __declspec(thread).
+
+- No caching of results. Every call to cpu_has() re-executes CPUID. 
+  For a feature check in a hot loop this could matter. In practice 
+  CPUID is fast (hundreds of cycles) but if your calling it millions 
+  of times you should cache the result yourself.
+
+- The cpuid_enum_subleaf() function for CPUID_STRUCTURED_FEATURES (0x07) 
+  has a subtle bug: it reads the max subleaf from EAX on the first call, 
+  but if you start with subleaf != 0 it wont know the max. Always start 
+  at 0.
+
+- Missing AMX (Advanced Matrix Extensions) detailed queries beyond the 
+  basic feature bits. Leaf 0x1D and 0x1E have AMX tile info that isnt 
+  wrapped yet.
+
+- Would be nice to add a cpuid_get_cache_size_by_level(level, type) 
+  helper that searches through the enumerated caches instead of requiring 
+  the caller to iterate manually.
+
+
+BUILDING & USING
+----------------
+
+Just include the header:
+
+    #include "cpuid.h"
+
+Compile with any GCC/Clang based toolchain. Requires:
+  - stdint.h, stdbool.h, string.h
+  - GCC-style inline assembly (x86 or x86-64)
+  - C99 or later
+
+Example program:
+
+    #include <stdio.h>
+    #include "cpuid.h"
+
+    int main(void) {
+        printf("Vendor: %s\n", (const char*)cpu_has(VENDOR_STRING));
+        printf("Brand:  %s\n", (const char*)cpu_has(BRAND_STRING));
+        printf("AVX2:   %s\n", cpu_has(AVX2_SUPPORT) ? "yes" : "no");
+        printf("Cores:  %lu\n", (unsigned long)cpu_has(LOGICAL_PROCESSORS_PER_PACKAGE));
+        return 0;
+    }
+
+Compile:
+    gcc -O2 -o cpuid_test cpuid_test.c
+
+LICENSE
+-------
+
+	    The Nicense Software License
+                    Version 1.1
+
+Copyright (c) 2026 Deva Midhun. All rights reserved.
+
+NOTICE: This license must be included, intact and unmodified, in all copies
+or substantial portions of the Software, in any form — including but not
+limited to source code, object code, compiled binaries, bytecode, minified
+or obfuscated code, assembled firmware, documentation, and any derivative
+or combined works. Redistribution in any form without this notice is a
+violation of this License.
+
+--------------------------------------------------------------------------------
+PREAMBLE
+--------------------------------------------------------------------------------
+
+This License governs the use, reproduction, modification, and distribution of
+the Software and any Derivative Works thereof. By obtaining, using, copying,
+modifying, or distributing the Software, You accept and agree to be bound by
+the terms of this License. If You do not agree to these terms, You must not
+use or distribute the Software.
+
+--------------------------------------------------------------------------------
+SECTION 0 — DEFINITIONS
+--------------------------------------------------------------------------------
+
+"Author"            means Deva Midhun, the original copyright holder of
+                    the Software.
+
+"Contributor"       means any individual or legal entity that submits a
+                    Contribution to the Work with the intent that it be
+                    incorporated into the Work.
+
+"Contribution"      means any work of authorship, including modifications or
+                    additions to the Work, submitted by a Contributor to the
+                    Author or to the Work's repository.
+
+"Derivative Work"   means any work that is based on or derived from the
+                    Software, including translations, adaptations, abridgements,
+                    condensations, modifications, or any other form in which
+                    the Work may be recast, transformed, or adapted.
+
+"Distribution"      means making the Software or Derivative Works available to
+                    any third party by any means, including but not limited to
+                    electronic transmission, physical media, or network access.
+
+"License"           means this Nicense Software License, Version 1.1.
+
+"NOTICE file"       means a human-readable file named "NOTICE" distributed with
+                    the Work that contains attribution information required by
+                    the Author or Contributors.
+
+"Object Form"       means any form resulting from mechanical transformation or
+                    translation of a Source Form, including but not limited to
+                    compiled object code, bytecode, generated documentation,
+                    assembled firmware, or minified or obfuscated code.
+
+"Source Form"       means the preferred form for making modifications, including
+                    but not limited to software source code, documentation
+                    source, and configuration files.
+
+"Software" / "Work" means the copyrightable work made available under this
+                    License, in either Source Form or Object Form.
+
+"You" / "Your"      means an individual or legal entity exercising rights
+                    granted under this License.
+
+--------------------------------------------------------------------------------
+SECTION 1 — GRANT OF COPYRIGHT LICENSE
+--------------------------------------------------------------------------------
+
+Subject to the terms and conditions of this License, the Author hereby grants
+to You a perpetual, worldwide, non-exclusive, no-charge, royalty-free,
+irrevocable copyright license to reproduce, prepare Derivative Works of,
+publicly display, publicly perform, sublicense, and distribute the Software
+and such Derivative Works in Source Form or Object Form.
+
+--------------------------------------------------------------------------------
+SECTION 2 — GRANT OF PATENT LICENSE
+--------------------------------------------------------------------------------
+
+Subject to the terms and conditions of this License, each Contributor hereby
+grants to You a perpetual, worldwide, non-exclusive, no-charge, royalty-free,
+irrevocable patent license to make, have made, use, offer to sell, sell,
+import, and otherwise transfer the Work. This grant applies only to those
+patent claims licensable by such Contributor that are necessarily infringed
+by their Contribution(s) alone or by combination of their Contribution(s)
+with the Work to which such Contribution(s) was submitted.
+
+If You institute patent litigation against any entity (including a cross-claim
+or counterclaim) alleging that the Work or a Contribution incorporated within
+it constitutes direct or contributory patent infringement, then any patent
+licenses granted to You under this License shall terminate as of the date
+such litigation is filed.
+
+--------------------------------------------------------------------------------
+SECTION 3 — REDISTRIBUTION AND INCLUSION REQUIREMENTS
+--------------------------------------------------------------------------------
+
+You may reproduce and distribute copies of the Work or Derivative Works thereof
+in any medium — including Source Form, Object Form, compiled binaries,
+bytecode, minified code, obfuscated code, firmware, or any other form —
+with or without modifications, provided that You meet ALL of the following
+conditions:
+
+  (a) NOTICE INCLUSION. This License, including the copyright notice in its
+      header, must be included verbatim and unmodified in all copies or
+      substantial portions of the Software, regardless of form. You must not
+      remove, alter, or obscure this notice.
+
+  (b) LICENSE DELIVERY. You must provide any recipient of the Work or
+      Derivative Works with a copy of this License. This applies whether the
+      Software is distributed as source code, compiled binary, embedded
+      firmware, or through a network service.
+
+  (c) MODIFICATION DISCLOSURE. If You modify the Work, You must include a
+      prominent notice in the modified files stating that You changed the
+      files, the nature of the changes, and the date of such changes.
+
+  (d) ATTRIBUTION RETENTION. You must retain, in the Source Form of any
+      Derivative Work that You distribute, all copyright, patent, trademark,
+      and attribution notices from the Source Form of the Work, excluding
+      notices that do not pertain to any part of the Derivative Work.
+
+  (e) NOTICE FILE. If the Work includes a NOTICE file, You must include a
+      readable copy of the attribution notices contained within such NOTICE
+      file in any Derivative Works that You distribute.
+
+  (f) OBJECT FORM NOTICE. When distributing the Work or Derivative Works in
+      Object Form (e.g., compiled binaries, minified files, firmware), You
+      must ensure that the copyright notice and a reference to this License
+      are either embedded in the Object Form itself, displayed at runtime
+      where technically feasible, or provided in accompanying documentation.
+
+  (g) SAAS AND NETWORK USE. If You operate the Software or a Derivative Work
+      as a service made available to third parties over a network, You must
+      make this License and the applicable copyright notice accessible to
+      users of that service (e.g., in a legal notices or attribution page).
+
+  (h) NO MISREPRESENTATION. You must not represent any Derivative Work as the
+      original Work, nor claim authorship over unmodified portions of the
+      Software. You must not use the Author's name to endorse or promote
+      products derived from this Software without prior written permission.
+
+--------------------------------------------------------------------------------
+SECTION 4 — CONTRIBUTIONS AND SUBMISSIONS
+--------------------------------------------------------------------------------
+
+Unless explicitly stated otherwise, any Contribution intentionally submitted
+for inclusion in the Work by You to the Author shall be under the terms and
+conditions of this License, without any additional terms or conditions.
+
+Nothing in this section shall supersede or modify the terms of any separate
+written license agreement You may have executed with the Author regarding
+such Contributions.
+
+The Author reserves the right to accept, reject, or modify any Contribution
+at their sole discretion.
+
+--------------------------------------------------------------------------------
+SECTION 5 — TRADEMARKS
+--------------------------------------------------------------------------------
+
+This License does not grant permission to use the trade names, trademarks,
+service marks, or product names of the Author, except as reasonably required
+for describing the origin of the Work and reproducing the content of any
+required NOTICE file.
+
+--------------------------------------------------------------------------------
+SECTION 6 — PRIVACY AND DATA
+--------------------------------------------------------------------------------
+
+If the Software collects, processes, or transmits personal data, You are
+solely responsible for ensuring that any such use complies with all applicable
+privacy and data protection laws in the jurisdictions in which You operate
+or in which Your users are located. The Author makes no representation that
+the Software is compliant with any particular privacy law or regulation.
+
+--------------------------------------------------------------------------------
+SECTION 7 — EXPORT COMPLIANCE
+--------------------------------------------------------------------------------
+
+The Software may be subject to export control laws and regulations. You are
+solely responsible for compliance with all applicable export and import laws
+and regulations. You must not export or re-export the Software in violation
+of any applicable laws.
+
+--------------------------------------------------------------------------------
+SECTION 8 — DISCLAIMER OF WARRANTY
+--------------------------------------------------------------------------------
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT. THE AUTHOR
+AND CONTRIBUTORS MAKE NO WARRANTY THAT:
+
+  (a) THE SOFTWARE WILL MEET YOUR REQUIREMENTS;
+  (b) THE SOFTWARE WILL BE UNINTERRUPTED, TIMELY, SECURE, OR ERROR-FREE;
+  (c) THE RESULTS OBTAINED FROM USE OF THE SOFTWARE WILL BE ACCURATE OR
+      RELIABLE; OR
+  (d) ANY ERRORS IN THE SOFTWARE WILL BE CORRECTED.
+
+YOU ASSUME ALL RISKS ASSOCIATED WITH THE QUALITY AND PERFORMANCE OF THE
+SOFTWARE. SHOULD THE SOFTWARE PROVE DEFECTIVE, YOU ASSUME THE ENTIRE COST
+OF ALL NECESSARY SERVICING, REPAIR, OR CORRECTION. SOME JURISDICTIONS DO NOT
+ALLOW THE EXCLUSION OF IMPLIED WARRANTIES — IN SUCH CASES, THIS EXCLUSION
+APPLIES TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW.
+
+--------------------------------------------------------------------------------
+SECTION 9 — LIMITATION OF LIABILITY
+--------------------------------------------------------------------------------
+
+IN NO EVENT AND UNDER NO LEGAL THEORY — WHETHER IN TORT (INCLUDING NEGLIGENCE),
+CONTRACT, STRICT LIABILITY, OR OTHERWISE — SHALL THE AUTHOR OR ANY CONTRIBUTOR
+BE LIABLE TO YOU FOR ANY DAMAGES, INCLUDING ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, PUNITIVE, OR CONSEQUENTIAL DAMAGES OF ANY CHARACTER
+(INCLUDING BUT NOT LIMITED TO: DAMAGES FOR LOSS OF GOODWILL, BUSINESS
+INTERRUPTION, DATA LOSS, LOSS OF PROFITS, OR PROCUREMENT OF SUBSTITUTE GOODS
+OR SERVICES), EVEN IF THE AUTHOR OR CONTRIBUTOR HAS BEEN ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGES.
+
+THIS LIMITATION APPLIES:
+
+  (a) TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW; AND
+  (b) REGARDLESS OF WHETHER SUCH DAMAGES ARISE FROM USE OR INABILITY TO USE
+      THE SOFTWARE, FROM UNAUTHORIZED ACCESS TO OR ALTERATION OF YOUR DATA,
+      OR FROM ANY OTHER CAUSE RELATED TO THIS LICENSE.
+
+SOME JURISDICTIONS DO NOT ALLOW THE LIMITATION OR EXCLUSION OF INCIDENTAL OR
+CONSEQUENTIAL DAMAGES — IN SUCH CASES, THIS LIMITATION APPLIES TO THE MAXIMUM
+EXTENT PERMITTED BY APPLICABLE LAW.
+
+--------------------------------------------------------------------------------
+SECTION 10 — INDEMNIFICATION
+--------------------------------------------------------------------------------
+
+You agree to indemnify, defend, and hold harmless the Author and all
+Contributors from and against any and all claims, damages, losses, liabilities,
+costs, and expenses (including reasonable attorneys' fees) arising out of or
+relating to:
+
+  (a) Your use, modification, or distribution of the Software;
+  (b) Your violation of any term of this License;
+  (c) Any product, service, or Derivative Work You create using the Software;
+  (d) Your violation of any applicable law or third-party right in connection
+      with the use or distribution of the Software.
+
+--------------------------------------------------------------------------------
+SECTION 11 — GOVERNING LAW AND DISPUTE RESOLUTION
+--------------------------------------------------------------------------------
+
+This License shall be governed by and construed in accordance with applicable
+law, without regard to conflict-of-law principles. Any dispute arising out of
+or in connection with this License shall first be subject to good-faith
+negotiation between the parties. If unresolved within thirty (30) days, either
+party may pursue any remedy available under applicable law.
+
+--------------------------------------------------------------------------------
+SECTION 12 — TERMINATION
+--------------------------------------------------------------------------------
+
+(a) AUTOMATIC TERMINATION. Your rights under this License shall terminate
+    automatically and without notice if You fail to comply with any term or
+    condition of this License.
+
+(b) TERMINATION UPON PATENT LITIGATION. As described in Section 2, Your
+    patent license shall terminate if You initiate patent litigation against
+    any entity alleging that the Work constitutes patent infringement.
+
+(c) REINSTATEMENT. If You cure the violation within thirty (30) days of
+    becoming aware of it, Your rights may be reinstated at the Author's
+    sole discretion.
+
+(d) SURVIVAL. Sections 0, 8, 9, 10, and 11 shall survive any termination
+    of this License.
+
+--------------------------------------------------------------------------------
+SECTION 13 — SEVERABILITY AND WAIVER
+--------------------------------------------------------------------------------
+
+If any provision of this License is held to be unenforceable or invalid under
+applicable law, such provision shall be modified to the minimum extent
+necessary to make it enforceable, and the remaining provisions shall continue
+in full force and effect.
+
+The Author's failure to enforce any provision of this License shall not
+constitute a waiver of that provision or any future right to enforce it.
+
+--------------------------------------------------------------------------------
+SECTION 14 — ENTIRE AGREEMENT
+--------------------------------------------------------------------------------
+
+This License constitutes the entire agreement between You and the Author
+with respect to the Software and supersedes all prior or contemporaneous
+understandings, representations, or agreements regarding the Software, unless
+You have a separate written agreement executed with the Author.
+
+
+CHANGELOG
+---------
+
+v1.0 (13 May 2026)
+  - Initial release
+  - Support for all common Intel/AMD feature flags up to 2026
+  - Microarchitecture detection for Intel Core/Atom and AMD Zen families
+  - Cache, topology, XSAVE, RDT, SGX helpers
+  - Hypervisor detection

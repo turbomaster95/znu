@@ -107,7 +107,7 @@ void force_sync(void* addr) {
 }
 
 void simd_init(void) {
-    if (!cpuid_has_feature(CPUID_GETFEATURES, 3, 25)) {
+    if (!cpu_has(SSE_SUPPORT)) {
 	debugln("[simd] Basic SSE Support is unavailable on this cpu!");
 	debugln("[simd] Some apps might not run properly or crash the system..");
         return; 
@@ -126,13 +126,13 @@ void simd_init(void) {
     asm volatile("mov %0, %%cr4" : : "r"(cr4));
     debugln("[simd] Enabled Basic SSE/FPU Operations.");
 
-    if (cpuid_has_feature(CPUID_GETFEATURES, 2, 26)) {        
+    if (cpu_has(XSAVE_SUPPORT)) {        
         cr4 |= (1 << 18); // Set OSXSAVE
         asm volatile("mov %0, %%cr4" : : "r"(cr4));
 
         uint32_t xcr0_eax = (1 << 0) | (1 << 1); // Always enable x87 and SSE
         
-        if (cpuid_has_feature(CPUID_GETFEATURES, 2, 28)) {
+        if (cpu_has(AVX_SUPPORT)) {
             xcr0_eax |= (1 << 2); // Enable AVX state
         }
 

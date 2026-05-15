@@ -16,20 +16,19 @@ static uint64_t tsc_calibrate_frequency(void);
 tsc_info_t tsc_detect(void) {
     debugln("[TSC] Detecting TSC...");
 
-    cpuid_res_t basic_info = cpuid_query(CPUID_GETVENDORSTRING, 0);
-    if (basic_info.eax < 1) { 
+    if (cpu_has(MAX_STANDARD_LEAF) < 1) { 
         debugln("[TSC] CPUID leaf 1 not supported.");
         tsc_data.supported = false;
         tsc_data.frequency = 0;
         return tsc_data;
     }
 
-    if (cpuid_has_feature(CPUID_GETFEATURES, 3, 4)) { 
+    if (cpu_has(TSC_SUPPORT)) { 
         tsc_data.supported = true;
         debugln("[TSC] TSC supported.");
 
-        if (basic_info.eax >= CPUID_GETTSC_INFO) {
-            cpuid_res_t tsc_info = cpuid_query(CPUID_GETTSC_INFO, 0);
+        if (cpu_has(MAX_STANDARD_LEAF) >= CPUID_TSC_INFO) {
+            cpuid_res_t tsc_info = cpuid_query(CPUID_TSC_INFO, 0);
             
             if (tsc_info.eax != 0 && tsc_info.ebx != 0) {
                 uint64_t crystal = tsc_info.ecx ? tsc_info.ecx : 24000000; // Default 24MHz

@@ -4,6 +4,7 @@ import sys
 import json
 import subprocess
 import shutil
+import time
 
 MANIFEST = "subb.json"
 GITIGNORE = ".gitignore"
@@ -25,6 +26,39 @@ def manage_gitignore(path, remove=False):
     
     with open(GITIGNORE, "w") as f:
         f.write("\n".join(filter(None, lines)) + "\n")
+
+def run_with_dots(cmd, cwd=None, label="working"):
+    """run a command and print dots while it works"""
+    proc = subprocess.Popen(cmd, shell=True, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    dots = 0
+    while proc.poll() is None:
+        time.sleep(0.3)
+        dots += 1
+        print(".", end="", flush=True)
+        if dots > 60:  # wrap around so we dont flood
+            print("^M" + " " * 60 + "^M", end="", flush=True)
+            dots = 0
+    # drain remaining output quietly
+    proc.stdout.read()
+    print("")
+    return proc.returncode
+
+def run_with_bar(cmd, cwd=None, width=30):
+    """fake progress bar because git doesnt give us real progress"""
+    proc = subprocess.Popen(cmd, shell=True, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    start = time.time()
+    while proc.poll() is None:
+        elapsed = time.time() - start
+        # fake progress that slows down as it goes
+        pct = min(95, (elapsed / (elapsed + 5)) * 100)
+        filled = int(width * pct / 100)
+        bar = "[" + "#" * filled + "-" * (width - filled) + "]"
+        print(f"\r{bar} {pct:.0f}%", end="", flush=True)
+        time.sleep(0.2)
+
+    print(f"\r[{ '#' * width }] 100%")
+    proc.stdout.read()
+    return proc.returncode 
 
 def load_manifest():
     if not os.path.exists(MANIFEST): return {"dependencies": {}}
@@ -54,13 +88,20 @@ def add(url, path, branch=None):
     save_manifest(manifest)
     print(f":D Added {path} at {current_hash[:8]}")
 
-def sync():
+def sync(git_opts=""):
     manifest = load_manifest()
     for path, info in manifest["dependencies"].items():
         print(f"--> Syncing {path}...")
         manage_gitignore(path)
-        if not os.path.exists(path):
-            run(f"git clone -b {info['branch']} {info['url']} {path}")
+
+        dot_git = os.path.join(path, ".git")
+        if not os.path.exists(dot_git):
+            if os.path.exists(path):
+                shutil.rmtree(path)
+            
+            cmd = f"git clone {git_opts} -b {info['branch']} {info['url']} {path}".strip()
+            run_with_dots(cmd, label="cloning")
+
         run("git fetch origin", cwd=path)
         run(f"git reset --hard {info['hash']}", cwd=path)
         run("git clean -fd", cwd=path)
@@ -88,6 +129,13 @@ def update_remote(path):
     if path not in manifest["dependencies"]:
         print(f"Error: {path} not in manifest.")
         return
+
+    if not os.path.exists(os.path.join(path, ".git")):
+        info = manifest["dependencies"][path]
+        if os.path.exists(path): shutil.rmtree(path)
+        cmd = f"git clone {git_opts} -b {info['branch']} {info['url']} {path}".strip()
+        run_with_dots(cmd, label="cloning")
+
     info = manifest["dependencies"][path]
     print(f"--> Updating {path} to latest {info['branch']}...")
     run("git fetch origin", cwd=path)
@@ -141,25 +189,39 @@ examples:
 """
     print(help_text)
 
+def parse_args(args):
+    """split args at -- into cmd_args and git_opts"""
+    if "--" in args:
+        idx = args.index("--")
+        return args[:idx], " ".join(args[idx+1:])
+    return args, ""
+
 if __name__ == "__main__":
-    args = sys.argv[1:]
-    if not args or "help" in args or "-h" in args:
+    raw_args = sys.argv[1:]
+    if not raw_args or "help" in raw_args or "-h" in raw_args:
         show_help()
         sys.exit(0)
 
+    # 1. Re-add the parsing logic to extract git_opts (the stuff after --)
+    args, git_opts = parse_args(raw_args)
     cmd = args[0]
+
     try:
         if cmd == "add" and len(args) >= 3:
-            add(args[1], args[2], args[3] if len(args) > 3 else None)
+            # 2. Pass git_opts to add
+            add(args[1], args[2], args[3] if len(args) > 3 else None, git_opts)
         elif cmd == "sync":
-            sync()
+            # 3. Pass git_opts to sync
+            sync(git_opts)
         elif cmd == "status":
             status()
         elif cmd == "update" and len(args) > 1:
-            update_remote(args[1])
+            # 4. Pass git_opts to update
+            update_remote(args[1], git_opts)
         elif cmd == "upgrade":
             manifest = load_manifest()
-            for p in manifest["dependencies"]: update_remote(p)
+            for p in manifest["dependencies"]: 
+                update_remote(p, git_opts)
         elif cmd == "rm" and len(args) > 1:
             remove_dependency(args[1])
         elif cmd == "foreach" and len(args) > 1:
@@ -169,3 +231,4 @@ if __name__ == "__main__":
             show_help()
     except KeyboardInterrupt:
         print("\nInterrupted.")
+
