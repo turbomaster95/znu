@@ -11,12 +11,16 @@
 #include <kernel/tty.h>
 #include <elf.h>
 #include <fcntl.h>
+#include <entropy.h>
 
 extern void hcf(void);
 extern void syscall_entry(void);
 extern void kernel_reboot(void);
 extern void kernel_shutdown(void);
+extern drbg_ctx_t k_drbg;
 
+#define GRND_NONBLOCK 0x0001
+#define GRND_RANDOM   0x0002
 #define MSR_STAR         0xC0000081
 #define MSR_LSTAR        0xC0000082
 #define MSR_SFMASK       0xC0000084
@@ -532,6 +536,18 @@ uint64_t sys_mount(uint64_t source_ptr, uint64_t target_ptr, uint64_t fstype_ptr
     return 0; // Success
 }
 
+long sys_getrandom(void* buf, size_t buflen, unsigned int flags) {
+    if (!buf || buflen == 0) return -1;
+    
+    if (!is_user_addr(buf, buflen)) return -1;
+
+    // ensure_initialized();
+
+    secure_random_bytes(&k_drbg, (uint8_t*)buf, buflen);
+
+    return (long)buflen;
+}
+
 uint64_t syscall_handler(registers_t* regs) {
     uint64_t num = regs->rax;
     uint64_t arg1 = regs->rdi;
@@ -557,8 +573,6 @@ uint64_t syscall_handler(registers_t* regs) {
             return (uint64_t)sys_stat((const char*)arg1, (struct stat*)arg2);
         case 9: // mmap
             return (uint64_t)sys_mmap((void*)arg1, (size_t)arg2, (int)arg3, (int)arg4, (int)arg5, 0); // simplified
-        case 165: // mount
-            return (uint64_t)sys_mount(arg1, arg2, arg3);
         case 12: // brk
             return (uint64_t)sys_brk((void*)arg1);
         case 16: // ioctl
@@ -573,6 +587,10 @@ uint64_t syscall_handler(registers_t* regs) {
             return (uint64_t)sys_getdents((int)arg1, (void*)arg2, (size_t)arg3);
         case 99: // sysinfo
             return (uint64_t)sys_sysinfo((struct sysinfo*)arg1);
+        case 165: // mount
+            return (uint64_t)sys_mount(arg1, arg2, arg3);
+        case 318: // getrandom
+            return (uint64_t)sys_getrandom((void*)arg1, (size_t)arg2, (unsigned int)arg3);
         case 39: // getpid
             if (current_process) return current_process->pid;
             return 0;

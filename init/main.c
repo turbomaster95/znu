@@ -29,6 +29,7 @@ void shell_completion(const char *buf, zl_completions_t *lc) {
         "echo",
         "exit",
 	"mount",
+	"rand",
         NULL
     };
 
@@ -48,6 +49,48 @@ void spawn_and_wait(const char *path, char **argv) {
     } else {
         printf("?: %s\n", path);
     }
+}
+
+static const char b64_table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+int generate_random_b64_string(char *out_str, size_t out_length) {
+    if (!out_str || out_length == 0) return -1;
+
+    size_t raw_bytes_needed = ((out_length + 3) / 4) * 3;
+    
+    uint8_t raw_buf[256];
+    if (raw_bytes_needed > sizeof(raw_buf)) {
+        raw_bytes_needed = sizeof(raw_buf); 
+    }
+
+    ssize_t ret = getrandom(raw_buf, raw_bytes_needed, 0);
+    if (ret < 0) {
+        return -1; // Syscall failed
+    }
+
+    size_t str_idx = 0;
+    size_t byte_idx = 0;
+
+    while (str_idx < out_length) {
+        uint32_t b0 = (byte_idx < (size_t)ret) ? raw_buf[byte_idx++] : 0;
+        uint32_t b1 = (byte_idx < (size_t)ret) ? raw_buf[byte_idx++] : 0;
+        uint32_t b2 = (byte_idx < (size_t)ret) ? raw_buf[byte_idx++] : 0;
+
+        uint32_t triple = (b0 << 16) | (b1 << 8) | b2;
+
+        if (str_idx < out_length) out_str[str_idx++] = b64_table[(triple >> 18) & 0x3F];
+        if (str_idx < out_length) out_str[str_idx++] = b64_table[(triple >> 12) & 0x3F];
+        if (str_idx < out_length) out_str[str_idx++] = b64_table[(triple >> 6) & 0x3F];
+        if (str_idx < out_length) out_str[str_idx++] = b64_table[triple & 0x3F];
+    }
+
+    out_str[out_length] = '\0';
+
+    for (size_t i = 0; i < sizeof(raw_buf); i++) {
+        raw_buf[i] = 0;
+    }
+
+    return 0;
 }
 
 void try_spawn_program(const char *line) {
@@ -273,6 +316,7 @@ static int split_args(char *line, char **argv, int max_args) {
     return argc;
 }
 
+
 static void cmd_mount(int argc, char** argv) {
     if (argc < 4) {
         printf("usage: mount <device> <fstype> <mountpoint>\n");
@@ -294,6 +338,19 @@ static void cmd_mount(int argc, char** argv) {
 
     printf("[shell] mount ok\n");
 }
+
+
+static void cmd_rand() {
+    char session_token[33];
+
+    if (generate_random_b64_string(session_token, 32) != 0) {
+        printf("[shell] error: failed to generate secure random string\n");
+        return;
+    }
+
+    printf("%s\n", session_token);
+}
+
 
 int main() {
 
@@ -382,6 +439,10 @@ int main() {
 	    char *argv[8];
             int argc = split_args(line, argv, 8);
 	    cmd_mount(argc, argv);
+
+        } else if (strcmp(line, "rand") == 0) {
+	    
+	    cmd_rand();
 
         } else {
 

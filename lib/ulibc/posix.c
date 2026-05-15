@@ -474,3 +474,13 @@ int mount(const char *source, const char *target, const char *fstype) {
     
     return 0;
 }
+
+ssize_t getrandom(void *buf, size_t buflen, unsigned int flags) {
+    long ret = syscall3(318, (long)buf, (long)buflen, (long)flags);
+    
+    if (ret < 0) {
+        return -1;
+    }
+    
+    return (ssize_t)ret;
+}

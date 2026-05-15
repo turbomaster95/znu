@@ -14,7 +14,19 @@ struct tm {
     int tm_yday;
     int tm_isdst;
 };
+#ifndef _TIMESPEC_DECLARED
+#define _TIMESPEC_DECLARED
+struct timespec {
+    time_t tv_sec;  /* Seconds */
+    long   tv_nsec; /* Nanoseconds */
+};
+#endif
 
+#ifndef CLOCK_MONOTONIC
+#define CLOCK_MONOTONIC 1
+#endif
+
+int clock_gettime(int clock_id, struct timespec *tp);
 time_t time(time_t *tloc);
 clock_t clock(void);
 double difftime(time_t time1, time_t time2);

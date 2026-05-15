@@ -21,5 +21,11 @@ struct rusage {
     long ru_nvcsw;
     long ru_nivcsw;
 };
+#ifndef RUSAGE_SELF
+#define RUSAGE_SELF     0
+#define RUSAGE_CHILDREN -1
+#endif
+
+int getrusage(int who, struct rusage *usage);
 
 #endif

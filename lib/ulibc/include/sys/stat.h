@@ -9,20 +9,25 @@ typedef uint64_t ino_t;
 typedef uint64_t nlink_t;
 
 struct stat {
-    dev_t     st_dev;
-    ino_t     st_ino;
-    mode_t    st_mode;
-    nlink_t   st_nlink;
-    uid_t     st_uid;
-    gid_t     st_gid;
-    dev_t     st_rdev;
-    off_t     st_size;
-    long st_mtime;
-        long st_atime;
-        long st_ctime;
-    };
+    dev_t   st_dev;
+    ino_t   st_ino;
+    mode_t  st_mode;
+    nlink_t st_nlink;
+    uid_t   st_uid;
+    gid_t   st_gid;
+    dev_t   st_rdev;
+    off_t   st_size;
+    
+    struct { long tv_sec; long tv_nsec; } st_atim;
+    struct { long tv_sec; long tv_nsec; } st_mtim;
+    struct { long tv_sec; long tv_nsec; } st_ctim;
+    
+    #define st_atime st_atim.tv_sec
+    #define st_mtime st_mtim.tv_sec
+    #define st_ctime st_ctim.tv_sec
+};
 
-    #define S_IFMT   0170000
+#define S_IFMT   0170000
 
 #define S_IFDIR  0040000
 #define S_IFREG  0100000
@@ -57,6 +62,10 @@ struct stat {
 
 #define S_ISUID 04000
 #define S_ISGID 02000
+
+#ifndef S_ISVTX
+#define S_ISVTX 0001000
+#endif
 
 int mkdir(const char *pathname, mode_t mode);
 int stat(const char* pathname, struct stat* statbuf);

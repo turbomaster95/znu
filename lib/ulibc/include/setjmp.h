@@ -2,6 +2,7 @@
 #define _SETJMP_H
 
 typedef unsigned long long jmp_buf[8];
+typedef jmp_buf sigjmp_buf;
 
 int setjmp(jmp_buf env);
 void longjmp(jmp_buf env, int val);

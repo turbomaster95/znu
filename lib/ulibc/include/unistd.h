@@ -6,6 +6,9 @@
 #include <signal.h> // For sigset_t
 #include <sys/types.h>
 
+#define GRND_NONBLOCK 0x0001
+#define GRND_RANDOM   0x0002
+
 ssize_t read(int fd, void* buf, size_t count);
 ssize_t write(int fd, const void* buf, size_t count);
 int close(int fd);
@@ -41,6 +44,8 @@ int mount(const char *source, const char *target, const char *fstype);
 void _exit(int status);
 int execv(const char *path, char *const argv[]);
 int wait(int *status);
+int access(const char *pathname, int mode);
+ssize_t getrandom(void *buf, size_t buflen, unsigned int flags);
 
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
