@@ -27,6 +27,9 @@
 #include <cpuid.h>
 #include <smp.h>
 #include <kernel.h>
+#include <sync.h>
+
+spinlock_t terminal_print_lock = SPINLOCK_INIT;
 
 bool krnl_init_done = false;
 extern void serial_init(void);
@@ -80,6 +83,14 @@ static volatile struct limine_efi_system_table_request efi_st_request = {
     .id = LIMINE_EFI_SYSTEM_TABLE_REQUEST_ID,
     .revision = 0,
     .response = NULL
+};
+
+__attribute__((used, section(".limine_requests")))
+volatile struct limine_mp_request mp_request = {
+    .id = LIMINE_MP_REQUEST_ID,
+    .revision = 0,
+    .response = NULL,
+    .flags = 0 // Set to 1 if you want to use x2APIC mode
 };
 
 uint64_t hhdm_offset = 0;
@@ -238,10 +249,10 @@ void kmain(void) {
     debugln("[kernel] Current CS: 0x%x", cs_reg);
 
     __asm__ volatile("cli");
-    gdt_init();
-    gdt_reload_segments();
+    gdt_init_core(0);
     debugln("[gdt] GDT initialized");
 
+    __asm__ volatile("mov %%cs, %0" : "=r"(cs_reg));
     debugln("[kernel] CS after GDT Init: 0x%x", cs_reg);
 
     idt_init();
@@ -418,10 +429,9 @@ void kmain(void) {
     if (init_proc) {
        vmm_switch(init_proc->pml4);
        
-       extern struct tss kernel_tss;
        extern cpu_context_t main_cpu_context;
        
-       kernel_tss.rsp0 = init_proc->kstack_top;
+       tss_per_cpu[0].rsp0 = init_proc->kstack_top;
        main_cpu_context.kernel_stack = init_proc->kstack_top;
 
        debugln("[kernel] Jumping to Ring 3...");

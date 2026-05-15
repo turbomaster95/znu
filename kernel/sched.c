@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <syscall.h>
 #include <gdt.h>
+#include <lapic.h>
 
 #define MAX_PROCESSES 64
 
@@ -73,11 +74,10 @@ registers_t* scheduler(registers_t* regs) {
 
             __asm__ volatile("fxrstor %0" : : "m"(current_process->sse_state));
 
-            extern struct tss kernel_tss;
-            kernel_tss.rsp0 = current_process->kstack_top;
-
-            extern cpu_context_t main_cpu_context;
-            main_cpu_context.kernel_stack = current_process->kstack_top;
+	    int cpu_id = get_cpu_id();
+	    tss_per_cpu[cpu_id].rsp0 = current_process->kstack_top;
+	    extern cpu_context_t cpu_contexts[MAX_CPUS];
+	    cpu_contexts[cpu_id].kernel_stack = current_process->kstack_top;
 
             return current_process->context_ptr;
         }

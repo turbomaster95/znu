@@ -3,10 +3,12 @@
 
 #include <stdint.h>
 
+#define MAX_CPUS 32
+
 void gdt_reload_segments(void);
-void gdt_set_gate(int num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran);
-void gdt_set_tss(int num, uint64_t base, uint32_t limit);
-void gdt_init();
+void gdt_set_gate_mp(int cpu_id, int num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran);
+void gdt_set_tss_mp(int cpu_id, int num, uint64_t base, uint32_t limit);
+void gdt_init_core(int cpu_id);
 
 struct tss {
     uint32_t reserved0;
@@ -20,6 +22,6 @@ struct tss {
     uint16_t iopb_offset;
 } __attribute__((packed));
 
-extern struct tss kernel_tss;
+extern struct tss tss_per_cpu[MAX_CPUS];
 
 #endif

@@ -26,8 +26,11 @@ typedef struct {
     uint64_t rip, cs, rflags, rsp, ss;
 } __attribute__((packed)) registers_t;
 
+#define IPI_VECTOR_PANIC  0xFD
 
 void idt_init(void);
+void idt_local_load(void);
+void idt_global_init(void);
 
 #endif /* IDT_H */
 

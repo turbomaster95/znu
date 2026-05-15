@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <page.h>
+#include <syscall.h>
 
 struct gdt_entry {
     uint16_t limit_low;
@@ -30,57 +31,58 @@ struct gdt_ptr {
     uint64_t base;
 } __attribute__((packed));
 
-struct gdt_entry gdt[8];
-struct gdt_ptr gdt_ptr;
-struct tss kernel_tss;
+struct gdt_entry gdt_per_cpu[MAX_CPUS][8];
+struct gdt_ptr   gdt_ptr_per_cpu[MAX_CPUS];
+struct tss       tss_per_cpu[MAX_CPUS];
+
+cpu_context_t    cpu_contexts[MAX_CPUS];
 
 __attribute__((aligned(16)))
-uint8_t kernel_stack[16384];
+uint8_t ap_kernel_stacks[MAX_CPUS][32768];
 
-void gdt_set_gate(int num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran) {
-    gdt[num].base_low    = (base & 0xFFFF);
-    gdt[num].base_middle = (base >> 16) & 0xFF;
-    gdt[num].base_high   = (base >> 24) & 0xFF;
-    gdt[num].limit_low   = (limit & 0xFFFF);
-    gdt[num].granularity = (limit >> 16) & 0x0F;
-    gdt[num].granularity |= gran & 0xF0;
-    gdt[num].access      = access;
+void gdt_set_gate_mp(int cpu_id, int num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran) {
+    gdt_per_cpu[cpu_id][num].base_low    = (base & 0xFFFF);
+    gdt_per_cpu[cpu_id][num].base_middle = (base >> 16) & 0xFF;
+    gdt_per_cpu[cpu_id][num].base_high   = (base >> 24) & 0xFF;
+    gdt_per_cpu[cpu_id][num].limit_low   = (limit & 0xFFFF);
+    gdt_per_cpu[cpu_id][num].granularity = (limit >> 16) & 0x0F;
+    gdt_per_cpu[cpu_id][num].granularity |= gran & 0xF0;
+    gdt_per_cpu[cpu_id][num].access      = access;
 }
 
-void gdt_set_tss(int num, uint64_t base, uint32_t limit) {
-    struct tss_entry *tss = (struct tss_entry *)&gdt[num];
+void gdt_set_tss_mp(int cpu_id, int num, uint64_t base, uint32_t limit) {
+    struct tss_entry *tss = (struct tss_entry *)&gdt_per_cpu[cpu_id][num];
 
     tss->length       = limit & 0xFFFF;
     tss->base_low     = base & 0xFFFF;
     tss->base_mid     = (base >> 16) & 0xFF;
-    tss->flags1       = 0x89;
+    tss->flags1       = 0x89; // Present, Executable, TSS descriptor
     tss->flags2       = (limit >> 16) & 0x0F;
     tss->base_hi      = (base >> 24) & 0xFF;
     tss->base_upper32 = (base >> 32) & 0xFFFFFFFF;
     tss->reserved     = 0;
 }
 
-void gdt_init() {
-    gdt_ptr.limit = sizeof(gdt) - 1;
-    gdt_ptr.base  = (uintptr_t)&gdt;
+void gdt_init_core(int cpu_id) {
+    gdt_ptr_per_cpu[cpu_id].limit = (sizeof(struct gdt_entry) * 8) - 1;
+    gdt_ptr_per_cpu[cpu_id].base  = (uintptr_t)&gdt_per_cpu[cpu_id];
 
-    debugln("[gdt] Initializing..");
-    gdt_set_gate(0, 0, 0, 0, 0);                // Null segment
-    gdt_set_gate(1, 0, 0xFFFFFFFF, 0x9A, 0xAF); // Kernel Code (0x08)
-    gdt_set_gate(2, 0, 0xFFFFFFFF, 0x92, 0xCF); // Kernel Data (0x10)
-    gdt_set_gate(3, 0, 0xFFFFFFFF, 0xF2, 0xCF); // User Data   (0x18)
-    gdt_set_gate(4, 0, 0xFFFFFFFF, 0xFA, 0xAF); // User Code   (0x20)
+    gdt_set_gate_mp(cpu_id, 0, 0, 0, 0, 0);                                // Null
+    gdt_set_gate_mp(cpu_id, 1, 0, 0xFFFFFFFF, 0x9A, 0xAF); // Kernel Code
+    gdt_set_gate_mp(cpu_id, 2, 0, 0xFFFFFFFF, 0x92, 0xCF); // Kernel Data
+    gdt_set_gate_mp(cpu_id, 3, 0, 0xFFFFFFFF, 0xF2, 0xCF); // User Data
+    gdt_set_gate_mp(cpu_id, 4, 0, 0xFFFFFFFF, 0xFA, 0xAF); // User Code
 
-    for(int i=0; i<sizeof(struct tss); i++) ((uint8_t*)&kernel_tss)[i] = 0;
+    memset(&tss_per_cpu[cpu_id], 0, sizeof(struct tss));
 
-    kernel_tss.rsp0 = (uintptr_t)kernel_stack + sizeof(kernel_stack);
-    kernel_tss.iopb_offset = sizeof(struct tss);
-    gdt_set_tss(5, (uintptr_t)&kernel_tss, sizeof(struct tss) - 1);
-    debugln("[gdt] TSS RSP0 set to dedicated stack at: %p", (void*)kernel_tss.rsp0);
-    debugln("[tss] Setup TSS Done!");
+    tss_per_cpu[cpu_id].rsp0 = (uintptr_t)&ap_kernel_stacks[cpu_id][32768];
+    tss_per_cpu[cpu_id].iopb_offset = sizeof(struct tss);
 
-    asm volatile("lgdt %0" : : "m"(gdt_ptr));
+    gdt_set_tss_mp(cpu_id, 5, (uintptr_t)&tss_per_cpu[cpu_id], sizeof(struct tss) - 1);
+
+    asm volatile("lgdt %0" : : "m"(gdt_ptr_per_cpu[cpu_id]));
+    
     gdt_reload_segments();
+    
     asm volatile("ltr %%ax" : : "a"(0x28));
-    debugln("[gdt] Initialized!");
 }

@@ -121,6 +121,19 @@ isr%1:
     %assign i i+1
 %endrep
 
+[global ipi_panic_handler_stub]
+extern ipi_panic_handler_c
+
+ipi_panic_handler_stub:
+    cli                         ; Clear interrupts locally on this core immediately
+    cld                         ; Clear direction flag for C standard compliance
+    
+    call ipi_panic_handler_c
+    
+.halt_loop:
+    hlt
+    jmp .halt_loop
+
 [SECTION .rodata]
 [global isr_ptr_table]
 isr_ptr_table:
@@ -129,4 +142,3 @@ isr_ptr_table:
     dq isr%+i       ; Table of pointers for idt_init()
     %assign i i+1
 %endrep
-

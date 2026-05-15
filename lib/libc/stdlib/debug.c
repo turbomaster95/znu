@@ -4,16 +4,31 @@
 #include <string.h>
 #include <stdio.h>
 #include <kernel/display.h>
+#include <sync.h>
+#include <lapic.h>
 
-// ANSI Color Codes
 bool vmm_ready = false;
+extern spinlock_t terminal_print_lock;
+extern void smp_enqueue_log(const char* str);
+
+static void raw_putchar(char c) {
+    outb(0xe9, c);
+    if (vmm_ready && get_cpu_id() == 0) {
+        if (c == '\n') terminal_putchar('\r');
+        terminal_putchar(c);
+    }
+}
+
+static void raw_write_string(const char* str) {
+    while (*str) {
+        raw_putchar(*str++);
+    }
+}
 
 void debug_putchar(char c) {
-    outb(0xe9, c);
-    if (vmm_ready) {
-       if (c == '\n') terminal_putchar('\r');
-       terminal_putchar(c);
-    }
+    uint64_t flags = spinlock_irq_save(&terminal_print_lock);
+    raw_putchar(c);
+    spinlock_irq_restore(&terminal_print_lock, flags);
 }
 
 void debug_putcharn(char c) {
@@ -21,70 +36,76 @@ void debug_putcharn(char c) {
 }
 
 void debug_write(const char* data) {
-    while (*data) {
-        debug_putchar(*data++);
-    }
+    uint64_t flags = spinlock_irq_save(&terminal_print_lock);
+    raw_write_string(data);
+    spinlock_irq_restore(&terminal_print_lock, flags);
 }
 
-static void _debug_vlog_colored(const char* format, va_list args) {
-    // Check if the string starts with a bracketed tag
+static void do_safe_log(const char* prefix, const char* format, va_list args) {
+    char log_buffer[1024]; 
+    int written = 0;
+
     if (format[0] == '[') {
         const char* end_bracket = strchr(format, ']');
-        
         if (end_bracket) {
-            debug_write(ANSI_BOLD);
-
-            debug_putchar('[');
-
+            written += snprintf(log_buffer + written, sizeof(log_buffer) - written, "%s[", ANSI_BOLD);
+            
             const char* p = format + 1;
-            while (p < end_bracket) {
-                debug_putchar(*p++);
+            while (p < end_bracket && written < (int)sizeof(log_buffer) - 10) {
+                log_buffer[written++] = *p++;
             }
-
-            debug_putchar(']');
-            debug_write(ANSI_RESET);
-
-            vdebugprintf(end_bracket + 1, args);
+            
+            written += snprintf(log_buffer + written, sizeof(log_buffer) - written, "]%s", ANSI_RESET);
+            
+            written += vsnprintf(log_buffer + written, sizeof(log_buffer) - written, end_bracket + 1, args);
         } else {
-            vdebugprintf(format, args);
+            written += vsnprintf(log_buffer + written, sizeof(log_buffer) - written, format, args);
         }
     } else {
-        vdebugprintf(format, args);
+        if (prefix) {
+            written += snprintf(log_buffer + written, sizeof(log_buffer) - written, "%s", prefix);
+        }
+        written += vsnprintf(log_buffer + written, sizeof(log_buffer) - written, format, args);
     }
-    debug_write("\n");
+
+    if (written < (int)sizeof(log_buffer) - 2) {
+        log_buffer[written++] = '\n';
+        log_buffer[written] = '\0';
+    }
+
+    if (get_cpu_id() == 0) {
+        uint64_t flags = spinlock_irq_save(&terminal_print_lock);
+        raw_write_string(log_buffer);
+        spinlock_irq_restore(&terminal_print_lock, flags);
+    } else {
+        smp_enqueue_log(log_buffer);
+    }
 }
 
 void debugln(const char* format, ...) {
     va_list args;
     va_start(args, format);
-    _debug_vlog_colored(format, args);
+    do_safe_log(NULL, format, args);
     va_end(args);
-    if (vmm_ready) {
-//     	blit_window(term_x, term_y, TERM_W, TERM_H, term_buffer);
-    }
 }
 
 void debugwarn(const char* format, ...) {
-    debug_write("\033[1;33m[WARN] \033[0m"); // Yellow tag for warnings
     va_list args;
     va_start(args, format);
-    vdebugprintf(format, args);
-    debug_write("\n");
+    do_safe_log("\033[1;33m[WARN] \033[0m", format, args);
     va_end(args);
 }
 
 void debugerr(const char* format, ...) {
-    debug_write("\033[1;31m[ERROR] \033[0m"); // Red tag for errors
     va_list args;
     va_start(args, format);
-    vdebugprintf(format, args);
-    debug_write("\n");
+    do_safe_log("\033[1;31m[ERROR] \033[0m", format, args);
     va_end(args);
 }
 
 void debuginfo(const char* format, ...) {
     va_list args;
     va_start(args, format);
-    _debug_vlog_colored(format, args);
+    do_safe_log(NULL, format, args);
     va_end(args);
 }

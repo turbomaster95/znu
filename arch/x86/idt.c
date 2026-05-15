@@ -24,6 +24,7 @@ extern volatile bool lapic_timer_fired;
 extern bool krnl_init_done;
 extern bool vmm_ready;
 extern volatile bool screen_lock;
+extern void smp_flush_logs_to_screen(void);
 
 void idt_set_gate(uint8_t vector, void *isr) {
     uint64_t addr = (uint64_t)isr;
@@ -81,6 +82,15 @@ void old_print_stacktrace(uint64_t* rbp, uint64_t max_frames) {
     }
 }
 
+void ipi_panic_handler_c(void) {
+    outb(0xe9, '!');
+    outb(0xe9, 'H');
+    outb(0xe9, 'A');
+    outb(0xe9, 'L');
+    outb(0xe9, 'T');
+    outb(0xe9, '\n');
+}
+
 registers_t* k_exception_handler(registers_t *regs) {
     uint8_t int_no = regs->int_no;
 
@@ -117,7 +127,7 @@ registers_t* k_exception_handler(registers_t *regs) {
         timekeeper_on_tick();
 
         regs = scheduler(regs);
-
+	smp_flush_logs_to_screen();
         lapic_eoi();
     } else if (int_no == 33) {
 	    uint8_t status = inb(0x64);
@@ -167,3 +177,22 @@ void idt_init() {
     debugln("[idt] IDT initialized.");
 }
 
+
+void idt_global_init(void) {
+    memset(idt, 0, sizeof(struct idt_entry) * 256);
+
+    for (int i = 0; i < 256; i++) {
+        idt_set_gate(i, isr_ptr_table[i]);
+    }
+
+    idtr_instance.limit = (sizeof(struct idt_entry) * 256) - 1;
+    idtr_instance.base  = (uint64_t)&idt;
+
+    pic_remap();
+    outb(0x21, 0xFD);
+    outb(0xA1, 0xFF);
+}
+
+void idt_local_load(void) {
+    asm volatile ("lidt %0" : : "m"(idtr_instance));
+}

@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <pi.h>
 #include <tsc.h>
+#include <idt.h>
 #include <lapic.h>
 #include <prelude.h>
 
@@ -31,6 +32,28 @@ PERFORM void lapic_write(uint32_t offset, uint32_t value) {
     *(volatile uint32_t*)((uintptr_t)lapic_base + offset) = value;
 }
 
+void lapic_init_per_core(void) {
+    if (lapic_base == NULL) return;
+
+    uint32_t lo, hi;
+    __asm__ volatile("rdmsr" : "=a"(lo), "=d"(hi) : "c"(0x1B));
+    lo &= ~(1 << 10);   // Force disable x2APIC
+    lo |= (1 << 11);    // Enable APIC base mapping
+    __asm__ volatile("wrmsr" : : "a"(lo), "d"(hi), "c"(0x1B));
+
+    uint32_t svr = lapic_read(LAPIC_REG_SVR);
+    lapic_write(LAPIC_REG_SVR, svr | 0x100 | 0xFF);
+
+    lapic_write(0x350, 0x700);
+
+    if (lapic_ticks_per_ms > 0) {
+        lapic_write(LAPIC_REG_DIVIDE_CONF, 0x03); 
+        // Set vector with periodic mode enabled (Bit 17)
+        lapic_write(LAPIC_REG_LVT_TIMER, LAPIC_TIMER_VECTOR | (1 << 17)); 
+        lapic_write(LAPIC_REG_INITIAL_COUNT, lapic_ticks_per_ms);
+    }
+}
+
 void lapic_init() {
     if (lapic_base != NULL) return;
 
@@ -42,30 +65,24 @@ void lapic_init() {
     uint32_t lo, hi;
     __asm__ volatile("rdmsr" : "=a"(lo), "=d"(hi) : "c"(0x1B));
 
-    lo &= ~(1 << 10);   // Disable x2APIC
-    lo |= (1 << 11);    // Enable APIC
-
-    __asm__ volatile("wrmsr" : : "a"(lo), "d"(hi), "c"(0x1B));
-
     uintptr_t lapic_phys = (lo & 0xFFFFF000) | ((uint64_t)(hi & 0x0F) << 32);
     lapic_base = (volatile uint64_t*)(lapic_phys + hhdm_request.response->offset);
 
     debugln("[dlapic] LAPIC Base (Phys): 0x%p", lapic_phys);
     debugln("[dlapic] LAPIC Base (Virt): 0x%p", lapic_base);
 
-    uint32_t svr = lapic_read(LAPIC_REG_SVR);
-    lapic_write(LAPIC_REG_SVR, svr | 0x100 | 0xFF);
-    lapic_write(0x350, 0x700);
+    // Run local hardware initialization for the BSP
+    lapic_init_per_core();
 }
 
-void lapic_send_ipi(uint8_t apic_id, uint32_t ipi_command) {
-    volatile uint32_t *icr_low  = (volatile uint32_t *)((uintptr_t)lapic_base + 0x300);
-    volatile uint32_t *icr_high = (volatile uint32_t *)((uintptr_t)lapic_base + 0x310);
+int get_cpu_id(void) {
+    if (lapic_base == NULL) return 0;
+    
+    // LAPIC ID Register is at offset 0x20 bytes
+    volatile uint32_t* lapic_id_reg = (volatile uint32_t*)((uintptr_t)lapic_base + 0x20);
+    uint32_t lapic_id = (*lapic_id_reg) >> 24;
 
-    while (*icr_low & (1 << 12));
-    *icr_high = ((uint32_t)apic_id) << 24;
-    *icr_low  = ipi_command;
-    while (*icr_low & (1 << 12));
+    return (int)lapic_id;
 }
 
 PERFORM void calibrate_lapic_timer_no_irq() {
@@ -144,7 +161,6 @@ PERFORM void calibrate_lapic_timer() {
 
     uint32_t lapic_start_count = lapic_read(LAPIC_REG_CURRENT_COUNT);
 
-    uint64_t current_pit_ticks;
     while (timer_ticks < pit_start_ticks + pit_wait_duration_ticks) {
         __asm__ volatile("pause");
     }
@@ -188,7 +204,6 @@ PERFORM void lapic_timer_isr() {
 }
 
 PERFORM void sleep(uint32_t ms) {
-    extern volatile uint64_t timer_ticks;
     uint64_t target = timer_ticks + (uint64_t)ms;
     while (timer_ticks < target) {
         __asm__ volatile("sti; hlt");
@@ -199,4 +214,16 @@ void lapic_timer_test() {
     lapic_write(LAPIC_REG_DIVIDE_CONF, 0x03); 
     lapic_write(LAPIC_REG_LVT_TIMER, LAPIC_TIMER_VECTOR | (1 << 17)); 
     lapic_write(LAPIC_REG_INITIAL_COUNT, 1000000); 
+}
+
+void lapic_send_panic_ipi(void) {
+    while (lapic_read(LAPIC_REG_ICR_LOW) & (1 << 12)) {
+        __asm__ volatile("pause");
+    }
+
+    lapic_write(LAPIC_REG_ICR_HIGH, 0);
+
+    uint32_t icr_low = (3 << 18) | (1 << 14) | IPI_VECTOR_PANIC;
+
+    lapic_write(LAPIC_REG_ICR_LOW, icr_low);
 }

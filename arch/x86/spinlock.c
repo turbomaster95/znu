@@ -15,6 +15,7 @@ void spinlock_acquire(spinlock_t *lock) {
     }
     compiler_barrier();
     lock->owner_pid = current_process ? current_process->pid : 0;
+    //lock->owner_pid = 0;
 }
 
 bool spinlock_try_acquire(spinlock_t *lock) {
