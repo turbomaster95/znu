@@ -4,6 +4,7 @@ obj-y += gdt_flush.o
 obj-y += idt.o
 obj-y += idt_stub.o
 obj-y += pit.o
+obj-y += drivers/
 obj-y += pic.o
 obj-y += tsc.o
 obj-y += rtc.o
@@ -21,5 +22,4 @@ obj-y += spinlock.o
 obj-y += mutex.o
 obj-y += rwlock.o
 obj-y += semaphore.o
-obj-y += drivers/
-
+obj-y += ap_trampoline.o

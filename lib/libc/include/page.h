@@ -14,12 +14,13 @@ extern uint64_t hhdm_offset;
 #define PTE_WRITABLE (1ULL << 1)
 #define PTE_CACHE_DISABLE (1ULL << 4)
 #define PTE_USER     (1ULL << 2)
+#define PTE_HUGE     (1ULL << 7)
 
 // Extract indices from a virtual address
-#define PML4_IDX(addr) (((addr) >> 39) & 0x1FF)
-#define PDP_IDX(addr)  (((addr) >> 30) & 0x1FF)
-#define PD_IDX(addr)   (((addr) >> 21) & 0x1FF)
-#define PT_IDX(addr)   (((addr) >> 12) & 0x1FF)
+#define PML4_IDX(addr) (((uint64_t)(addr) >> 39) & 0x1FF)
+#define PDP_IDX(addr)  (((uint64_t)(addr) >> 30) & 0x1FF)
+#define PD_IDX(addr)   (((uint64_t)(addr) >> 21) & 0x1FF)
+#define PT_IDX(addr)   (((uint64_t)(addr) >> 12) & 0x1FF)
 
 #define PHYS_TO_VIRT(addr) ((void*)((uint64_t)(addr) + hhdm_offset))
 #define VIRT_TO_PHYS(addr) ((uint64_t)(addr) - hhdm_offset)

@@ -192,6 +192,17 @@ cmd_as_o_S       = nasm -f elf64 -o $@ $< -MD $(depfile) # $(CC) $(a_flags) -c -
 $(obj)/%.o: $(src)/%.S FORCE
 	$(call if_changed,as_o_S)
 
+
+# Compile flat assembler sources and wrap into an ELF64 object file (.asmflat -> .bin -> .o)
+# ---------------------------------------------------------------------------
+
+quiet_cmd_as_flat_o = NASM-FLAT $@
+cmd_as_flat_o       = nasm -f bin -o $(@:.o=.bin) $< -MD $(depfile); \
+                      $(OBJCOPY) -I binary -O elf64-x86-64 -B i386:x86-64 --rename-section .data=.rodata $(@:.o=.bin) $@
+
+$(obj)/%.o: $(src)/%.asmflat FORCE
+	$(call if_changed,as_flat_o)
+
 targets += $(real-objs-y) $(lib-y)
 targets += $(extra-y) $(MAKECMDGOALS) $(always)
 

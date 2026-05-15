@@ -25,6 +25,7 @@
 #include <fat32.h>
 #include <disk.h>
 #include <cpuid.h>
+#include <smp.h>
 #include <kernel.h>
 
 bool krnl_init_done = false;
@@ -330,14 +331,14 @@ void kmain(void) {
     
     disk_init();
 
-    //fat32_init();
-    //debugln("[fat32] Init done!");
-
     init_vfs();
     debugln("[vfs] Initialized VFS");
 
     tty_init();
     debugln("[tty] Initialized tty");
+
+    smp_init();
+    debugln("[smp] ALL CORES HAVE BEEN WAKEN UP!!!!");
 
     enable_syscalls();
     syscall_init();

@@ -24,3 +24,4 @@ obj-y += devfs.o
 obj-y += disk.o
 obj-y += symbols.o
 obj-y += ksyms.o
+obj-y += smp.o
