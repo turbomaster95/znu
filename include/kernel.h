@@ -12,6 +12,13 @@ extern uint32_t lapic_ticks_per_ms;
 extern uintptr_t stack_top;
 extern bool vmm_ready;
 
+void serial_write_string(const char* str);
+void serial_putchar(char c);
+int is_transmit_empty(void);
+void serial_init(void);
+char serial_read(void);
+int serial_read_nonblock(char* buf, int count);
+int serial_received(void);
 void calibrate_lapic_timer_no_irq(void);
 int lz4_unframe(const uint8_t* source, uint8_t* dest, size_t input_size, size_t max_output);
 void jump_to_usermode(uintptr_t entry, uintptr_t stack);

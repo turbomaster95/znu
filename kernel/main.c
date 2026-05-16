@@ -32,10 +32,6 @@
 spinlock_t terminal_print_lock = SPINLOCK_INIT;
 
 bool krnl_init_done = false;
-extern void serial_init(void);
-
-// Set the base revision to 5, this is recommended as this is the latest
-// base revision described by the Limine boot protocol specification.
 
 __attribute__((used, section(".limine_requests")))
 volatile uint64_t limine_base_revision[] = LIMINE_BASE_REVISION(5);

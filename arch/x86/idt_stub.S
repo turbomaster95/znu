@@ -121,18 +121,82 @@ isr%1:
     %assign i i+1
 %endrep
 
-[global ipi_panic_handler_stub]
-extern ipi_panic_handler_c
+global nmi_panic_handler_stub
+extern nmi_panic_handler_c
 
-ipi_panic_handler_stub:
-    cli                         ; Clear interrupts locally on this core immediately
-    cld                         ; Clear direction flag for C standard compliance
+COM1_BASE   equ 0x3F8
+COM1_LSR    equ COM1_BASE + 5   ; Line Status Register (0x3FD)
+
+nmi_panic_handler_stub:
+    cli                         ; Explicitly block any maskable interrupts
+    cld                         ; Clear direction flag for standard C call safety
+
+    ; ========================================================
+    ; HARDWARE SERIAL OUTPUT: TRANSMIT "--- AP CRASHED ---"
+    ; ========================================================
     
-    call ipi_panic_handler_c
+    ; Print '\n'
+    mov al, 10
+    call .serial_send_char
     
+    ; Print '!'
+    mov al, '!'
+    call .serial_send_char
+
+    ; Print 'A'
+    mov al, 'A'
+    call .serial_send_char
+
+    ; Print 'P'
+    mov al, 'P'
+    call .serial_send_char
+
+    ; Print '-'
+    mov al, '-'
+    call .serial_send_char
+
+    ; Print 'F'
+    mov al, 'F'
+    call .serial_send_char
+
+    ; Print 'R'
+    mov al, 'R'
+    call .serial_send_char
+
+    ; Print 'O'
+    mov al, 'O'
+    call .serial_send_char
+
+    ; Print 'Z'
+    mov al, 'Z'
+    call .serial_send_char
+
+    ; Print 'E'
+    mov al, 'E'
+    call .serial_send_char
+
+    ; Print '\n'
+    mov al, 10
+    call .serial_send_char
+
+    ; Optional: Jump out to your C code if you want to try printing registers
+    call nmi_panic_handler_c
+
 .halt_loop:
-    hlt
-    jmp .halt_loop
+    hlt                         ; Safely park the pipeline hardware
+    jmp .halt_loop              ; Inescapable fence loop
+
+; --- Internal Assembly Helper Routine ---
+.serial_send_char:
+    push rbx                    ; Preserve working registers
+.wait_clear:
+    in al, COM1_LSR             ; Read Line Status Register from 0x3FD
+    and al, 0x20                ; Mask out Bit 5 (Transmitter Holding Register Empty)
+    jz .wait_clear              ; If bit is 0, buffer is full -> loop and spin
+    
+    pop rbx                     ; Restore working register
+    out COM1_BASE, al           ; Transmit character safely out over COM1
+    ret
 
 [SECTION .rodata]
 [global isr_ptr_table]

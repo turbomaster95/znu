@@ -29,3 +29,23 @@ int serial_read_nonblock(char* buf, int count) {
     }
     return i;
 }
+
+int is_transmit_empty() {
+    return inb(COM1 + 5) & 0x20;
+}
+
+void serial_putchar(char c) {
+    while (is_transmit_empty() == 0) {
+        __asm__ volatile("pause");
+    }
+    outb(COM1, c);
+}
+
+void serial_write_string(const char* str) {
+    for (int i = 0; str[i] != '\0'; i++) {
+        if (str[i] == '\n') {
+            serial_putchar('\r');
+        }
+        serial_putchar(str[i]);
+    }
+}

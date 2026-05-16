@@ -6,16 +6,24 @@
 #include <kernel/display.h>
 #include <sync.h>
 #include <lapic.h>
+#include <kernel.h>
 
 bool vmm_ready = false;
 extern spinlock_t terminal_print_lock;
 extern void smp_enqueue_log(const char* str);
 
 static void raw_putchar(char c) {
-    outb(0xe9, c);
-    if (vmm_ready && get_cpu_id() == 0) {
-        if (c == '\n') terminal_putchar('\r');
-        terminal_putchar(c);
+    if (get_cpu_id() == 0) {
+        outb(0xe9, c);
+        if (vmm_ready) {
+            if (c == '\n') terminal_putchar('\r');
+            terminal_putchar(c);
+        }
+    } else {
+        if (c == '\n') {
+            serial_putchar('\r'); // CR/LF translation for serial consoles
+        }
+        serial_putchar(c);
     }
 }
 
@@ -26,16 +34,30 @@ static void raw_write_string(const char* str) {
 }
 
 void debug_putchar(char c) {
+    if (get_cpu_id() != 0) {
+        raw_putchar(c);
+        return;
+    }
+
     uint64_t flags = spinlock_irq_save(&terminal_print_lock);
     raw_putchar(c);
     spinlock_irq_restore(&terminal_print_lock, flags);
 }
 
 void debug_putcharn(char c) {
-    outb(0xe9, c);
+    if (get_cpu_id() == 0) {
+        outb(0xe9, c);
+    } else {
+        raw_putchar(c);
+    }
 }
 
 void debug_write(const char* data) {
+    if (get_cpu_id() != 0) {
+        raw_write_string(data);
+        return;
+    }
+
     uint64_t flags = spinlock_irq_save(&terminal_print_lock);
     raw_write_string(data);
     spinlock_irq_restore(&terminal_print_lock, flags);
@@ -73,11 +95,13 @@ static void do_safe_log(const char* prefix, const char* format, va_list args) {
         log_buffer[written] = '\0';
     }
 
+    // High-level log distribution block
     if (get_cpu_id() == 0) {
         uint64_t flags = spinlock_irq_save(&terminal_print_lock);
         raw_write_string(log_buffer);
         spinlock_irq_restore(&terminal_print_lock, flags);
     } else {
+	raw_write_string(log_buffer);
         smp_enqueue_log(log_buffer);
     }
 }

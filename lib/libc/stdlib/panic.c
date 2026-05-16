@@ -10,8 +10,7 @@ __attribute__((__noreturn__))
 void panic(const char* reason) {
     draw_rect(0, 0, 1920, 1080, PANIC_BG_COLOR);
 
-    lapic_send_panic_ipi();
-
+    lapic_broadcast_panic_nmi();
     extern spinlock_t terminal_print_lock;
     terminal_print_lock.locked = 0;
 

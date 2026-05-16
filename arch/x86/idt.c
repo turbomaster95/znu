@@ -8,6 +8,7 @@
 #include <proc.h>
 #include <kernel/display.h>
 #include <symbols.h>
+#include <kernel.h>
 
 extern void hcf(void);
 struct idt_entry idt[256] __attribute__((aligned(16)));
@@ -25,6 +26,7 @@ extern bool krnl_init_done;
 extern bool vmm_ready;
 extern volatile bool screen_lock;
 extern void smp_flush_logs_to_screen(void);
+extern void nmi_panic_handler_stub(void);
 
 void idt_set_gate(uint8_t vector, void *isr) {
     uint64_t addr = (uint64_t)isr;
@@ -39,56 +41,9 @@ void idt_set_gate(uint8_t vector, void *isr) {
 
 static int frame_count = 0;
 
-void old_print_stacktrace(uint64_t* rbp, uint64_t max_frames) {
-    debugln("\n--- STACK TRACE ---");
-    
-    for (uint64_t i = 0; i < max_frames; i++) {
-        if (!rbp) {
-            debugln("  (rbp is null, stopping)");
-            break;
-        }
-        
-        uintptr_t rbp_val = (uintptr_t)rbp;
-        if (rbp_val < 0xffff800000000000 || rbp_val > 0xffffffffffffffff) {
-            debugln("  (rbp %p out of range, stopping)", (void*)rbp);
-            break;
-        }
-
-        if (rbp_val & 0x7) {
-            debugln("  (rbp %p misaligned, stopping)", (void*)rbp);
-            break;
-        }
-
-        uintptr_t saved_rbp;
-        uintptr_t rip;
-        
-        saved_rbp = rbp[0];
-        rip = rbp[1];
-
-        debugln("  #%lu  rip=%p  rbp=%p", i, (void*)rip, (void*)rbp);
-
-        if (saved_rbp == 0) {
-            debugln("  (saved rbp is null, done)");
-            break;
-        }
-        
-        if (saved_rbp <= rbp_val) {
-            debugln("  (saved rbp %p <= current %p, stopping)", 
-                    (void*)saved_rbp, (void*)rbp);
-            break;
-        }
-
-        rbp = (uint64_t*)saved_rbp;
-    }
-}
-
-void ipi_panic_handler_c(void) {
-    outb(0xe9, '!');
-    outb(0xe9, 'H');
-    outb(0xe9, 'A');
-    outb(0xe9, 'L');
-    outb(0xe9, 'T');
-    outb(0xe9, '\n');
+void nmi_panic_handler_c(void) {
+    serial_putchar('!');
+    serial_putchar(get_cpu_id() + '0');
 }
 
 registers_t* k_exception_handler(registers_t *regs) {
@@ -98,6 +53,7 @@ registers_t* k_exception_handler(registers_t *regs) {
         uint64_t cr2;
         __asm__ volatile("mov %%cr2, %0" : "=r"(cr2));
 
+	lapic_broadcast_panic_nmi();
         debugln("\n--- CRITICAL CPU EXCEPTION at CPU %d : %d ---", get_cpu_id(), (int)int_no);
         debugln("Error Code: 0x%x | RIP: %p | RSP: %p",
                 (unsigned)regs->err_code, (void*)regs->rip, (void*)regs->rsp);
@@ -114,10 +70,9 @@ registers_t* k_exception_handler(registers_t *regs) {
             }
         }
 
-        print_stacktrace((uint64_t*)regs->rbp, 12);
+        print_stacktrace((uint64_t*)regs->rbp, 20);
 
         __asm__ volatile("cli");
-	lapic_send_panic_ipi();
         while (1) {
             __asm__ volatile("hlt");
         }
@@ -186,6 +141,8 @@ void idt_global_init(void) {
         idt_set_gate(i, isr_ptr_table[i]);
     }
 
+
+    idt_set_gate(2, (void*)nmi_panic_handler_stub);
     idtr_instance.limit = (sizeof(struct idt_entry) * 256) - 1;
     idtr_instance.base  = (uint64_t)&idt;
 

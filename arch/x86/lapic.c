@@ -52,6 +52,7 @@ void lapic_init_per_core(void) {
         lapic_write(LAPIC_REG_LVT_TIMER, LAPIC_TIMER_VECTOR | (1 << 17)); 
         lapic_write(LAPIC_REG_INITIAL_COUNT, lapic_ticks_per_ms);
     }
+//    lapic_write(LAPIC_REG_TPR, 0);
 }
 
 void lapic_init() {
@@ -216,14 +217,14 @@ void lapic_timer_test() {
     lapic_write(LAPIC_REG_INITIAL_COUNT, 1000000); 
 }
 
-void lapic_send_panic_ipi(void) {
+void lapic_broadcast_panic_nmi(void) {
     while (lapic_read(LAPIC_REG_ICR_LOW) & (1 << 12)) {
         __asm__ volatile("pause");
     }
 
     lapic_write(LAPIC_REG_ICR_HIGH, 0);
 
-    uint32_t icr_low = (3 << 18) | (1 << 14) | IPI_VECTOR_PANIC;
+    uint32_t icr_mask = (3 << 18) | (1 << 14) | (4 << 8);
 
-    lapic_write(LAPIC_REG_ICR_LOW, icr_low);
+    lapic_write(LAPIC_REG_ICR_LOW, icr_mask);
 }
