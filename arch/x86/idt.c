@@ -98,7 +98,7 @@ registers_t* k_exception_handler(registers_t *regs) {
         uint64_t cr2;
         __asm__ volatile("mov %%cr2, %0" : "=r"(cr2));
 
-        debugln("\n--- CRITICAL CPU EXCEPTION: %d ---", (int)int_no);
+        debugln("\n--- CRITICAL CPU EXCEPTION at CPU %d : %d ---", get_cpu_id(), (int)int_no);
         debugln("Error Code: 0x%x | RIP: %p | RSP: %p",
                 (unsigned)regs->err_code, (void*)regs->rip, (void*)regs->rsp);
 
@@ -117,6 +117,7 @@ registers_t* k_exception_handler(registers_t *regs) {
         print_stacktrace((uint64_t*)regs->rbp, 12);
 
         __asm__ volatile("cli");
+	lapic_send_panic_ipi();
         while (1) {
             __asm__ volatile("hlt");
         }

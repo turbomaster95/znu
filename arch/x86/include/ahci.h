@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <page.h>
+
+extern uint64_t* kernel_pml4;
 
 #define AHCI_MAX_PORTS 32
 
@@ -122,7 +125,18 @@ bool ahci_read_sector(int port_num, uint64_t lba, void* buf);
 bool ahci_write_sector(int port_num, uint64_t lba, void* buf);
 bool ahci_port_is_present(int port);
 
-extern inline void* phys_to_virt(uintptr_t phys);
-extern inline uintptr_t virt_to_phys(void* ptr);
+static inline uintptr_t virt_to_phys(void* ptr) {
+    uintptr_t vaddr = (uintptr_t)ptr;
+    
+    if (vaddr >= hhdm_offset && vaddr < 0xffffffff80000000) {
+        return vaddr - hhdm_offset;
+    }
+    
+    return vmm_virt_to_phys(kernel_pml4, vaddr);
+}
+
+static inline void* phys_to_virt(uintptr_t phys) {
+    return PHYS_TO_VIRT(phys);
+}
 
 #endif

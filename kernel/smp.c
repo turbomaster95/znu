@@ -19,7 +19,12 @@ void ap_kernel_entry(struct limine_mp_info *info) {
 
     debugln("[smp-core] CPU Core %d is online and ready.", cpu_id);
 
+    outb(0xe9, '2');
     while (1) {
+	asm volatile(
+	    "movq $0xCAFEBABECAFEBABE, %%rax"
+    	    : : : "rax"
+	);
         asm volatile("cli; hlt");
     }
 }

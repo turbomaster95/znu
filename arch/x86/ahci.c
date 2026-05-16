@@ -8,7 +8,6 @@
 #include <ahci.h>
 #include <disk.h>
 
-extern uint64_t* kernel_pml4;
 extern uint64_t hhdm_offset;
 
 #define AHCI_TIMEOUT 1000000
@@ -17,20 +16,6 @@ static HBA_MEM* hba_mem = NULL;
 volatile HBA_MEM* g_abar = NULL;
 
 int ahci_port = -1;
-
-inline uintptr_t virt_to_phys(void* ptr) {
-    uintptr_t vaddr = (uintptr_t)ptr;
-    
-    if (vaddr >= hhdm_offset && vaddr < 0xffffffff80000000) {
-        return vaddr - hhdm_offset;
-    }
-    
-    return vmm_virt_to_phys(kernel_pml4, vaddr);
-}
-
-inline void* phys_to_virt(uintptr_t phys) {
-    return PHYS_TO_VIRT(phys);
-}
 
 static inline HBA_PORT* port_ptr(int idx) {
     return &hba_mem->ports[idx];

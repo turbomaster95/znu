@@ -255,7 +255,8 @@ void kmain(void) {
     __asm__ volatile("mov %%cs, %0" : "=r"(cs_reg));
     debugln("[kernel] CS after GDT Init: 0x%x", cs_reg);
 
-    idt_init();
+    idt_global_init();
+    idt_local_load();
     debugln("[idt] IDT initialized.");
 
     // Initialize PIT
