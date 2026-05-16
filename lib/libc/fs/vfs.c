@@ -1,4 +1,3 @@
-#include <vfs.h>
 #include <disk.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,6 +5,7 @@
 #include <page.h>
 #include <devfs.h>
 #include <fat32.h>
+#include <vfs.h>
 
 vfs_node_t* root_node = NULL;
 
@@ -19,10 +19,17 @@ int mem_vfs_read(vfs_node_t* node, void* buf, size_t size, size_t offset) {
     return (int)to_read;
 }
 
+int mem_vfs_ioctl(vfs_node_t* node, unsigned long request, void* argp) {
+    (void)node; (void)request; (void)argp;
+    return -25;
+}
+
 vfs_ops_t mem_ops = {
     .read = mem_vfs_read,
     .write = NULL,
-    .find_node = NULL
+    .readdir = NULL,
+    .find_node = NULL,
+    .ioctl = mem_vfs_ioctl
 };
 
 vfs_node_t* vfs_create_node(const char* name, int type) {
@@ -143,6 +150,14 @@ int vfs_write(vfs_node_t* node, const void* buf, size_t size, size_t offset) {
         return -1; 
     }
     return node->ops->write(node, buf, size, offset);
+}
+
+int vfs_ioctl(vfs_node_t* node, unsigned long request, void* argp) {
+    if (!node) return -1;
+    if (!node->ops || !node->ops->ioctl) {
+        return -25; // Standard fallback error: -ENOTTY
+    }
+    return node->ops->ioctl(node, request, argp);
 }
 
 bool vfs_mount(const char* device, const char* fs_type, const char* path) {

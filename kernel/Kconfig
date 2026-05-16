@@ -3,3 +3,9 @@ config EG_GUI
 	default n
 	help
 	  Shows an example gui from kernel mode
+
+config BGA
+	bool "Enable BGA (Bochs Graphic Adapter) Support"
+	default y
+	help
+	  Enables the Bochs Graphic Adapter to be used instead of the normal, fixed-size limine framebuffer.

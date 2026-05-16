@@ -39,46 +39,53 @@ void blit_window(int win_x, int win_y, int win_w, int win_h, uint32_t *win_buffe
     }
 }
 
-void terminal_initialize(void) {
-    struct limine_framebuffer *fb = framebuffer_request.response->framebuffers[0];
-
-    // term_buffer = kmalloc(TERM_W * TERM_H * 4);
-    
-    // Safety check: ensure kmalloc didn't fail
-    // if (term_buffer == NULL) return;
-
+void terminal_initialize_raw(
+    void* fb_address, 
+    uint64_t width, 
+    uint64_t height, 
+    uint64_t pitch,
+    uint8_t red_mask_size,
+    uint8_t red_mask_shift,
+    uint8_t green_mask_size,
+    uint8_t green_mask_shift,
+    uint8_t blue_mask_size,
+    uint8_t blue_mask_shift
+) {
     ft_ctx = flanterm_fb_init(
         flanterm_malloc,
         flanterm_free,
-        fb->address,        // Framebuffer address
-//	term_buffer,
-        fb->width,          // Width
-//	TERM_W,
-        fb->height,         // Height
-//	TERM_H,
-        fb->pitch,          // Pitch (bytes per line)
-//	TERM_W * 4,  
-        fb->red_mask_size,  // Red mask size
-        fb->red_mask_shift, // Red mask shift
-        fb->green_mask_size,// Green mask size
-        fb->green_mask_shift,// Green mask shift
-        fb->blue_mask_size, // Blue mask size
-        fb->blue_mask_shift,// Blue mask shift
-        NULL,               // Canvas (NULL for default)
-        NULL,               // ANSI colors
-        NULL,               // Default ANSI colors
-        NULL,               // Selection background
-        NULL,               // Selection foreground
-        NULL,               // Background image
-        0,                  // Background style
-        0,                  // Background opacity
-        0,                  // Foreground opacity
-        0,                  // Font (NULL for built-in)
-        0,                  // Font UI width
-        0,                  // Font UI height
-        0,                  // Font spacing
-        0,                  // Margin
-        0                   // Flags
+        fb_address,
+        width,               // BGA Width (e.g., 1024)
+        height,              // BGA Height (e.g., 768)
+        pitch,               // BGA Pitch (usually width * 4)
+        red_mask_size,       
+        red_mask_shift, 
+        green_mask_size,
+        green_mask_shift,
+        blue_mask_size, 
+        blue_mask_shift,
+        NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    );
+}
+
+void terminal_initialize(void) {
+    if (!framebuffer_request.response || framebuffer_request.response->framebuffer_count < 1) {
+        return;
+    }
+    
+    struct limine_framebuffer *fb = framebuffer_request.response->framebuffers[0];
+    
+    terminal_initialize_raw(
+        fb->address,
+        fb->width,
+        fb->height,
+        fb->pitch,
+        fb->red_mask_size,
+        fb->red_mask_shift,
+        fb->green_mask_size,
+        fb->green_mask_shift,
+        fb->blue_mask_size,
+        fb->blue_mask_shift
     );
 }
 
@@ -105,6 +112,13 @@ void terminal_write(const char* data, size_t size) {
 
 void terminal_writestring(const char* data) {
     while (*data) terminal_putchar(*data++);
+}
+
+void terminal_teardown(void) {
+	if (!ft_ctx) return;
+	flanterm_deinit(ft_ctx, flanterm_free);
+	flanterm_clear(ft_ctx, true);
+	ft_ctx = NULL;
 }
 
 #endif

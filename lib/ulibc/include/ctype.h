@@ -85,6 +85,9 @@ static inline int _isblank(int c) {
 #ifndef isblank
 #define isblank(c) _isblank(c)
 #endif
+#ifndef isascii
+#define isascii(c) (((unsigned)(c)) <= 127)
+#endif
 
 static inline int toupper(int c) {
     if (_islower(c)) return c - 'a' + 'A';

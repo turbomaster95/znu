@@ -39,7 +39,10 @@ static long long strtoimax(const char *nptr, char **endptr, int base) {
 static unsigned long long strtoumax(const char *nptr, char **endptr, int base) {
     return strtoull(nptr, endptr, base);
 }
-
+static inline unsigned long strtoul(const char *nptr, char **endptr, int base) {
+    // Forward directly to your existing 64-bit uintmax parser
+    return (unsigned long)strtoumax(nptr, endptr, base);
+}
 void qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *));
 
 void* malloc(size_t size);

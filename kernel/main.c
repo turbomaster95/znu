@@ -392,6 +392,13 @@ void kmain(void) {
     enable_smap();
     debugln("[smap] Reenabled SMAP");
 
+    #ifdef CONFIG_BGA
+      extern void terminal_teardown(void);
+      terminal_teardown();
+      extern void bga_init(void);
+      bga_init();
+    #endif 
+
     debugln("\033[1;34m  ______             \033[0m");
     debugln("\033[1;34m |___  /             \033[0m");
     debugln("\033[1;34m    / / _ __  _   _  \033[0m");

@@ -26,8 +26,19 @@ void draw_outline_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t 
 void draw_line(int x0, int y0, int x1, int y1, uint32_t color);
 void draw_circle(int xm, int ym, int r, uint32_t color);
 void set_cursor(uint32_t x, uint32_t y);
-
-#endif
 void blit_window(int win_x, int win_y, int win_w, int win_h, uint32_t *win_buffer);
+void terminal_initialize_raw(
+    void* fb_address,
+    uint64_t width,
+    uint64_t height,
+    uint64_t pitch,
+    uint8_t red_mask_size,
+    uint8_t red_mask_shift,
+    uint8_t green_mask_size,
+    uint8_t green_mask_shift,
+    uint8_t blue_mask_size,
+    uint8_t blue_mask_shift
+);
+#endif
 
 #endif

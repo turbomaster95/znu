@@ -18,6 +18,7 @@ typedef struct vfs_ops {
     int (*write)(struct vfs_node* node, const void* buf, size_t size, size_t offset);
     int (*readdir)(vfs_node_t* node, uint32_t index, void* buf, size_t count);
     struct vfs_node* (*find_node)(struct vfs_node* parent, const char* name);
+    int (*ioctl)(struct vfs_node* node, unsigned long request, void* argp);
 } vfs_ops_t;
 
 struct vfs_node {
@@ -62,6 +63,7 @@ vfs_node_t* vfs_find_child(vfs_node_t* parent, const char* name);
 vfs_node_t* vfs_path_to_node(const char* path);
 void vfs_register_file(const char* path, uintptr_t data, size_t size);
 bool vfs_mount(const char* device, const char* fs_type, const char* path);
+int vfs_ioctl(vfs_node_t* node, unsigned long request, void* argp);
 
 // File access functions
 int vfs_read(vfs_node_t* node, void* buf, size_t size, size_t offset);
