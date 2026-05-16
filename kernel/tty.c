@@ -54,21 +54,24 @@ static void tty_wake_reader(tty_t* tty) {
     }
 }
 
-size_t tty_read(tty_t* tty, char* buf, size_t count) {
+size_t tty_read(tty_t* tty, char* buf, size_t count, bool nonblock) {
     if (!tty || !buf || count == 0)
         return 0;
+
     stac();
     size_t got = 0;
 
     while (got < count) {
-
         while (tty_buf_empty(tty)) {
+            if (nonblock) {
+                clac();
+                return got; 
+            }
 
             if (!current_process)
                 break;
 
             tty->waiting_reader = current_process;
-
             current_process->state = TASK_WAITING;
 
             asm volatile("sti");
@@ -119,13 +122,28 @@ static int tty_vfs_read(vfs_node_t* node,
     if (!node || !buf)
         return -1;
 
-    tty_device_t* dev =
-        (tty_device_t*)node->internal_data;
-
+    tty_device_t* dev = (tty_device_t*)node->internal_data;
     if (!dev || !dev->tty)
         return -1;
 
-    return (int)tty_read(dev->tty, buf, size);
+    tty_t* target_tty = dev->tty;
+    if (dev == &tty_devices[0]) {
+        target_tty = &ttys[active_tty];
+    }
+
+    bool nonblock = false;
+
+    if (current_process) {
+        for (int i = 0; i < 32; i++) { // Fallback to your standard descriptor cap (usually 32 or 64)
+            vfs_file_t* f = current_process->files[i];
+            if (f && f->node == node) {
+                nonblock = (f->flags & 0x800) ? true : false; // O_NONBLOCK = 0x800
+                break;
+            }
+        }
+    }
+
+    return (int)tty_read(target_tty, buf, size, nonblock);
 }
 
 static int tty_vfs_write(vfs_node_t* node,
@@ -137,17 +155,16 @@ static int tty_vfs_write(vfs_node_t* node,
     if (!node || !buf)
         return -1;
 
-    tty_device_t* dev =
-        (tty_device_t*)node->internal_data;
-
+    tty_device_t* dev = (tty_device_t*)node->internal_data;
     if (!dev || !dev->tty)
         return -1;
 
-    return (int)tty_write(
-        dev->tty,
-        (const char*)buf,
-        size
-    );
+    tty_t* target_tty = dev->tty;
+    if (dev == &tty_devices[0]) {
+        target_tty = &ttys[active_tty];
+    }
+
+    return (int)tty_write(target_tty, (const char*)buf, size);
 }
 
 static vfs_ops_t tty_vfs_ops = {

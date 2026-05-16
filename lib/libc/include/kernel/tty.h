@@ -37,7 +37,7 @@ void tty_init(void);
 
 void tty_input_char(int id, char c);
 
-size_t tty_read(tty_t* tty, char* buf, size_t count);
+size_t tty_read(tty_t* tty, char* buf, size_t count, bool nonblock);
 
 long tty_write(tty_t* tty, const char* buf, size_t count);
 
