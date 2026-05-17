@@ -26,3 +26,4 @@ obj-y += symbols.o
 obj-y += ksyms.o
 obj-y += smp.o
 obj-y += smplog.o
+obj-y += signal.o

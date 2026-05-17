@@ -27,6 +27,7 @@ extern bool vmm_ready;
 extern volatile bool screen_lock;
 extern void smp_flush_logs_to_screen(void);
 extern void nmi_panic_handler_stub(void);
+extern void signal_check_and_deliver(registers_t* regs);
 
 void idt_set_gate(uint8_t vector, void *isr) {
     uint64_t addr = (uint64_t)isr;
@@ -83,15 +84,33 @@ registers_t* k_exception_handler(registers_t *regs) {
         timekeeper_on_tick();
 
         regs = scheduler(regs);
+
+	if (regs && (regs->cs & 0x3) == 3) {
+            signal_check_and_deliver(regs);
+        }
+
 	smp_flush_logs_to_screen();
         lapic_eoi();
     } else if (int_no == 33) {
 	    uint8_t status = inb(0x64);
 	    if (status & 1) {
-        	uint8_t scancode = inb(0x60);
-
-	        keyboard_handle_scancode(scancode);
-    	    }
+	            uint8_t scancode = inb(0x60);
+	            
+	            // Check for Ctrl+C scancodes before passing down
+	            // Left Ctrl press = 0x1D, 'C' press = 0x2E
+	            static bool ctrl_pressed = false;
+	            if (scancode == 0x1D) ctrl_pressed = true;
+	            else if (scancode == 0x9D) ctrl_pressed = false; // Release
+	            
+	            if (ctrl_pressed && scancode == 0x2E) {
+	                if (current_process && current_process->pid > 1) { // Don't kill init
+	                    extern void kernel_signal_raise(process_t* proc, int signum);
+	                    kernel_signal_raise(current_process, SIGINT);
+	                }
+	            } else {
+	                keyboard_handle_scancode(scancode);
+	            }
+            }
 	    outb(0x20, 0x20); // ACK the irq always
 
 	    lapic_eoi();

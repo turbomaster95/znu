@@ -548,6 +548,18 @@ long sys_getrandom(void* buf, size_t buflen, unsigned int flags) {
     return (long)buflen;
 }
 
+long sys_sigreturn(registers_t* regs) {
+    if (!current_process || !current_process->inside_signal_handler) {
+        return -1;
+    }
+
+    memcpy(regs, &current_process->saved_user_context, sizeof(registers_t));
+
+    current_process->inside_signal_handler = false;
+
+    return regs->rax;
+}
+
 uint64_t syscall_handler(registers_t* regs) {
     uint64_t num = regs->rax;
     uint64_t arg1 = regs->rdi;
@@ -575,6 +587,8 @@ uint64_t syscall_handler(registers_t* regs) {
             return (uint64_t)sys_mmap((void*)arg1, (size_t)arg2, (int)arg3, (int)arg4, (int)arg5, 0); // simplified
         case 12: // brk
             return (uint64_t)sys_brk((void*)arg1);
+	case 15: // sys_sigreturn
+            return (uint64_t)sys_sigreturn(regs);
         case 16: // ioctl
             return (uint64_t)sys_ioctl((int)arg1, (unsigned long)arg2, (void*)arg3);
         case 57: // fork
