@@ -28,12 +28,14 @@ struct timespec {
 
 int clock_gettime(int clock_id, struct timespec *tp);
 time_t time(time_t *tloc);
+int nanosleep(const struct timespec *req, struct timespec *rem);
 clock_t clock(void);
 double difftime(time_t time1, time_t time2);
 time_t mktime(struct tm *timeptr);
 char *asctime(const struct tm *timeptr);
 char *ctime(const time_t *timer);
 struct tm *gmtime(const time_t *timer);
+struct tm *localtime_r(const time_t *restrict timer, struct tm *restrict result);
 struct tm *localtime(const time_t *timer);
 size_t strftime(char *s, size_t maxsize, const char *format, const struct tm *timeptr);
 

@@ -53,5 +53,7 @@ int getc(FILE *stream);
 int feof(FILE *stream);
 int puts(const char *s);
 int remove(const char *pathname);
+int getc_unlocked(FILE *stream);
+int getchar_unlocked(void);
 
 #endif

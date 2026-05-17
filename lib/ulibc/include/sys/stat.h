@@ -68,6 +68,8 @@ struct stat {
 #endif
 
 int mkdir(const char *pathname, mode_t mode);
+int chmod(const char *pathname, mode_t mode);
+int mknod(const char *pathname, mode_t mode, dev_t dev);
 int stat(const char* pathname, struct stat* statbuf);
 int lstat(const char* pathname, struct stat* statbuf);
 int stat64(const char* pathname, struct stat* statbuf);

@@ -46,6 +46,12 @@ int execv(const char *path, char *const argv[]);
 int wait(int *status);
 int access(const char *pathname, int mode);
 ssize_t getrandom(void *buf, size_t buflen, unsigned int flags);
+int unlink(const char *pathname);
+int chown(const char *pathname, uid_t owner, gid_t group);
+int symlink(const char *target, const char *linkpath);
+int link(const char *oldpath, const char *newpath);
+unsigned int alarm(unsigned int seconds);
+unsigned int sleep(unsigned int seconds);
 
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1

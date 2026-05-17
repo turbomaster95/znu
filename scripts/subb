@@ -36,7 +36,7 @@ def run_with_dots(cmd, cwd=None, label="working"):
         dots += 1
         print(".", end="", flush=True)
         if dots > 60:  # wrap around so we dont flood
-            print("^M" + " " * 60 + "^M", end="", flush=True)
+            print("\r" + " " * 60 + "\r", end="", flush=True)
             dots = 0
     # drain remaining output quietly
     proc.stdout.read()
@@ -73,7 +73,7 @@ def get_default_branch(url):
         if "HEAD branch" in line: return line.split(":")[-1].strip()
     return "main"
 
-def add(url, path, branch=None):
+def add(url, path, branch=None, git_opts=""):
     manifest = load_manifest()
     print(f"--> Adding {url} at {path}...")
     manage_gitignore(path)
@@ -81,7 +81,8 @@ def add(url, path, branch=None):
         branch = get_default_branch(url)
         print(f"  ! Detected branch: {branch}")
     if not os.path.exists(path):
-        run(f"git clone -b {branch} {url} {path}")
+        cmd = f"git clone {git_opts} -b {branch} {url} {path}".strip()
+        run(cmd)
     res = run("git rev-parse HEAD", cwd=path)
     current_hash = res.stdout.strip()
     manifest["dependencies"][path] = {"url": url, "branch": branch, "hash": current_hash}
@@ -124,19 +125,18 @@ def status():
             stat = "DIRTY" if dirty else ("OK" if curr == info['hash'] else "OUT-OF-SYNC")
         print(f"{path:<30} {info['branch']:<12} {info['hash'][:8]:<10} {stat}")
 
-def update_remote(path):
+def update_remote(path, git_opts=""):
     manifest = load_manifest()
     if path not in manifest["dependencies"]:
         print(f"Error: {path} not in manifest.")
         return
 
+    info = manifest["dependencies"][path]
     if not os.path.exists(os.path.join(path, ".git")):
-        info = manifest["dependencies"][path]
         if os.path.exists(path): shutil.rmtree(path)
         cmd = f"git clone {git_opts} -b {info['branch']} {info['url']} {path}".strip()
         run_with_dots(cmd, label="cloning")
 
-    info = manifest["dependencies"][path]
     print(f"--> Updating {path} to latest {info['branch']}...")
     run("git fetch origin", cwd=path)
     run(f"git reset --hard origin/{info['branch']}", cwd=path)
@@ -166,7 +166,6 @@ def foreach(shell_cmd):
         print("")
 
 def show_help():
-    # this is the only thing which could come out of my coder ass at 11 in the night
     help_text = """
 subb - the alternative to git submodules which only one person uses
 
@@ -202,21 +201,17 @@ if __name__ == "__main__":
         show_help()
         sys.exit(0)
 
-    # 1. Re-add the parsing logic to extract git_opts (the stuff after --)
     args, git_opts = parse_args(raw_args)
     cmd = args[0]
 
     try:
         if cmd == "add" and len(args) >= 3:
-            # 2. Pass git_opts to add
             add(args[1], args[2], args[3] if len(args) > 3 else None, git_opts)
         elif cmd == "sync":
-            # 3. Pass git_opts to sync
             sync(git_opts)
         elif cmd == "status":
             status()
         elif cmd == "update" and len(args) > 1:
-            # 4. Pass git_opts to update
             update_remote(args[1], git_opts)
         elif cmd == "upgrade":
             manifest = load_manifest()
@@ -231,4 +226,3 @@ if __name__ == "__main__":
             show_help()
     except KeyboardInterrupt:
         print("\nInterrupted.")
-

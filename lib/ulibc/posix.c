@@ -484,3 +484,52 @@ ssize_t getrandom(void *buf, size_t buflen, unsigned int flags) {
     
     return (ssize_t)ret;
 }
+
+char *basename(char *path) {
+    if (!path || !*path) {
+        return ".";
+    }
+
+    char *p = path + strlen(path) - 1;
+
+    // Strip trailing slashes
+    while (p > path && *p == '/') {
+        *p-- = '\0';
+    }
+
+    // Find the last remaining slash
+    while (p >= path && *p != '/') {
+        p--;
+    }
+
+    return (p < path) ? path : p + 1;
+}
+
+char *dirname(char *path) {
+    if (!path || !*path) {
+        return ".";
+    }
+
+    char *p = path + strlen(path) - 1;
+
+    // Strip trailing slashes
+    while (p > path && *p == '/') {
+        *p-- = '\0';
+    }
+
+    // Find the last slash remaining
+    while (p >= path && *p != '/') {
+        p--;
+    }
+
+    if (p < path) {
+        return ".";
+    }
+
+    if (p == path) {
+        return "/";
+    }
+
+    *p = '\0';
+    return path;
+}
