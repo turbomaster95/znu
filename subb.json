@@ -24,6 +24,11 @@
             "url": "https://github.com/turbomaster95/zline",
             "branch": "main",
             "hash": "fef2878aaa8b27346d3ee69d9e55d5966a857a95"
+        },
+        "lib/fatfs": {
+            "url": "https://github.com/abbrev/fatfs",
+            "branch": "master",
+            "hash": "30ca13c62615df0d2e9104ab41256985b96590c1"
         }
     }
 }
