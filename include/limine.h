@@ -519,26 +519,6 @@ struct limine_efi_system_table_request {
     LIMINE_PTR(struct limine_efi_system_table_response *) response;
 };
 
-/* TPM event log */
-
-#define LIMINE_TPM_EVENT_LOG_REQUEST_ID { LIMINE_COMMON_MAGIC, 0x98e094fc7e76e979, 0xee8d8775c54e1d1f }
-
-#define LIMINE_TPM_EVENT_LOG_FORMAT_TCG_1_2 1
-#define LIMINE_TPM_EVENT_LOG_FORMAT_TCG_2   2
-
-struct limine_tpm_event_log_response {
-    uint64_t revision;
-    uint64_t format;
-    uint64_t size;
-    LIMINE_PTR(void *) address;
-};
-
-struct limine_tpm_event_log_request {
-    uint64_t id[4];
-    uint64_t revision;
-    LIMINE_PTR(struct limine_tpm_event_log_response *) response;
-};
-
 /* EFI memory map */
 
 #define LIMINE_EFI_MEMMAP_REQUEST_ID { LIMINE_COMMON_MAGIC, 0x7df62a431d6872d5, 0xa4fcdfb3e57306c8 }
@@ -635,31 +615,16 @@ struct limine_bootloader_performance_request {
     LIMINE_PTR(struct limine_bootloader_performance_response *) response;
 };
 
-#define LIMINE_X86_64_KEEP_IOMMU_REQUEST_ID { LIMINE_COMMON_MAGIC, 0x8ebaabe51f490179, 0x2aa86a59ffb4ab0f }
+#define LIMINE_KEEP_IOMMU_REQUEST_ID { LIMINE_COMMON_MAGIC, 0x8ebaabe51f490179, 0x2aa86a59ffb4ab0f }
 
-struct limine_x86_64_keep_iommu_response {
+struct limine_keep_iommu_response {
     uint64_t revision;
 };
 
-struct limine_x86_64_keep_iommu_request {
+struct limine_keep_iommu_request {
     uint64_t id[4];
     uint64_t revision;
-    LIMINE_PTR(struct limine_x86_64_keep_iommu_response *) response;
-};
-
-/* TSC (Timestamp Counter) Frequency */
-
-#define LIMINE_TSC_FREQUENCY_REQUEST_ID { LIMINE_COMMON_MAGIC, 0x10f2ee1d87d195e4, 0xf747a2b78f6ddb31 }
-
-struct limine_tsc_frequency_response {
-    uint64_t revision;
-    uint64_t frequency;
-};
-
-struct limine_tsc_frequency_request {
-    uint64_t id[4];
-    uint64_t revision;
-    LIMINE_PTR(struct limine_tsc_frequency_response *) response;
+    LIMINE_PTR(struct limine_keep_iommu_response *) response;
 };
 
 #ifdef __cplusplus

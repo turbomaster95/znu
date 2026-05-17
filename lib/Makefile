@@ -13,19 +13,12 @@ quiet_cmd_run_uacpi  = SH      $(patsubst $(srctree)/%,%,$<)
 quiet_cmd_run_flanterm  = SH      $(patsubst $(srctree)/%,%,$<)
       cmd_run_flanterm  = /bin/bash $(srctree)/scripts/mkflanterm.sh $(srctree)
 
-quiet_cmd_run_ffs  = SH      $(patsubst $(srctree)/%,%,$<)
-      cmd_run_ffs  = /bin/bash $(srctree)/scripts/mkffs.sh $(srctree)
-
 obj-y += libc/
 obj-y += uacpi/uacpi_lib.o
 obj-y += flanterm/flanterm_lib.o
-obj-y += fatfs/ffs_lib.o
 
 $(obj)/uacpi/uacpi_lib.o: $(srctree)/scripts/uacpi.sh
 	$(call if_changed,run_uacpi)
 
 $(obj)/flanterm/flanterm_lib.o: $(srctree)/scripts/mkflanterm.sh
 	$(call if_changed,run_flanterm)
-
-$(obj)/fatfs/ffs_lib.o: $(srctree)/scripts/mkffs.sh
-	$(call if_changed,run_ffs)
