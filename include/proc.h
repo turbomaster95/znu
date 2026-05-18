@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <idt.h>
+#include <vfs.h>
 
 #define SIGINT   2
 #define SIGKILL  9
@@ -20,7 +21,12 @@ typedef enum {
     TASK_ZOMBIE
 } task_state_t;
 
-#include <vfs.h>
+typedef enum {
+    PRIO_IDLE = 0,
+    PRIO_LOW,
+    PRIO_NORMAL,
+    PRIO_HIGH
+} task_prio_t;
 
 #define MAX_FILES 32
 
@@ -36,16 +42,16 @@ typedef struct {
     uintptr_t brk_start; // Original heap start
     registers_t* context_ptr; // Saved registers on the kernel stack
     task_state_t state;
+    task_prio_t priority;
     vfs_file_t* files[MAX_FILES];
     uint8_t sse_state[512] __attribute__((aligned(16)));
 
-    // --- SIGNAL SUBSYSTEM EXTENSIONS ---
-    uint64_t pending_signals;    // Bitmask tracking pending signals (1-64)
-    uint64_t blocked_signals;    // Masked signals
-    uintptr_t signal_handlers[64]; // User-space handler addresses
+    uint64_t pending_signals;
+    uint64_t blocked_signals;
+    uintptr_t signal_handlers[64];
     
-    registers_t saved_user_context; // Snapshot of registers before hijacking
-    bool inside_signal_handler;    // Deadlock/nested execution guard
+    registers_t saved_user_context;
+    bool inside_signal_handler;
 } process_t;
 
 extern process_t* current_process;

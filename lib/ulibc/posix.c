@@ -218,7 +218,7 @@ int select(int nfds, fd_set *readfds, fd_set *writefds,
 }
 
 void exit(int status) {
-    atexit_handle_exit();
+    // atexit_handle_exit();
     __asm__ volatile ("syscall" : : "a"(60), "D"(status) : "rcx", "r11", "memory");
     while(1);
 }

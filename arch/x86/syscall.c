@@ -609,19 +609,27 @@ uint64_t syscall_handler(registers_t* regs) {
             if (current_process) return current_process->pid;
             return 0;
 
-        case 60: // exit
+	case 60: // exit
             if (current_process) {
-                extern void do_exit(int code);
-                do_exit((int)arg1);
+                extern registers_t* do_exit(int code);
+                regs = do_exit((int)arg1);
             }
-            return 0;
+            return (uint64_t)regs;
 
-        case 61: // wait
+	case 61: // wait
             if (current_process) {
-                extern int do_wait(int pid, int* status);
-                return (uint64_t)do_wait((int)arg1, (int*)arg2);
+                extern int do_wait(int pid, int* status, bool* should_block);
+                bool should_block = false;
+                
+                int result = do_wait((int)arg1, (int*)arg2, &should_block);
+                
+                if (should_block) {
+                    return 1; 
+                }
+                
+                regs->rax = (uint64_t)result;
             }
-            return -1;
+            return (uint64_t)regs;
 
         case 169: // reboot
             debugln("\n\nReboot called from user process\n\n");

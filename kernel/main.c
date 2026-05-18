@@ -352,12 +352,6 @@ void kmain(void) {
     syscall_init();
     gs_init(stack_top);
 
-    //void* test_buf = (void*)(0x200000 + hhdm_offset); 
-    //ahci_read_sector(ahci_port, 0, test_buf);
-
-    //uint8_t* d = (uint8_t*)test_buf;
-    //debugln("Boot Sector Signature: %x %x", d[510], d[511]);
-
     struct limine_module_response *mod_res = module_request.response;
     if (mod_res == NULL || mod_res->module_count == 0) {
        panic("Initramfs (CPIO) module not found! Check limine.conf");

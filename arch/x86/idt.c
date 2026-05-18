@@ -91,6 +91,14 @@ registers_t* k_exception_handler(registers_t *regs) {
 
 	smp_flush_logs_to_screen();
         lapic_eoi();
+    } else if (int_no == 0x30) {
+        regs = scheduler(regs);
+        
+        if (regs && (regs->cs & 0x3) == 3) {
+            signal_check_and_deliver(regs);
+        }
+        
+        smp_flush_logs_to_screen();
     } else if (int_no == 33) {
 	    uint8_t status = inb(0x64);
 	    if (status & 1) {
