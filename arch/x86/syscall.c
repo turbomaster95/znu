@@ -35,7 +35,10 @@ extern size_t keyboard_read(char* buf, size_t count);
 
 static bool is_user_addr(void* ptr, size_t len) {
     uintptr_t addr = (uintptr_t)ptr;
-    return addr < 0x0000800000000000ULL;
+    if (addr >= 0x0000800000000000ULL || (addr + len) > 0x0000800000000000ULL) {
+        return false;
+    }
+    return true;
 }
 
 void enable_syscalls() {
@@ -567,8 +570,13 @@ long sys_sigreturn(registers_t* regs) {
 }
 
 long sys_arch_prctl(int code, unsigned long addr) {
+    debugln("[sys_arch_prctl] code: 0x%x, addr: %p", code, (void*)addr);
+    
     if (code == ARCH_SET_FS) {
-        if (!is_user_addr((void*)addr, 1)) return -1;
+        if (!is_user_addr((void*)addr, 1)) {
+            debugerr("[sys_arch_prctl] Security alert: Address %p rejected by is_user_addr!", (void*)addr);
+            return -1;
+        }
 
         uint32_t low = (uint32_t)addr;
         uint32_t high = (uint32_t)(addr >> 32);
@@ -577,6 +585,7 @@ long sys_arch_prctl(int code, unsigned long addr) {
         return 0;
     }
     
+    debugerr("[sys_arch_prctl] Invalid code parameter: 0x%x", code);
     return -22; 
 }
 
@@ -630,6 +639,23 @@ uint64_t syscall_handler(registers_t* regs) {
 	case 158: // arch_prctl
             regs->rax = (uint64_t)sys_arch_prctl((int)arg1, (unsigned long)arg2);
             return (uint64_t)regs;
+	case 205: // set_thread_area
+            if (!is_user_addr((void*)arg1, 1)) {
+                 regs->rax = (uint64_t)-1;
+            } else {
+                 uint32_t low = (uint32_t)arg1;
+                 uint32_t high = (uint32_t)(arg1 >> 32);                   
+                 wrmsr(MSR_FS_BASE, low, high);
+                 regs->rax = 0; // Return SUCCESS (0) to musl
+            }
+            return (uint64_t)regs;
+	case 218: // sys_set_tid_address
+            if (is_user_addr((void*)arg1, sizeof(int))) {
+               // Optional: current_process->set_child_tid = (int *)arg1;
+            }
+
+            regs->rax = (uint64_t)current_process->pid; 
+	    return (uint64_t)regs;
 	case 20:
             int fd = (int)arg1;
             const struct iovec* iov = (const struct iovec*)arg2;

@@ -93,31 +93,42 @@ int generate_random_b64_string(char *out_str, size_t out_length) {
     return 0;
 }
 
-void try_spawn_program(const char *line) {
-    char *argv[] = { (char*)line, NULL };
+static int split_args(char *line, char **argv, int max_args);
 
-    int pid = sys_spawn(line, argv, NULL);
+void try_spawn_program(const char *line) {
+    char line_copy[1024];
+    strncpy(line_copy, line, sizeof(line_copy) - 1);
+    line_copy[sizeof(line_copy) - 1] = '\0';
+
+    char *args[16];
+    int argc = split_args(line_copy, args, 16);
+    if (argc == 0) return; // Empty command line
+
+    char *cmd = args[0]; 
+
+    int pid = sys_spawn(cmd, args, NULL);
 
     if (pid < 0) {
         char path[256];
+        
         strcpy(path, "/bin/");
-        strcat(path, line);
-        char *b_argv[] = { path, NULL };
-        pid = sys_spawn(path, b_argv, NULL);
+        strcat(path, cmd);
+        args[0] = path;
+        pid = sys_spawn(path, args, NULL);
 
         if (pid < 0) {
             strcpy(path, "/sbin/");
-            strcat(path, line);
-            char *s_argv[] = { path, NULL };
-            pid = sys_spawn(path, s_argv, NULL);
+            strcat(path, cmd);
+            args[0] = path;
+            pid = sys_spawn(path, args, NULL);
         }
     }
 
     if (pid >= 0) {
         int status = 0;
-        int reaped = sys_wait(pid, &status);
+        sys_wait(pid, &status);
     } else {
-        printf("?: %s\n", line);
+        printf("?: %s\n", cmd);
     }
 }
 

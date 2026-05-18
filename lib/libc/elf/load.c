@@ -138,20 +138,40 @@ process_t* create_process_from_elf(uint8_t* elf_data, char** argv, char** envp) 
     }
     k_argv[argc] = 0;
 
-    // Push envp array
+    stack_ptr -= 8;
+    *(uint64_t*)(vmm_virt_to_phys(proc->pml4, stack_ptr) + hhdm_offset) = 0; // Value
+    stack_ptr -= 8;
+    *(uint64_t*)(vmm_virt_to_phys(proc->pml4, stack_ptr) + hhdm_offset) = 0; // AT_NULL (0)
+
+    stack_ptr -= 8;
+    *(uint64_t*)(vmm_virt_to_phys(proc->pml4, stack_ptr) + hhdm_offset) = 0x1000; // 4096
+    stack_ptr -= 8;
+    *(uint64_t*)(vmm_virt_to_phys(proc->pml4, stack_ptr) + hhdm_offset) = 6;      // AT_PAGESZ (6)
+
+    stack_ptr -= 8;
+    *(uint64_t*)(vmm_virt_to_phys(proc->pml4, stack_ptr) + hhdm_offset) = header->e_phnum;
+    stack_ptr -= 8;
+    *(uint64_t*)(vmm_virt_to_phys(proc->pml4, stack_ptr) + hhdm_offset) = 5;      // AT_PHNUM (5)
+
+    stack_ptr -= 8;
+    *(uint64_t*)(vmm_virt_to_phys(proc->pml4, stack_ptr) + hhdm_offset) = header->e_entry - header->e_phoff;
+    stack_ptr -= 8;
+    *(uint64_t*)(vmm_virt_to_phys(proc->pml4, stack_ptr) + hhdm_offset) = 3;      // AT_PHDR (3)
+
     for (int i = envc; i >= 0; i--) {
         stack_ptr -= 8;
         *(uint64_t*)(vmm_virt_to_phys(proc->pml4, stack_ptr) + hhdm_offset) = k_envp[i];
     }
-    // Push argv array
+
     for (int i = argc; i >= 0; i--) {
         stack_ptr -= 8;
         *(uint64_t*)(vmm_virt_to_phys(proc->pml4, stack_ptr) + hhdm_offset) = k_argv[i];
     }
 
-    // Push argc
     stack_ptr -= 8;
     *(uint64_t*)(vmm_virt_to_phys(proc->pml4, stack_ptr) + hhdm_offset) = (uint64_t)argc;
+
+    stack_ptr &= ~0xFULL;
 
     kfree(k_envp);
     kfree(k_argv);
@@ -265,16 +285,40 @@ int replace_process_with_elf(process_t* proc, uint8_t* elf_data, char** argv, ch
     }
     k_argv[argc] = 0;
 
+    stack_ptr -= 8;
+    *(uint64_t*)(vmm_virt_to_phys(new_pml4, stack_ptr) + hhdm_offset) = 0;
+    stack_ptr -= 8;
+    *(uint64_t*)(vmm_virt_to_phys(new_pml4, stack_ptr) + hhdm_offset) = 0; // AT_NULL
+
+    stack_ptr -= 8;
+    *(uint64_t*)(vmm_virt_to_phys(new_pml4, stack_ptr) + hhdm_offset) = 0x1000;
+    stack_ptr -= 8;
+    *(uint64_t*)(vmm_virt_to_phys(new_pml4, stack_ptr) + hhdm_offset) = 6; // AT_PAGESZ
+
+    stack_ptr -= 8;
+    *(uint64_t*)(vmm_virt_to_phys(new_pml4, stack_ptr) + hhdm_offset) = header->e_phnum;
+    stack_ptr -= 8;
+    *(uint64_t*)(vmm_virt_to_phys(new_pml4, stack_ptr) + hhdm_offset) = 5; // AT_PHNUM
+
+    stack_ptr -= 8;
+    *(uint64_t*)(vmm_virt_to_phys(new_pml4, stack_ptr) + hhdm_offset) = header->e_entry - header->e_phoff;
+    stack_ptr -= 8;
+    *(uint64_t*)(vmm_virt_to_phys(new_pml4, stack_ptr) + hhdm_offset) = 3; // AT_PHDR
+
     for (int i = envc; i >= 0; i--) {
         stack_ptr -= 8;
         *(uint64_t*)(vmm_virt_to_phys(new_pml4, stack_ptr) + hhdm_offset) = k_envp[i];
     }
+
     for (int i = argc; i >= 0; i--) {
         stack_ptr -= 8;
         *(uint64_t*)(vmm_virt_to_phys(new_pml4, stack_ptr) + hhdm_offset) = k_argv[i];
     }
+
     stack_ptr -= 8;
     *(uint64_t*)(vmm_virt_to_phys(new_pml4, stack_ptr) + hhdm_offset) = (uint64_t)argc;
+
+    stack_ptr &= ~0xFULL;
 
     kfree(k_envp); kfree(k_argv);
 

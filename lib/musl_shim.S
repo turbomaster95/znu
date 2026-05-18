@@ -1,12 +1,23 @@
 .intel_syntax noprefix
-.global _znu_start
+.global _start
 
-_znu_start:
+.extern main
+.extern exit
+
+.section .text
+
+_start:
     xor rbp, rbp
-    push 0
-    push 0
-    push 0
-    push 0
-    push 0
-    xor rax, rax
-    jmp _start
+
+    mov rdi, [rsp]        # 1st Argument (RDI) = argc
+    lea rsi, [rsp + 8]    # 2nd Argument (RSI) = argv array pointer
+
+    and rsp, -16
+
+    call main
+
+    mov rdi, rax          # 1st Argument (RDI) = exit status
+    call exit
+
+1:  hlt
+    jmp 1b
