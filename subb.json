@@ -24,6 +24,11 @@
             "url": "https://github.com/turbomaster95/zline",
             "branch": "main",
             "hash": "fef2878aaa8b27346d3ee69d9e55d5966a857a95"
+        },
+        "lib/musl": {
+            "url": "git://git.musl-libc.org/musl",
+            "branch": "master",
+            "hash": "5122f9f3c99fee366167c5de98b31546312921ab"
         }
     }
 }

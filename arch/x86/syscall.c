@@ -566,6 +566,25 @@ long sys_sigreturn(registers_t* regs) {
     return regs->rax;
 }
 
+long sys_arch_prctl(int code, unsigned long addr) {
+    if (code == ARCH_SET_FS) {
+        if (!is_user_addr((void*)addr, 1)) return -1;
+
+        uint32_t low = (uint32_t)addr;
+        uint32_t high = (uint32_t)(addr >> 32);
+        wrmsr(MSR_FS_BASE, low, high);
+        
+        return 0;
+    }
+    
+    return -22; 
+}
+
+struct iovec {
+    void  *iov_base;    /* Starting address */
+    size_t iov_len;     /* Number of bytes to transfer */
+};
+
 uint64_t syscall_handler(registers_t* regs) {
     uint64_t num = regs->rax;
     uint64_t arg1 = regs->rdi;
@@ -607,6 +626,31 @@ uint64_t syscall_handler(registers_t* regs) {
             return (uint64_t)regs;
         case 16: // ioctl
             regs->rax = (uint64_t)sys_ioctl((int)arg1, (unsigned long)arg2, (void*)arg3);
+            return (uint64_t)regs;
+	case 158: // arch_prctl
+            regs->rax = (uint64_t)sys_arch_prctl((int)arg1, (unsigned long)arg2);
+            return (uint64_t)regs;
+	case 20:
+            int fd = (int)arg1;
+            const struct iovec* iov = (const struct iovec*)arg2;
+            int iovcnt = (int)arg3;
+
+            long total_written = 0;
+            if (iov && is_user_addr((void*)iov, sizeof(struct iovec) * iovcnt)) {
+                for (int i = 0; i < iovcnt; i++) {
+                    if (iov[i].iov_len == 0) continue;
+                    
+                    long ret = sys_write(fd, iov[i].iov_base, iov[i].iov_len);
+                    if (ret < 0) {
+                        regs->rax = (total_written > 0) ? (uint64_t)total_written : (uint64_t)-1;
+                        return (uint64_t)regs;
+                    }
+                    total_written += ret;
+                }
+                regs->rax = (uint64_t)total_written;
+            } else {
+                regs->rax = (uint64_t)-1;
+            }
             return (uint64_t)regs;
         case 57: // fork
             regs->rax = (uint64_t)sys_fork(regs);

@@ -3,6 +3,10 @@
 
 #include <stdint.h>
 
+#define SYS_ARCH_PRCTL     158
+#define ARCH_SET_FS        0x1002
+#define MSR_FS_BASE        0xC0000100
+
 typedef struct {
     char name[128];
     uint32_t type;
