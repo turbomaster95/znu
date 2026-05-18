@@ -570,53 +570,78 @@ uint64_t syscall_handler(registers_t* regs) {
 
     switch (num) {
         case 0: // read
-            return (uint64_t)sys_read((int)arg1, (void*)arg2, (size_t)arg3);
+            regs->rax = (uint64_t)sys_read((int)arg1, (void*)arg2, (size_t)arg3);
+            return (uint64_t)regs;
         case 1: // write
-            return (uint64_t)sys_write((int)arg1, (const void*)arg2, (size_t)arg3);
+            regs->rax = (uint64_t)sys_write((int)arg1, (const void*)arg2, (size_t)arg3);
+            return (uint64_t)regs;
         case 2: // open
-            return (uint64_t)sys_open((const char*)arg1, (int)arg2);
+            regs->rax = (uint64_t)sys_open((const char*)arg1, (int)arg2);
+            return (uint64_t)regs;
         case 3: // close
-            return (uint64_t)sys_close((int)arg1);
+            regs->rax = (uint64_t)sys_close((int)arg1);
+            return (uint64_t)regs;
         case 4: // stat
-            return (uint64_t)sys_stat((const char*)arg1, (struct stat*)arg2);
+            regs->rax = (uint64_t)sys_stat((const char*)arg1, (struct stat*)arg2);
+            return (uint64_t)regs;
         case 5: // fstat
-            return (uint64_t)sys_fstat((int)arg1, (struct stat*)arg2);
+            regs->rax = (uint64_t)sys_fstat((int)arg1, (struct stat*)arg2);
+            return (uint64_t)regs;
         case 6: // lstat
-            return (uint64_t)sys_stat((const char*)arg1, (struct stat*)arg2);
+            regs->rax = (uint64_t)sys_stat((const char*)arg1, (struct stat*)arg2);
+            return (uint64_t)regs;
         case 9: // mmap
-            return (uint64_t)sys_mmap((void*)arg1, (size_t)arg2, (int)arg3, (int)arg4, (int)arg5, 0); // simplified
+            regs->rax = (uint64_t)sys_mmap((void*)arg1, (size_t)arg2, (int)arg3, (int)arg4, (int)arg5, 0);
+            return (uint64_t)regs;
         case 12: // brk
-            return (uint64_t)sys_brk((void*)arg1);
-	case 15: // sys_sigreturn
-            return (uint64_t)sys_sigreturn(regs);
+            regs->rax = (uint64_t)sys_brk((void*)arg1);
+            return (uint64_t)regs;
+        case 15: // sys_sigreturn
+            regs->rax = (uint64_t)sys_sigreturn(regs);
+            return (uint64_t)regs;
         case 16: // ioctl
-            return (uint64_t)sys_ioctl((int)arg1, (unsigned long)arg2, (void*)arg3);
+            regs->rax = (uint64_t)sys_ioctl((int)arg1, (unsigned long)arg2, (void*)arg3);
+            return (uint64_t)regs;
         case 57: // fork
-            return (uint64_t)sys_fork(regs);
+            regs->rax = (uint64_t)sys_fork(regs);
+            return (uint64_t)regs;
         case 59: // execve
-            return (uint64_t)sys_execve((const char*)arg1, (char**)arg2, (char**)arg3, regs);
+            regs->rax = (uint64_t)sys_execve((const char*)arg1, (char**)arg2, (char**)arg3, regs);
+            return (uint64_t)regs;
         case 159: // spawn
-            return (uint64_t)sys_spawn((const char*)arg1, (char**)arg2, (char**)arg3);
+            regs->rax = (uint64_t)sys_spawn((const char*)arg1, (char**)arg2, (char**)arg3);
+            return (uint64_t)regs;
         case 217: // getdents64
-            return (uint64_t)sys_getdents((int)arg1, (void*)arg2, (size_t)arg3);
+            regs->rax = (uint64_t)sys_getdents((int)arg1, (void*)arg2, (size_t)arg3);
+            return (uint64_t)regs;
         case 99: // sysinfo
-            return (uint64_t)sys_sysinfo((struct sysinfo*)arg1);
+            regs->rax = (uint64_t)sys_sysinfo((struct sysinfo*)arg1);
+            return (uint64_t)regs;
         case 165: // mount
-            return (uint64_t)sys_mount(arg1, arg2, arg3);
+            regs->rax = (uint64_t)sys_mount(arg1, arg2, arg3);
+            return (uint64_t)regs;
         case 318: // getrandom
-            return (uint64_t)sys_getrandom((void*)arg1, (size_t)arg2, (unsigned int)arg3);
+            regs->rax = (uint64_t)sys_getrandom((void*)arg1, (size_t)arg2, (unsigned int)arg3);
+            return (uint64_t)regs;
         case 39: // getpid
-            if (current_process) return current_process->pid;
-            return 0;
+            if (current_process) {
+                regs->rax = current_process->pid;
+            } else {
+                regs->rax = 0;
+            }
+            return (uint64_t)regs;
 
-	case 60: // exit
+        // ---------------------------------------------------------
+        // Context-Switching & Special System Calls
+        // ---------------------------------------------------------
+        case 60: // exit
             if (current_process) {
                 extern registers_t* do_exit(int code);
                 regs = do_exit((int)arg1);
             }
             return (uint64_t)regs;
 
-	case 61: // wait
+        case 61: // wait
             if (current_process) {
                 extern int do_wait(int pid, int* status, bool* should_block);
                 bool should_block = false;
@@ -624,7 +649,7 @@ uint64_t syscall_handler(registers_t* regs) {
                 int result = do_wait((int)arg1, (int*)arg2, &should_block);
                 
                 if (should_block) {
-                    return 1; 
+                    return 1; // Sentinel value to tell assembly to block and yield
                 }
                 
                 regs->rax = (uint64_t)result;
@@ -634,15 +659,17 @@ uint64_t syscall_handler(registers_t* regs) {
         case 169: // reboot
             debugln("\n\nReboot called from user process\n\n");
             kernel_reboot();
-            return 0;
+            regs->rax = 0;
+            return (uint64_t)regs;
         
-        case 48:
+        case 48: // shutdown
             debugln("\n\nShutdown called from user process\n\n");
             kernel_shutdown();
-            return 0;
+            regs->rax = 0;
+            return (uint64_t)regs;
 
         default:
-            return -1;
+            regs->rax = (uint64_t)-1; // Standard error for unimplemented syscall
+            return (uint64_t)regs;
     }
 }
-

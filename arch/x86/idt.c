@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <pi.h>
+#include <page.h>
 #include <lapic.h>
 #include <timekeeper.h>
 #include <proc.h>
@@ -54,7 +55,27 @@ registers_t* k_exception_handler(registers_t *regs) {
         uint64_t cr2;
         __asm__ volatile("mov %%cr2, %0" : "=r"(cr2));
 
-	lapic_broadcast_panic_nmi();
+        if (int_no == 14) { // Page Fault
+            bool is_user = (regs->err_code & 0x04) != 0;
+            
+            bool is_stack_range = (cr2 >= 0x7ffff0000000ULL && cr2 < 0x800000000000ULL);
+
+            if (is_user && is_stack_range && current_process) {
+                extern void* palloc_zero(void);
+                extern void map_page(uint64_t* pml4, uintptr_t virt, uint64_t phys, uint64_t flags);
+                
+                uintptr_t page_addr = cr2 & ~0xFFFULL;
+                
+                void* phys = palloc_zero();
+                if (phys) {
+                    map_page(current_process->pml4, page_addr, (uint64_t)phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);                    
+                    return regs; 
+                }
+            }
+        }
+
+        // If it wasn't a growable user-stack fault, drop down into your original panic logic
+        lapic_broadcast_panic_nmi();
         debugln("\n--- CRITICAL CPU EXCEPTION at CPU %d : %d ---", get_cpu_id(), (int)int_no);
         debugln("Error Code: 0x%x | RIP: %p | RSP: %p",
                 (unsigned)regs->err_code, (void*)regs->rip, (void*)regs->rsp);

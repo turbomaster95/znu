@@ -100,27 +100,24 @@ void try_spawn_program(const char *line) {
 
     if (pid < 0) {
         char path[256];
-
         strcpy(path, "/bin/");
         strcat(path, line);
-
         char *b_argv[] = { path, NULL };
-
         pid = sys_spawn(path, b_argv, NULL);
 
         if (pid < 0) {
             strcpy(path, "/sbin/");
             strcat(path, line);
-
             char *s_argv[] = { path, NULL };
-
             pid = sys_spawn(path, s_argv, NULL);
         }
     }
 
     if (pid >= 0) {
         int status = 0;
-        sys_wait(pid, &status);
+        int reaped = sys_wait(pid, &status);
+        
+        printf("[Shell] Reaped child PID %d with status %d\n", reaped, status);
     } else {
         printf("?: %s\n", line);
     }
