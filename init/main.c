@@ -65,7 +65,7 @@ int generate_random_b64_string(char *out_str, size_t out_length) {
 
     ssize_t ret = getrandom(raw_buf, raw_bytes_needed, 0);
     if (ret < 0) {
-        return -1; // Syscall failed
+        return -1; 
     }
 
     size_t str_idx = 0;
@@ -116,8 +116,6 @@ void try_spawn_program(const char *line) {
     if (pid >= 0) {
         int status = 0;
         int reaped = sys_wait(pid, &status);
-        
-        printf("[Shell] Reaped child PID %d with status %d\n", reaped, status);
     } else {
         printf("?: %s\n", line);
     }

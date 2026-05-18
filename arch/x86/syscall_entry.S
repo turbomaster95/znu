@@ -5,12 +5,9 @@ extern scheduler
 
 syscall_entry:
     swapgs
-    mov [gs:8], rsp         ; Save User RSP to scratch space
-    mov rsp, [gs:0]         ; Load Kernel RSP for this thread
+    mov [gs:8], rsp
+    mov rsp, [gs:0]
 
-    ; -----------------------------------------------------
-    ; 1. Build registers_t context frame on kernel stack
-    ; -----------------------------------------------------
     push qword 0x1B         ; ss (User Data Segment)
     push qword [gs:8]       ; rsp (Original User RSP)
     push r11                ; rflags (sysret caches user flags in r11)
@@ -44,22 +41,15 @@ syscall_entry:
     mov ax, es
     push rax
 
-    ; -----------------------------------------------------
-    ; 2. Call C Handler
-    ; -----------------------------------------------------
-    mov rdi, rsp            ; 1st argument: pointer to registers_t
+    mov rdi, rsp
 
-    ; Align the stack to 16-bytes (System V ABI requirement)
-    mov rbp, rsp            ; Save our true stack frame pointer
-    and rsp, -16            ; Align down to 16 bytes
+    mov rbp, rsp
+    and rsp, -16
     
-    call syscall_handler    ; Returns: registers_t* OR 1 (block signal)
+    call syscall_handler
     
-    mov rsp, rbp            ; Restore exact stack pointer so pops align
+    mov rsp, rbp
 
-    ; -----------------------------------------------------
-    ; 3. Evaluate Task State (The Architecture Fix)
-    ; -----------------------------------------------------
     cmp rax, 1
     je .block_current_process
 
@@ -67,9 +57,6 @@ syscall_entry:
     jne .switch_to_new_context
 
 .return_to_user:
-    ; Normal return path. Execution stays in the current process.
-    ; (The C code should have placed any return values into regs->rax)
-
     pop rax
     mov es, ax
     pop rax
@@ -104,24 +91,16 @@ syscall_entry:
     swapgs                  ; Swap back to user-space GS
     o64 sysret              ; Return to Ring 3
 
-; -----------------------------------------------------
-; Task Switching Subroutines
-; -----------------------------------------------------
 .block_current_process:
-    ; This process yielded (e.g., waiting for a child).
-    ; We pass the current stack frame pointer to the scheduler so it can
-    ; save it to current_process->context_ptr and elect a new task.
     mov rdi, rsp
     call scheduler          ; Returns the registers_t* of the newly elected task
     
-    ; Fall through to switch context...
-
 .switch_to_new_context:
-    ; RAX holds the kernel stack context pointer of the newly scheduled process
-    mov rsp, rax            ; Switch hardware stack directly to the new task
+    mov rsp, rax
 
-    ; NOTE: If your system isolates kernel stacks per process, ensure your C-side 
-    ; scheduler() updates the active TSS.rsp0 or GS:0 so the next time this new 
-    ; process calls a syscall, it uses its own kernel stack top!
+    extern current_process
+    mov rdi, [current_process] 
+    mov rsi, [rdi + 48]        
+    mov [gs:0], rsi            
 
     jmp .return_to_user

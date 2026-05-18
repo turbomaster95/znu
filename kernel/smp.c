@@ -15,15 +15,6 @@ extern uint64_t* vmm_get_kernel_pml4(void);
 uint64_t* kernel_pml4_phys = NULL;
 
 void ap_kernel_entry(struct limine_mp_info *info) {
-    kernel_pml4_phys = vmm_get_kernel_pml4();
-
-    asm volatile(
-        "mov %0, %%cr3" 
-        : 
-        : "r"(kernel_pml4_phys) 
-        : "memory"
-    );
-
     int cpu_id = (int)info->extra_argument;
     gdt_init_core(cpu_id);
     idt_local_load();

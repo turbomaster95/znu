@@ -362,10 +362,12 @@ int sys_spawn(const char* path, char** argv, char** envp) {
     uint8_t* elf_data = NULL;
     debugln("about to reach if node->mntpoint");
  
+    bool allocated_elf = false;
     if (node->ops && node->ops->read) {
        debugln("[spawn] Node has driver ops. Reading from disk (Cluster: %d)\n", node->data);
     
        elf_data = kmalloc(node->size);
+       allocated_elf = true;
        if (!elf_data) return -1;
  
        int read_bytes = node->ops->read(node, elf_data, node->size, 0);
@@ -391,6 +393,10 @@ int sys_spawn(const char* path, char** argv, char** envp) {
         kfree(elf_data);
     }
     
+    if (allocated_elf && elf_data) {
+        kfree(elf_data);
+    }
+
     if (k_argv) {
         for (int j = 0; k_argv[j]; j++) kfree(k_argv[j]);
         kfree(k_argv);
@@ -530,7 +536,7 @@ uint64_t sys_mount(uint64_t source_ptr, uint64_t target_ptr, uint64_t fstype_ptr
 
     if (!vfs_mount(source, fstype, target)) {
         enable_smap();
-        return -1; // Or a more specific error like -ENODEV
+        return -1; 
     }
     enable_smap();
     return 0; // Success
@@ -631,9 +637,6 @@ uint64_t syscall_handler(registers_t* regs) {
             }
             return (uint64_t)regs;
 
-        // ---------------------------------------------------------
-        // Context-Switching & Special System Calls
-        // ---------------------------------------------------------
         case 60: // exit
             if (current_process) {
                 extern registers_t* do_exit(int code);
@@ -649,7 +652,7 @@ uint64_t syscall_handler(registers_t* regs) {
                 int result = do_wait((int)arg1, (int*)arg2, &should_block);
                 
                 if (should_block) {
-                    return 1; // Sentinel value to tell assembly to block and yield
+                    return 1;
                 }
                 
                 regs->rax = (uint64_t)result;
@@ -669,7 +672,7 @@ uint64_t syscall_handler(registers_t* regs) {
             return (uint64_t)regs;
 
         default:
-            regs->rax = (uint64_t)-1; // Standard error for unimplemented syscall
+            regs->rax = (uint64_t)-1;
             return (uint64_t)regs;
     }
 }

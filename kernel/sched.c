@@ -129,7 +129,6 @@ registers_t* scheduler(registers_t* regs) {
     return regs;
 }
 
-// Modify do_wait to return 1 if it needs to block, 0 if it reaped a child, or -1 on error
 int do_wait(int pid, int* status, bool* should_block) {
     bool has_children = false;
     *should_block = false;
@@ -162,36 +161,31 @@ int do_wait(int pid, int* status, bool* should_block) {
         return -1; // No children to wait for
     }
     
-    // No zombies found, but children exist -> Tell the caller we must block
     current_process->state = TASK_WAITING;
     *should_block = true;
     return 0;
 }
 
-// Modify do_exit to return the next register state to the assembly pipeline
 registers_t* do_exit(int code) {
-    debugln("[proc] PID %d exiting with code %d", current_process->pid, code);
+//    debugln("[proc] PID %d exiting with code %d", current_process->pid, code);
     
     current_process->state = TASK_ZOMBIE;
     current_process->exit_code = code;
     
-    // Wake up parent if it's waiting
     for (int i = 0; i < process_count; i++) {
         if (!processes[i]) continue;
         if (processes[i]->pid == current_process->parent_pid) {
             if (processes[i]->state == TASK_WAITING) {
                 processes[i]->state = TASK_READY;
-                debugln("[proc] Woke up parent PID %d", processes[i]->pid);
+                //debugln("[proc] Woke up parent PID %d", processes[i]->pid);
             }
             break;
         }
     }
     
-    // Cleanly invoke the scheduler to choose the next task to run.
-    // Pass NULL because this process is dead; its registers do not need to be saved.
     registers_t* next_task_regs = scheduler(NULL);
     
-    return next_task_regs;
+    force_context_restore(next_task_regs);
 }
 
 process_t* clone_process(process_t* src, registers_t* regs) {
