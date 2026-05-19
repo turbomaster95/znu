@@ -13,7 +13,7 @@
         "scripts/limine": {
             "url": "https://github.com/limine-bootloader/limine",
             "branch": "v12.x",
-            "hash": "cfb6f79f48937c9dcd3ac56d7abb09fb663111d0"
+            "hash": "5e24ff775af55e6222cec8bd6cba66b90d759fd1"
         },
         "lib/uacpi": {
             "url": "https://github.com/uACPI/uACPI",

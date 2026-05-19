@@ -9,6 +9,10 @@ import time
 MANIFEST = "subb.json"
 GITIGNORE = ".gitignore"
 
+HIDE_CURSOR = "\x1b[?25l"
+SHOW_CURSOR = "\x1b[?25h"
+CLEAR_LINE  = "\x1b[K"
+
 def run(cmd, cwd=None):
     return subprocess.run(cmd, shell=True, cwd=cwd, capture_output=True, text=True)
 
@@ -27,37 +31,52 @@ def manage_gitignore(path, remove=False):
     with open(GITIGNORE, "w") as f:
         f.write("\n".join(filter(None, lines)) + "\n")
 
-def run_with_dots(cmd, cwd=None, label="working"):
-    """run a command and print dots while it works"""
+def get_status_prefix(step, total, action, target):
+    prefix = f"[{step}/{total}] {action} "
+    cols = shutil.get_terminal_size((80, 20)).columns
+    limit = cols - len(prefix) - 5
+    
+    if len(target) > limit:
+        target = "..." + target[-(limit-3):]
+        
+    return f"{prefix}{target}"
+
+def run_with_dots(cmd, step, total, action, target, cwd=None):
     proc = subprocess.Popen(cmd, shell=True, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     dots = 0
-    while proc.poll() is None:
-        time.sleep(0.3)
-        dots += 1
-        print(".", end="", flush=True)
-        if dots > 60:  # wrap around so we dont flood
-            print("\r" + " " * 60 + "\r", end="", flush=True)
-            dots = 0
-    # drain remaining output quietly
-    proc.stdout.read()
-    print("")
+    sys.stdout.write(HIDE_CURSOR)
+    base_text = get_status_prefix(step, total, action, target)
+    try:
+        while proc.poll() is None:
+            dots = (dots + 1) % 4
+            ticker = "." * dots + " " * (3 - dots)
+            sys.stdout.write(f"\r{base_text} {ticker}{CLEAR_LINE}")
+            sys.stdout.flush()
+            time.sleep(0.2)
+            
+        proc.stdout.read()
+    finally:
+        sys.stdout.write(SHOW_CURSOR)
     return proc.returncode
 
-def run_with_bar(cmd, cwd=None, width=30):
-    """fake progress bar because git doesnt give us real progress"""
+def run_with_bar(cmd, step, total, action, target, cwd=None, width=15):
     proc = subprocess.Popen(cmd, shell=True, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     start = time.time()
-    while proc.poll() is None:
-        elapsed = time.time() - start
-        # fake progress that slows down as it goes
-        pct = min(95, (elapsed / (elapsed + 5)) * 100)
-        filled = int(width * pct / 100)
-        bar = "[" + "#" * filled + "-" * (width - filled) + "]"
-        print(f"\r{bar} {pct:.0f}%", end="", flush=True)
-        time.sleep(0.2)
-
-    print(f"\r[{ '#' * width }] 100%")
-    proc.stdout.read()
+    sys.stdout.write(HIDE_CURSOR)
+    base_text = get_status_prefix(step, total, action, target)
+    try:
+        while proc.poll() is None:
+            elapsed = time.time() - start
+            pct = min(95, (elapsed / (elapsed + 4)) * 100)
+            filled = int(width * pct / 100)
+            bar = "#" * filled + "-" * (width - filled)
+            sys.stdout.write(f"\r{base_text} [{bar}]{CLEAR_LINE}")
+            sys.stdout.flush()
+            time.sleep(0.15)
+            
+        proc.stdout.read()
+    finally:
+        sys.stdout.write(SHOW_CURSOR)
     return proc.returncode 
 
 def load_manifest():
@@ -75,43 +94,64 @@ def get_default_branch(url):
 
 def add(url, path, branch=None, git_opts=""):
     manifest = load_manifest()
-    print(f"--> Adding {url} at {path}...")
     manage_gitignore(path)
     if branch is None:
         branch = get_default_branch(url)
-        print(f"  ! Detected branch: {branch}")
+    
     if not os.path.exists(path):
         cmd = f"git clone {git_opts} -b {branch} {url} {path}".strip()
-        run(cmd)
+        run_with_bar(cmd, 1, 1, "Cloning", path)
+        sys.stdout.write(f"\r{CLEAR_LINE}done cloned {path}\n")
+    else:
+        sys.stdout.write(f":D   tracked {path}\n")
+    sys.stdout.flush()
+
     res = run("git rev-parse HEAD", cwd=path)
     current_hash = res.stdout.strip()
     manifest["dependencies"][path] = {"url": url, "branch": branch, "hash": current_hash}
     save_manifest(manifest)
-    print(f":D Added {path} at {current_hash[:8]}")
 
 def sync(git_opts=""):
     manifest = load_manifest()
-    for path, info in manifest["dependencies"].items():
-        print(f"--> Syncing {path}...")
-        manage_gitignore(path)
+    deps = list(manifest["dependencies"].items())
+    total = len(deps)
+    
+    if total == 0:
+        print("Nothing to sync.")
+        return
 
+    for i, (path, info) in enumerate(deps, 1):
+        manage_gitignore(path)
         dot_git = os.path.join(path, ".git")
+        cloned = False
+        
         if not os.path.exists(dot_git):
             if os.path.exists(path):
                 shutil.rmtree(path)
-            
             cmd = f"git clone {git_opts} -b {info['branch']} {info['url']} {path}".strip()
-            run_with_dots(cmd, label="cloning")
+            run_with_bar(cmd, i, total, "Cloning", path)
+            cloned = True
 
-        run("git fetch origin", cwd=path)
+        run_with_dots("git fetch origin", i, total, "Syncing", path, cwd=path)
+        
+        status_res = run("git status --short", cwd=path).stdout.strip()
+        curr_res = run("git rev-parse HEAD", cwd=path).stdout.strip()
+        
         run(f"git reset --hard {info['hash']}", cwd=path)
         run("git clean -fd", cwd=path)
-        print(f":D {path} aligned to {info['hash'][:8]}")
+        
+        if cloned:
+            sys.stdout.write(f"\r{CLEAR_LINE}done cloned {path}\n")
+        elif status_res or curr_res != info['hash']:
+            sys.stdout.write(f"\r{CLEAR_LINE}:D   synced {path}\n")
+        else:
+            sys.stdout.write(f"\r{CLEAR_LINE}:D   synced {path}\n")
+        sys.stdout.flush()
 
 def status():
     manifest = load_manifest()
     if not manifest["dependencies"]:
-        print(":( No dependencies managed by subb.")
+        print("No dependencies managed by subb.")
         return
     print(f"{'PATH':<30} {'BRANCH':<12} {'HASH':<10} {'STATUS'}")
     print("-" * 70)
@@ -125,71 +165,82 @@ def status():
             stat = "DIRTY" if dirty else ("OK" if curr == info['hash'] else "OUT-OF-SYNC")
         print(f"{path:<30} {info['branch']:<12} {info['hash'][:8]:<10} {stat}")
 
-def update_remote(path, git_opts=""):
+def update_remote(path, step=1, total=1, git_opts=""):
     manifest = load_manifest()
     if path not in manifest["dependencies"]:
-        print(f"Error: {path} not in manifest.")
-        return
+        print(f"Error: {path} not found in manifest.")
+        return False
 
     info = manifest["dependencies"][path]
+    cloned = False
     if not os.path.exists(os.path.join(path, ".git")):
         if os.path.exists(path): shutil.rmtree(path)
         cmd = f"git clone {git_opts} -b {info['branch']} {info['url']} {path}".strip()
-        run_with_dots(cmd, label="cloning")
+        run_with_bar(cmd, step, total, "Cloning", path)
+        cloned = True
 
-    print(f"--> Updating {path} to latest {info['branch']}...")
-    run("git fetch origin", cwd=path)
+    run_with_dots("git fetch origin", step, total, "Updating", path, cwd=path)
+    
+    res_before = run("git rev-parse HEAD", cwd=path)
+    old_hash = res_before.stdout.strip()
+    
     run(f"git reset --hard origin/{info['branch']}", cwd=path)
-    res = run("git rev-parse HEAD", cwd=path)
-    new_hash = res.stdout.strip()
+    
+    res_after = run("git rev-parse HEAD", cwd=path)
+    new_hash = res_after.stdout.strip()
+    
+    if cloned:
+        sys.stdout.write(f"\r{CLEAR_LINE}:D   cloned {path}\n")
+    elif old_hash != new_hash:
+        sys.stdout.write(f"\r{CLEAR_LINE}:D   updated {path} ({old_hash[:8]} -> {new_hash[:8]})\n")
+    else:
+        sys.stdout.write(f"\r{CLEAR_LINE}:D   updated {path}\n")
+    sys.stdout.flush()
+    
     manifest["dependencies"][path]["hash"] = new_hash
     save_manifest(manifest)
-    print(f":D Updated {path} to {new_hash[:8]}")
+    return True
 
 def remove_dependency(path):
     manifest = load_manifest()
     if path in manifest["dependencies"]:
-        print(f"--> Removing {path}...")
         manage_gitignore(path, remove=True)
         if os.path.exists(path): shutil.rmtree(path)
         del manifest["dependencies"][path]
         save_manifest(manifest)
-        print(f":D {path} removed.")
+        print(f"done removed {path}")
     else:
-        print(f"Error: {path} not found.")
+        print(f"Error: Path '{path}' not found.")
 
 def foreach(shell_cmd):
     manifest = load_manifest()
     for path in manifest["dependencies"]:
-        print(f"\033[1;34m--- {path} ---\033[0m")
+        print(f"--- {path} ---")
         subprocess.run(shell_cmd, shell=True, cwd=path)
         print("")
 
 def show_help():
-    help_text = """
-subb - the alternative to git submodules which only one person uses
+    help_text = """subb - alternative to git submodules which only one person uses
 
 usage:
   subb <command> [arguments]
 
 commands:
-  add <url> <path> [branch]  add a new dependency
-  sync                       align folders to manifest
-  status                     show missing/dirty/out-of-sync
-  update <path>              pull latest and update hash
-  upgrade                    pull latest for everything
-  rm <path>                  remove dep from manifest+disk+gitignore
+  add <url> <path> [branch]   add a new dependency
+  sync                        align folders to manifest
+  status                      show missing/dirty/out-of-sync
+  update <path>               pull latest and update hash
+  upgrade                     pull latest for everything
+  rm <path>                   remove dep from manifest+disk+gitignore
   foreach "<cmd>"            run command in each dep folder
 
 examples:
   subb add https://github.com/turbomaster95/zline lib/ulibc/third-party/zline trunk
   subb foreach "make clean"
-  subb status
-"""
+  subb status"""
     print(help_text)
 
 def parse_args(args):
-    """split args at -- into cmd_args and git_opts"""
     if "--" in args:
         idx = args.index("--")
         return args[:idx], " ".join(args[idx+1:])
@@ -205,24 +256,38 @@ if __name__ == "__main__":
     cmd = args[0]
 
     try:
-        if cmd == "add" and len(args) >= 3:
+        if cmd == "add":
+            if len(args) < 3:
+                print("Error: 'add' requires both a repository URL and a target path.")
+                sys.exit(1)
             add(args[1], args[2], args[3] if len(args) > 3 else None, git_opts)
         elif cmd == "sync":
             sync(git_opts)
         elif cmd == "status":
             status()
-        elif cmd == "update" and len(args) > 1:
-            update_remote(args[1], git_opts)
+        elif cmd == "update":
+            if len(args) < 2:
+                print("Error: 'update' requires a target path. Use 'upgrade' to update everything.")
+                sys.exit(1)
+            update_remote(args[1], 1, 1, git_opts)
         elif cmd == "upgrade":
             manifest = load_manifest()
-            for p in manifest["dependencies"]: 
-                update_remote(p, git_opts)
-        elif cmd == "rm" and len(args) > 1:
+            deps = list(manifest["dependencies"].keys())
+            total = len(deps)
+            for idx, p in enumerate(deps, 1): 
+                update_remote(p, idx, total, git_opts)
+        elif cmd == "rm":
+            if len(args) < 2:
+                print("Error: 'rm' requires a target path.")
+                sys.exit(1)
             remove_dependency(args[1])
-        elif cmd == "foreach" and len(args) > 1:
+        elif cmd == "foreach":
+            if len(args) < 2:
+                print("Error: 'foreach' requires a command string.")
+                sys.exit(1)
             foreach(" ".join(args[1:]))
         else:
-            print(f"Unknown command or wrong arguments: {cmd}")
+            print(f"Unknown command: {cmd}")
             show_help()
     except KeyboardInterrupt:
-        print("\nInterrupted.")
+        sys.stdout.write(SHOW_CURSOR + "\nInterrupted.\n")
