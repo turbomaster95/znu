@@ -3,7 +3,6 @@
 #include <sys/wait.h>
 extern char **environ;
 
-// Map Znu-style calls to Linux-style calls for testing on host
 #define sys_spawn(path, argv, env) ({ \
     pid_t _pid; \
     int _res = posix_spawn(&_pid, path, NULL, NULL, argv, environ); \
@@ -50,7 +49,6 @@ struct backcmd { int type; struct cmd *cmd; };
 
 struct cmd *parsecmd(char*);
 
-/* Helper to replicate your try_spawn_program logic within the parser's flow */
 int znu_spawn(char *path, char **argv) {
     int pid = sys_spawn(path, argv, NULL);
     if (pid < 0 && path[0] != '/') {
@@ -86,11 +84,6 @@ void runcmd(struct cmd *cmd) {
 
     case REDIR:
         rcmd = (struct redircmd*)cmd;
-        /* 
-         * Note: True redirection requires kernel-side support for 
-         * passing FDs to sys_spawn. If Znu doesn't support that yet,
-         * this will only execute the command normally.
-         */
         runcmd(rcmd->cmd);
         break;
 
@@ -102,11 +95,6 @@ void runcmd(struct cmd *cmd) {
 
     case PIPE:
         pcmd = (struct pipecmd*)cmd;
-        /* 
-         * Pipes in a sys_spawn-only kernel require a pipe() syscall 
-         * and the ability to set stdio FDs in the spawn attribute.
-         * For now, we execute them sequentially as a fallback.
-         */
         runcmd(pcmd->left);
         runcmd(pcmd->right);
         break;
@@ -134,7 +122,6 @@ int main(void) {
         while(*input == ' ') input++;
         if(*input == '\0') continue;
 
-        /* Built-ins */
         if(strcmp(input, "exit") == 0) break;
         if(strcmp(input, "clear") == 0) { printf("\033[2J\033[H"); continue; }
         if(strncmp(input, "cd ", 3) == 0) {
@@ -144,12 +131,10 @@ int main(void) {
 
         struct cmd *c = parsecmd(input);
         runcmd(c);
-        // Note: Memory management for 'c' (freeing the tree) omitted for brevity
     }
     return 0;
 }
 
-/* --- The following is the standard xv6-style parser adapted for ulibc --- */
 
 struct cmd* execcmd(void) {
     struct execcmd *cmd = malloc(sizeof(*cmd));
@@ -273,7 +258,6 @@ struct cmd* parseexec(char **ps, char *es) {
         ret = parseredirs(ret, ps, es);
     }
     cmd->argv[argc] = 0;
-    // Null terminate arguments
     for(int i=0; i<argc; i++) *cmd->eargv[i] = 0;
     return ret;
 }

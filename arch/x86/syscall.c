@@ -363,11 +363,11 @@ int sys_spawn(const char* path, char** argv, char** envp) {
     }
  
     uint8_t* elf_data = NULL;
-    debugln("about to reach if node->mntpoint");
+    //debugln("about to reach if node->mntpoint");
  
     bool allocated_elf = false;
     if (node->ops && node->ops->read) {
-       debugln("[spawn] Node has driver ops. Reading from disk (Cluster: %d)\n", node->data);
+       //debugln("[spawn] Node has driver ops. Reading from disk (Cluster: %d)\n", node->data);
     
        elf_data = kmalloc(node->size);
        allocated_elf = true;
@@ -380,13 +380,13 @@ int sys_spawn(const char* path, char** argv, char** envp) {
           return -1;
        }
  
-       debugln("[spawn] Read %d bytes from disk. Expected %d.\n", read_bytes, node->size);
+       //debugln("[spawn] Read %d bytes from disk. Expected %d.\n", read_bytes, node->size);
  
        if (node->size > 0x1000) {
-          debugln("[spawn] Data at 4KB offset: %02x %02x\n", elf_data[0x1000], elf_data[0x1001]);
+          //debugln("[spawn] Data at 4KB offset: %02x %02x\n", elf_data[0x1000], elf_data[0x1001]);
        }
     } else {
-       debugln("[spawn] No driver ops. Assuming RAM pointer: %p\n", node->data);
+       //debugln("[spawn] No driver ops. Assuming RAM pointer: %p\n", node->data);
        elf_data = (uint8_t*)node->data;
     }
  
