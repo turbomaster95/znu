@@ -1,3 +1,4 @@
+#include <ff.h>
 #include <disk.h>
 #include <stdlib.h>
 #include <string.h>
@@ -164,24 +165,33 @@ bool vfs_mount(const char* device, const char* fs_type, const char* path) {
     if (!device || !fs_type || !path)
         return false;
 
-    debugln("[vfs] mount request: %s -> %s at %s",
-        device, fs_type, path);
+    debugln("[vfs] mount request: %s -> %s at %s", device, fs_type, path);
 
     if (strcmp(fs_type, "fat32") == 0) {
         disk_t* d = disk_get_by_name(device);
         if (!d) return false;
 
-        // 1. Initialize the driver (hardware side)
         if (!fat32_init_on_disk(d)) return false;
 
         vfs_node_t* mount_node = vfs_create_node("mnt", VFS_DIRECTORY);
+        if (!mount_node) return false;
+
         mount_node->is_mountpoint = 1;
-        mount_node->ops = &fat32_ops; // Use the FAT32 ops!
-        mount_node->data = g_root_cluster; // Store root cluster in the node
+        mount_node->ops = &fat32_ops;
+
+        DIR* root_dir = (DIR*)kmalloc(sizeof(DIR));
+        if (root_dir && f_opendir(root_dir, "0:/") == FR_OK) {
+            mount_node->data = (uintptr_t)root_dir;
+        } else {
+            debugln("[vfs] Failed to open FatFs root directory '0:/'");
+            if (root_dir) kfree(root_dir);
+            kfree(mount_node);
+            return false;
+        }
 
         vfs_add_child(root_node, mount_node);
 
-        debugln("[vfs] fat32 successfully hooked to %s", path);
+        debugln("[vfs] fat32 successfully hooked to %s via FatFs", path);
         return true;
     }
 

@@ -29,6 +29,11 @@
             "url": "git://git.musl-libc.org/musl",
             "branch": "master",
             "hash": "5122f9f3c99fee366167c5de98b31546312921ab"
+        },
+        "lib/fatfs": {
+            "url": "https://github.com/abbrev/fatfs",
+            "branch": "master",
+            "hash": "30ca13c62615df0d2e9104ab41256985b96590c1"
         }
     }
 }

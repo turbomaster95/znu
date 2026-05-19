@@ -27,3 +27,5 @@ obj-y += ksyms.o
 obj-y += smp.o
 obj-y += smplog.o
 obj-y += signal.o
+CFLAGS_diskio.o += -I$(srctree)/lib/fatfs/source
+obj-y += diskio.o

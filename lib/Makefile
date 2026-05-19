@@ -14,6 +14,9 @@ quiet_cmd_run_flanterm  = SH      $(patsubst $(srctree)/%,%,$<)
       cmd_run_flanterm  = /bin/bash $(srctree)/scripts/mkflanterm.sh $(srctree)
 
 obj-y += libc/
+CFLAGS_ff.o := -I$(srctree)/include
+obj-y += fatfs/source/ff.o
+obj-y += fatfs/source/ffunicode.o
 obj-y += uacpi/uacpi_lib.o
 obj-y += flanterm/flanterm_lib.o
 
