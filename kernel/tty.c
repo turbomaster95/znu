@@ -12,6 +12,7 @@
 
 extern void terminal_backspace(void);
 extern void terminal_putchar(char c);
+extern void debug_putcharn(char c);
 
 tty_t ttys[MAX_TTYS];
 tty_device_t tty_devices[MAX_TTYS];
@@ -104,9 +105,11 @@ long tty_write(tty_t* tty, const char* buf, size_t count) {
 
        if ((tty->termios.c_oflag & OPOST) && (tty->termios.c_oflag & ONLCR) && c == '\n') {
           terminal_putchar('\r');
+	  debug_putcharn('\r');
        }
 
        terminal_putchar(c);
+       debug_putcharn(c);
     }
     clac(); // SAME AS STAC();
 
@@ -229,6 +232,7 @@ void tty_input_char(int id, char c) {
               terminal_backspace();
           } else {
               terminal_putchar(c);
+              debug_putcharn(c);
           }
        }
 
@@ -256,6 +260,7 @@ void tty_input_char(int id, char c) {
 
     if (tty->termios.c_lflag & ECHO) {
         terminal_putchar(c);
+        debug_putcharn(c);
     }
 
     if (tty->line_len >= (TTY_BUF_SIZE - 1)) {

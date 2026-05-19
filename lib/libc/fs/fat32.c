@@ -37,44 +37,71 @@ bool fat32_init_on_disk(disk_t* d) {
 
 vfs_node_t* fat32_vfs_find(vfs_node_t* parent, const char* name) {
     if (!g_mounted) return NULL;
+    (void)parent; // Absolute routing via FatFs tracking strings
 
     char path[512];
     snprintf(path, sizeof(path), "0:/%s", name); 
 
     FILINFO fno;
     FRESULT res = f_stat(path, &fno);
-    if (res != FR_OK) {
-        return NULL; /* File or folder does not exist */
+
+    if (res == FR_OK) {
+        int type = (fno.fattrib & AM_DIR) ? VFS_DIRECTORY : VFS_FILE;
+        vfs_node_t* node = vfs_create_node(name, type);
+        if (!node) return NULL;
+
+        node->size = fno.fsize;
+        node->ops = &fat32_ops;
+        
+        if (type == VFS_FILE) {
+            FIL* file_handle = kmalloc(sizeof(FIL));
+            /* Open with both Read and Write privileges */
+            if (f_open(file_handle, path, FA_READ | FA_WRITE) == FR_OK) {
+                node->data = (uintptr_t)file_handle;
+            } else {
+                kfree(file_handle);
+                kfree(node);
+                return NULL;
+            }
+        } else {
+            DIR* dir_handle = kmalloc(sizeof(DIR));
+            if (f_opendir(dir_handle, path) == FR_OK) {
+                node->data = (uintptr_t)dir_handle;
+            } else {
+                kfree(dir_handle);
+                kfree(node);
+                return NULL;
+            }
+        }
+        return node;
     }
 
-    int type = (fno.fattrib & AM_DIR) ? VFS_DIRECTORY : VFS_FILE;
-    vfs_node_t* node = vfs_create_node(name, type);
-    if (!node) return NULL;
+    debugln("[fat32] File '%s' not found. Creating a new file...", path);
 
-    node->size = fno.fsize;
-    node->ops = &fat32_ops;
+    FIL* file_handle = kmalloc(sizeof(FIL));
+    /* FA_CREATE_ALWAYS creates a new file. If it exists, it overwrites it.
+       Use FA_OPEN_ALWAYS if you want to prevent truncation. */
+    res = f_open(file_handle, path, FA_CREATE_ALWAYS | FA_READ | FA_WRITE);
     
-    if (type == VFS_FILE) {
-        FIL* file_handle = kmalloc(sizeof(FIL));
-        if (f_open(file_handle, path, FA_READ | FA_WRITE) == FR_OK) {
-            node->data = (uintptr_t)file_handle;
-        } else {
+    if (res == FR_OK) {
+        vfs_node_t* node = vfs_create_node(name, VFS_FILE);
+        if (!node) {
+            f_close(file_handle);
             kfree(file_handle);
-            kfree(node);
             return NULL;
         }
-    } else {
-        DIR* dir_handle = kmalloc(sizeof(DIR));
-        if (f_opendir(dir_handle, path) == FR_OK) {
-            node->data = (uintptr_t)dir_handle;
-        } else {
-            kfree(dir_handle);
-            kfree(node);
-            return NULL;
-        }
+        node->size = 0;
+        node->ops = &fat32_ops;
+        node->data = (uintptr_t)file_handle;
+        
+        f_sync(file_handle);
+        return node;
+    } {
+        debugln("[fat32] Failed to create file '%s'. FatFs error: %d", path, res);
+        kfree(file_handle);
     }
 
-    return node;
+    return NULL;
 }
 
 int fat32_vfs_read(vfs_node_t* node, void* buf, size_t size, size_t offset) {
@@ -97,25 +124,30 @@ int fat32_vfs_read(vfs_node_t* node, void* buf, size_t size, size_t offset) {
 }
 
 int fat32_vfs_write(vfs_node_t* node, const void* buf, size_t size, size_t offset) {
-    if (node->type != VFS_FILE || !node->data) return -1;
+    if (!node || node->type != VFS_FILE || !node->data) return -1;
 
     FIL* file = (FIL*)node->data;
     FRESULT res;
 
     if (f_tell(file) != offset) {
         res = f_lseek(file, (FSIZE_t)offset);
-        if (res != FR_OK) return -1;
+        if (res != FR_OK) {
+            debugln("[fat32 write] f_lseek to %zu failed: %d", offset, res);
+            return -1;
+        }
     }
 
     UINT bytes_written = 0;
     res = f_write(file, buf, (UINT)size, &bytes_written);
-    if (res != FR_OK) return -1;
+    if (res != FR_OK) {
+        debugln("[fat32 write] f_write failed: %d", res);
+        return -1;
+    }
 
-    /* Auto synchronize layout allocations safely */
     f_sync(file);
     
-    if (file->obj.objsize > node->size) {
-        node->size = file->obj.objsize;
+    if (f_size(file) > node->size) {
+        node->size = f_size(file);
     }
 
     return (int)bytes_written;

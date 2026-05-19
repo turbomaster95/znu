@@ -6,21 +6,19 @@
 #include <proc.h>
 #include <kernel/tty.h>
 #include <fcntl.h>
+#include <gdt.h>
 
 extern void jump_to_usermode(uintptr_t entry, uintptr_t stack);
 extern uint64_t* kernel_pml4;
 extern uint64_t hhdm_offset;
 extern uintptr_t vmm_virt_to_phys(uint64_t* pml4, uintptr_t virt);
+extern int get_cpu_id(void);
 
 uint64_t* vmm_create_user_pml4(void) {
-    // 1. Allocate a new page for the PML4
     uint64_t* pml4 = (uint64_t*)PHYS_TO_VIRT(palloc_zero());
 
-    // 2. We need the boot/kernel PML4 to clone the higher half
-    // We can use the global kernel_pml4 you defined in vmm.c
     extern uint64_t* kernel_pml4;
 
-    // 3. Clone entries 256-511 (Higher Half)
     for (int i = 256; i < 512; i++) {
         pml4[i] = kernel_pml4[i];
     }
@@ -30,14 +28,12 @@ uint64_t* vmm_create_user_pml4(void) {
 
 process_t* create_process_from_elf(uint8_t* elf_data, char** argv, char** envp) {
     static uint64_t next_pid = 1;
-    // 1. Basic ELF Validation
     Elf64_Ehdr* header = (Elf64_Ehdr*)elf_data;
     if (memcmp(header->e_ident, ELFMAG, 4) != 0) {
         debugln("[elf] Critical: ELF has invalid magic!");
         return NULL;
     }
 
-    // 2. Allocate process structure and private PML4
     process_t* proc = kmalloc(sizeof(process_t));
     memset(proc, 0, sizeof(process_t));
     proc->pid = next_pid++;
@@ -46,7 +42,6 @@ process_t* create_process_from_elf(uint8_t* elf_data, char** argv, char** envp) 
     proc->parent_pid = current_process ? current_process->pid : 0;
     uintptr_t max_vaddr = 0;
 
-    // 2.5 Allocate Kernel Stack (32KB)
     void* kstack = kmalloc(32768);
     proc->kstack_top = (uintptr_t)kstack + 32768;
 
@@ -56,7 +51,6 @@ process_t* create_process_from_elf(uint8_t* elf_data, char** argv, char** envp) 
 
     Elf64_Phdr* phdr = (Elf64_Phdr*)(elf_data + header->e_phoff);
 
-    // 3. Load PT_LOAD segments into the NEW PML4
     for (int i = 0; i < header->e_phnum; i++) {
         if (phdr[i].p_type == PT_LOAD) {
             uintptr_t start_page = phdr[i].p_vaddr & ~0xFFFULL;
@@ -97,7 +91,6 @@ process_t* create_process_from_elf(uint8_t* elf_data, char** argv, char** envp) 
     proc->brk_start = (max_vaddr + 0xFFF) & ~0xFFFULL;
     proc->brk = proc->brk_start;
 
-    // 4. Setup User Stack (16 pages / 64KB)
     uintptr_t user_stack_base = 0x00007ffff0000000;
     uint64_t stack_pages = 16;
     for (uint64_t i = 0; i < stack_pages; i++) {
@@ -178,7 +171,6 @@ process_t* create_process_from_elf(uint8_t* elf_data, char** argv, char** envp) 
 
     proc->stack_top = stack_ptr;
 
-    // Initialize context for the first run on the new kernel stack
     registers_t* regs = (registers_t*)(proc->kstack_top - sizeof(registers_t));
     memset(regs, 0, sizeof(registers_t));
     
@@ -192,14 +184,10 @@ process_t* create_process_from_elf(uint8_t* elf_data, char** argv, char** envp) 
     
     proc->context_ptr = regs;
     
-    // Initialize SSE state
     __asm__ volatile("fninit");
     __asm__ volatile("fxsave %0" : "=m"(proc->sse_state));
-    // Set default MXCSR (bits 7-12 are masks, they should be 1 to mask exceptions)
     *(uint32_t*)&proc->sse_state[24] = 0x1F80; 
 
-    // debugln("[proc] Process created. Entry: %p, PML4: %p", proc->entry, proc->pml4);
-    
     for (int i = 0; i < MAX_FILES; i++) proc->files[i] = NULL;
 
     proc->files[0] = tty_open_file(0, O_RDONLY);
@@ -213,11 +201,38 @@ int replace_process_with_elf(process_t* proc, uint8_t* elf_data, char** argv, ch
     Elf64_Ehdr* header = (Elf64_Ehdr*)elf_data;
     if (memcmp(header->e_ident, ELFMAG, 4) != 0) return -1;
 
-    // 1. Create a NEW PML4 (so we don't destroy ourselves while loading)
-    uint64_t* new_pml4 = vmm_create_user_pml4();
-    if (!new_pml4) return -1;
+    // --- STAGE 1: SECURELY ALLOCATE AND COPY STRINGS IN KERNEL SPACE ---
+    // This stops user string metric updates from sliding into context mismatches.
+    int argc = 0; if (argv) while (argv[argc]) argc++;
+    int envc = 0; if (envp) while (envp[envc]) envc++;
 
-    // 2. Load ELF into the NEW PML4
+    char** staged_argv = kmalloc(sizeof(char*) * (argc + 1));
+    for (int i = 0; i < argc; i++) {
+        size_t len = strlen(argv[i]) + 1;
+        staged_argv[i] = kmalloc(len);
+        memcpy(staged_argv[i], argv[i], len);
+    }
+    staged_argv[argc] = NULL;
+
+    char** staged_envp = kmalloc(sizeof(char*) * (envc + 1));
+    for (int i = 0; i < envc; i++) {
+        size_t len = strlen(envp[i]) + 1;
+        staged_envp[i] = kmalloc(len);
+        memcpy(staged_envp[i], envp[i], len);
+    }
+    staged_envp[envc] = NULL;
+
+    // --- STAGE 2: INITIALIZE NEW PAGE TABLE LAYOUT ---
+    uint64_t* new_pml4 = vmm_create_user_pml4();
+    if (!new_pml4) {
+        // Cleanup staging elements on system failures
+        for (int i = 0; i < argc; i++) kfree(staged_argv[i]);
+        kfree(staged_argv);
+        for (int i = 0; i < envc; i++) kfree(staged_envp[i]);
+        kfree(staged_envp);
+        return -1;
+    }
+
     uintptr_t max_vaddr = 0;
     Elf64_Phdr* phdr = (Elf64_Phdr*)(elf_data + header->e_phoff);
     for (int i = 0; i < header->e_phnum; i++) {
@@ -252,7 +267,6 @@ int replace_process_with_elf(process_t* proc, uint8_t* elf_data, char** argv, ch
         }
     }
 
-    // 3. Setup User Stack (16 pages)
     uintptr_t user_stack_base = 0x00007ffff0000000;
     uint64_t stack_pages = 16;
     for (uint64_t i = 0; i < stack_pages; i++) {
@@ -261,30 +275,28 @@ int replace_process_with_elf(process_t* proc, uint8_t* elf_data, char** argv, ch
     }
     uintptr_t stack_ptr = user_stack_base + (stack_pages * 0x1000);
 
-    // 4. Copy Args/Env (same logic as create_process_from_elf)
-    int argc = 0; if (argv) while (argv[argc]) argc++;
-    int envc = 0; if (envp) while (envp[envc]) envc++;
-
+    // --- STAGE 3: MAP STRINGS FROM SAFE STORAGE TO TARGET TARGET STACK ---
     uintptr_t* k_envp = kmalloc(sizeof(uintptr_t) * (envc + 1));
     for (int i = envc - 1; i >= 0; i--) {
-        size_t len = strlen(envp[i]) + 1;
+        size_t len = strlen(staged_envp[i]) + 1;
         stack_ptr -= len; stack_ptr &= ~7ULL;
         void* dest = (void*)(vmm_virt_to_phys(new_pml4, stack_ptr) + hhdm_offset);
-        memcpy(dest, envp[i], len);
+        memcpy(dest, staged_envp[i], len);
         k_envp[i] = stack_ptr;
     }
     k_envp[envc] = 0;
 
     uintptr_t* k_argv = kmalloc(sizeof(uintptr_t) * (argc + 1));
     for (int i = argc - 1; i >= 0; i--) {
-        size_t len = strlen(argv[i]) + 1;
+        size_t len = strlen(staged_argv[i]) + 1;
         stack_ptr -= len; stack_ptr &= ~7ULL;
         void* dest = (void*)(vmm_virt_to_phys(new_pml4, stack_ptr) + hhdm_offset);
-        memcpy(dest, argv[i], len);
+        memcpy(dest, staged_argv[i], len);
         k_argv[i] = stack_ptr;
     }
     k_argv[argc] = 0;
 
+    // --- STAGE 4: BUILD THE ELF AUXILIARY VECTORS BLOCK ---
     stack_ptr -= 8;
     *(uint64_t*)(vmm_virt_to_phys(new_pml4, stack_ptr) + hhdm_offset) = 0;
     stack_ptr -= 8;
@@ -320,24 +332,43 @@ int replace_process_with_elf(process_t* proc, uint8_t* elf_data, char** argv, ch
 
     stack_ptr &= ~0xFULL;
 
-    kfree(k_envp); kfree(k_argv);
+    proc->kstack_top &= ~0xFULL;
 
-    // 5. COMMIT: Switch PML4 and update process state
+    // Clean up temporary tracking frameworks
+    kfree(k_envp); kfree(k_argv);
+    for (int i = 0; i < argc; i++) kfree(staged_argv[i]);
+    kfree(staged_argv);
+    for (int i = 0; i < envc; i++) kfree(staged_envp[i]);
+    kfree(staged_envp);
+
     proc->pml4 = new_pml4;
     proc->entry = header->e_entry;
     proc->stack_top = stack_ptr;
     proc->brk_start = (max_vaddr + 0xFFF) & ~0xFFFULL;
     proc->brk = proc->brk_start;
 
-    // Update registers in the stack frame
+    int cpu_id = get_cpu_id();
+
+    tss_per_cpu[cpu_id].rsp0 = proc->kstack_top;
+
+    // Set registers sequentially matching GDT mappings
+    regs->cs = 0x23;   // User Code Selector (Index 4 | RPL 3)
+    regs->ss = 0x1B;   // User Data Selector (Index 3 | RPL 3)
+    regs->ds = 0x1B;
+    regs->es = 0x1B;
     regs->rip = proc->entry;
     regs->rsp = proc->stack_top;
-    regs->rax = 0; // Return 0 to user mode on success
+    regs->rflags = 0x202; 
+    regs->rax = 0;
+    
+    // Wipe volatile structural register states cleanly
+    regs->rbx = 0; regs->rcx = 0; regs->rdx = 0;
+    regs->rsi = 0; regs->rdi = 0; regs->rbp = 0;
+    regs->r8  = 0; regs->r9  = 0; regs->r10 = 0; regs->r11 = 0;
+    regs->r12 = 0; regs->r13 = 0; regs->r14 = 0; regs->r15 = 0;
 
     extern void vmm_switch(uint64_t* pml4);
     vmm_switch(new_pml4);
-
-    //debugln("[proc] PID %d replaced with new image. Entry: %p", proc->pid, proc->entry);
 
     return 0;
 }
@@ -360,14 +391,13 @@ void load_elf(uint8_t* elf_data) {
             for (uintptr_t page = start_page; page < end_page; page += 0x1000) {
                 if (vmm_virt_to_phys(kernel_pml4, page) == 0) {
                     void* phys = palloc_zero();
-		    debugln("Mapping page phys: %p, page: %p, kernel_pm4: %p", (uintptr_t)phys, page, kernel_pml4);
+                    debugln("Mapping page phys: %p, page: %p, kernel_pm4: %p", (uintptr_t)phys, page, kernel_pml4);
                     map_page(kernel_pml4, page, (uintptr_t)phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
                 }
             }
 
             debugln("[elf] Pages Mapped");
             // 2. Copy data via HHDM to bypass SMAP
-            // Note: BSS is automatically zeroed because palloc_zero provides clean pages.
             uint64_t remaining = phdr[i].p_filesz;
             uint64_t current_vaddr = phdr[i].p_vaddr;
             uint64_t src_offset = phdr[i].p_offset;
@@ -378,15 +408,14 @@ void load_elf(uint8_t* elf_data) {
                 uint64_t to_copy = 0x1000 - page_offset;
                 if (to_copy > remaining) to_copy = remaining;
 
-                // Write directly to physical memory via the higher-half map
-                void* dest = (void*)(phys + hhdm_offset);
-		debugln("[elf] Remaining abt to be memcpy'd. dest: %p, elf + src_offset: %p, to_copy: %p", dest, elf_data + src_offset, to_copy);
+                void* dest = (void*)(phys + hhdm_offset + page_offset);
+                debugln("[elf] Remaining abt to be memcpy'd. dest: %p, elf + src_offset: %p, to_copy: %p", dest, elf_data + src_offset, to_copy);
                 memcpy(dest, elf_data + src_offset, to_copy);
 
                 current_vaddr += to_copy;
                 src_offset += to_copy;
                 remaining -= to_copy;
-		debugln("[elf] memcpy'd done!");
+                debugln("[elf] memcpy'd done!");
             }
         }
     }
@@ -396,7 +425,7 @@ void load_elf(uint8_t* elf_data) {
 
     for (uint64_t i = 0; i < stack_pages; i++) {
         void* phys = palloc_zero();
-	debugln("[elf] Map page phys: %p, ustackbase: %p, kernel_pm4: %p", (uintptr_t)phys, user_stack_base + (i * 0x1000), kernel_pml4);
+        debugln("[elf] Map page phys: %p, ustackbase: %p, kernel_pm4: %p", (uintptr_t)phys, user_stack_base + (i * 0x1000), kernel_pml4);
         map_page(kernel_pml4, user_stack_base + (i * 0x1000), (uintptr_t)phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
     }
 
@@ -404,4 +433,3 @@ void load_elf(uint8_t* elf_data) {
     debugln("[elf] About to jmp to userspace, hdr=> %lx, ustacktop: %p", header->e_entry, user_stack_top);
     jump_to_usermode(header->e_entry, user_stack_top);
 }
-

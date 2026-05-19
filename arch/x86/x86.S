@@ -13,7 +13,7 @@ force_context_restore:
     pop rax         
     pop rax         
 
-    mov ax, 0x1B    ; Entry 3 (0x18) | RPL 3 (0x03) = 0x1B
+    mov eax, 0x1B    ; Entry 3 (0x18) | RPL 3 (0x03) = 0x1B
     mov ds, ax
     mov es, ax
 

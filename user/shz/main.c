@@ -1,21 +1,3 @@
-#ifdef __linux__
-#include <spawn.h>
-#include <sys/wait.h>
-extern char **environ;
-
-#define sys_spawn(path, argv, env) ({ \
-    pid_t _pid; \
-    int _res = posix_spawn(&_pid, path, NULL, NULL, argv, environ); \
-    (_res == 0) ? (int)_pid : -1; \
-})
-
-#define sys_wait(pid, status) waitpid(pid, status, 0)
-#define sys_open  open
-#define sys_read  read
-#define sys_close close
-#define sys_exit  exit
-#endif
-
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
@@ -24,6 +6,7 @@ extern char **environ;
 #include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <sys/wait.h>
 
 #define ZL_FREESTANDING
 #define ZL_MALLOC malloc
@@ -33,11 +16,11 @@ extern char **environ;
 
 #include <zline.h>
 
-#define EXEC  1
-#define REDIR 2
-#define PIPE  3
-#define LIST  4
-#define BACK  5
+#define EXEC    1
+#define REDIR   2
+#define PIPE    3
+#define LIST    4
+#define BACK    5
 #define MAXARGS 10
 
 struct cmd { int type; };
@@ -49,18 +32,18 @@ struct backcmd { int type; struct cmd *cmd; };
 
 struct cmd *parsecmd(char*);
 
-int znu_spawn(char *path, char **argv) {
-    int pid = sys_spawn(path, argv, NULL);
-    if (pid < 0 && path[0] != '/') {
+/* Attempts to execute the binary, falling back to /bin and /sbin paths */
+void znu_exec(char *path, char **argv) {
+    execv(path, argv);
+    
+    if (path[0] != '/') {
         char buf[256];
         snprintf(buf, sizeof(buf), "/bin/%s", path);
-        pid = sys_spawn(buf, argv, NULL);
-        if (pid < 0) {
-            snprintf(buf, sizeof(buf), "/sbin/%s", path);
-            pid = sys_spawn(buf, argv, NULL);
-        }
+        execv(buf, argv);
+        
+        snprintf(buf, sizeof(buf), "/sbin/%s", path);
+        execv(buf, argv);
     }
-    return pid;
 }
 
 void runcmd(struct cmd *cmd) {
@@ -68,41 +51,80 @@ void runcmd(struct cmd *cmd) {
     struct redircmd *rcmd;
     struct listcmd *lcmd;
     struct pipecmd *pcmd;
+    int pfd[2];
     int pid, status;
 
-    if(cmd == 0) exit(0);
+    if (cmd == 0) exit(0);
 
-    switch(cmd->type){
+    switch (cmd->type) {
     case EXEC:
         ecmd = (struct execcmd*)cmd;
-        if(ecmd->argv[0] == 0) exit(1);
-        
-        pid = znu_spawn(ecmd->argv[0], ecmd->argv);
-        if (pid >= 0) sys_wait(pid, &status);
-        else printf("sh: command not found: %s\n", ecmd->argv[0]);
-        break;
+        if (ecmd->argv[0] == 0) exit(1);
+        znu_exec(ecmd->argv[0], ecmd->argv);
+        printf("sh: command not found: %s\n", ecmd->argv[0]);
+        exit(1);
 
     case REDIR:
         rcmd = (struct redircmd*)cmd;
-        runcmd(rcmd->cmd);
-        break;
+        close(rcmd->fd); // Free up target slot (0 or 1)
+        
+        int file_fd = open(rcmd->file, rcmd->mode, 0644);
+        if (file_fd < 0) {
+            printf("sh: open %s failed\n", rcmd->file);
+            exit(1);
+        }
+        // Since we closed rcmd->fd right before, open guarantees it snags that exact slot.
+        // If your kernel doesn't guarantee lowest-available fd allocation, uncomment below:
+        // dup2(file_fd, rcmd->fd); 
 
-    case LIST:
-        lcmd = (struct listcmd*)cmd;
-        runcmd(lcmd->left);
-        runcmd(lcmd->right);
+        runcmd(rcmd->cmd);
         break;
 
     case PIPE:
         pcmd = (struct pipecmd*)cmd;
-        runcmd(pcmd->left);
-        runcmd(pcmd->right);
+        if (pipe(pfd) < 0) {
+            printf("sh: pipe creation failed\n");
+            exit(1);
+        }
+
+        /* 1. Fork out the left side stage process */
+        if (fork() == 0) {
+            close(1);       // Free stdout slot
+            dup(pfd[1]);    // Duplicate write-end of pipe into stdout
+            close(pfd[0]);  // Close unused read end
+            close(pfd[1]);  // Close original write tracker
+            runcmd(pcmd->left);
+        }
+
+        /* 2. Fork out the right side stage process */
+        if (fork() == 0) {
+            close(0);       // Free stdin slot
+            dup(pfd[0]);    // Duplicate read-end of pipe into stdin
+            close(pfd[0]);  // Close original read tracker
+            close(pfd[1]);  // Close unused write end
+            runcmd(pcmd->right);
+        }
+
+        /* 3. Parent shell closes its tracking ends and reaps both pipeline parts */
+        close(pfd[0]);
+        close(pfd[1]);
+        wait(&status);
+        wait(&status);
+        break;
+
+    case LIST:
+        lcmd = (struct listcmd*)cmd;
+        if (fork() == 0) runcmd(lcmd->left);
+        wait(&status);
+        if (fork() == 0) runcmd(lcmd->right);
+        wait(&status);
         break;
 
     case BACK:
-        runcmd(((struct backcmd*)cmd)->cmd);
+        if (fork() == 0) runcmd(((struct backcmd*)cmd)->cmd);
         break;
     }
+    exit(0);
 }
 
 void shell_completion(const char *buf, zl_completions_t *lc) {
@@ -115,27 +137,36 @@ int main(void) {
     zline_t *zl = zline_init("\033[1;34mznu\033[0m \033[1;36m/\033[0m > ");
     zline_set_completion_callback(zl, shell_completion);
 
-    while(1) {
+    while (1) {
         char *input = zline_read(zl);
-        if(!input) continue;
+        if (!input) continue;
 
-        while(*input == ' ') input++;
-        if(*input == '\0') continue;
+        while (*input == ' ') input++;
+        if (*input == '\0') continue;
 
-        if(strcmp(input, "exit") == 0) break;
-        if(strcmp(input, "clear") == 0) { printf("\033[2J\033[H"); continue; }
-        if(strncmp(input, "cd ", 3) == 0) {
-            if(chdir(input+3) < 0) printf("cannot cd %s\n", input+3);
+        if (strcmp(input, "exit") == 0) break;
+        if (strcmp(input, "clear") == 0) { printf("\033[2J\033[H"); continue; }
+        
+        // Custom internal chdir so the shell process updates its state
+        if (strncmp(input, "cd ", 3) == 0) {
+            if (chdir(input + 3) < 0) printf("cannot cd %s\n", input + 3);
             continue;
         }
 
         struct cmd *c = parsecmd(input);
-        runcmd(c);
+        
+        /* This fork keeps the core shell alive! */
+        if (fork() == 0) {
+            runcmd(c);
+        }
+        
+        int status;
+        wait(&status); // Wait for the spawned pipeline layer to finish execution
     }
     return 0;
 }
 
-
+/* --- Keep all your token parsing functions down here --- */
 struct cmd* execcmd(void) {
     struct execcmd *cmd = malloc(sizeof(*cmd));
     memset(cmd, 0, sizeof(*cmd));
@@ -235,7 +266,7 @@ struct cmd* parseredirs(struct cmd *cmd, char **ps, char *es) {
     while(peek(ps, es, "<>")){
         tok = gettoken(ps, es, 0, 0);
         gettoken(ps, es, &q, &eq);
-        *eq = 0; // Null terminate filename
+        *eq = 0; 
         if(tok == '<') cmd = redircmd(cmd, q, O_RDONLY, 0);
         else cmd = redircmd(cmd, q, O_WRONLY|O_CREAT, 1);
     }

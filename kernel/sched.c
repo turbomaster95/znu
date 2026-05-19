@@ -197,7 +197,7 @@ process_t* clone_process(process_t* src, registers_t* regs) {
     static uint64_t next_pid = 1000;
     dst->pid = next_pid++;
     dst->parent_pid = src->pid;
-    dst->priority = src->priority; // Inherit standard parent priority bounds
+    dst->priority = src->priority; 
     
     extern uint64_t* vmm_clone_pml4(uint64_t* src_pml4);
     dst->pml4 = vmm_clone_pml4(src->pml4);
@@ -215,6 +215,7 @@ process_t* clone_process(process_t* src, registers_t* regs) {
     memcpy(dst->context_ptr, regs, offset);
     
     dst->context_ptr->rax = 0;
+    
     dst->state = TASK_READY;
     
     return dst;

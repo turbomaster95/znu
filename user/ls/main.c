@@ -2,14 +2,6 @@
 #include <string.h>
 #include <syscall.h>
 
-// Assuming this matches your kernel's dirent structure
-//typedef struct {
-//    uint32_t inode;
-//    uint32_t size;
-//    uint8_t type;
-//    char name[256];
-//} znu_dirent_t;
-
 int main(int argc, char** argv) {
     char path[256];
     
@@ -42,6 +34,6 @@ int main(int argc, char** argv) {
         }
     }
 
-    sys_close(fd);
+    // sys_close(fd);
     return 0;
 }
