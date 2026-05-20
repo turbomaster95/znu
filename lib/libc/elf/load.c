@@ -201,8 +201,6 @@ int replace_process_with_elf(process_t* proc, uint8_t* elf_data, char** argv, ch
     Elf64_Ehdr* header = (Elf64_Ehdr*)elf_data;
     if (memcmp(header->e_ident, ELFMAG, 4) != 0) return -1;
 
-    // --- STAGE 1: SECURELY ALLOCATE AND COPY STRINGS IN KERNEL SPACE ---
-    // This stops user string metric updates from sliding into context mismatches.
     int argc = 0; if (argv) while (argv[argc]) argc++;
     int envc = 0; if (envp) while (envp[envc]) envc++;
 
@@ -222,7 +220,6 @@ int replace_process_with_elf(process_t* proc, uint8_t* elf_data, char** argv, ch
     }
     staged_envp[envc] = NULL;
 
-    // --- STAGE 2: INITIALIZE NEW PAGE TABLE LAYOUT ---
     uint64_t* new_pml4 = vmm_create_user_pml4();
     if (!new_pml4) {
         // Cleanup staging elements on system failures
@@ -275,7 +272,6 @@ int replace_process_with_elf(process_t* proc, uint8_t* elf_data, char** argv, ch
     }
     uintptr_t stack_ptr = user_stack_base + (stack_pages * 0x1000);
 
-    // --- STAGE 3: MAP STRINGS FROM SAFE STORAGE TO TARGET TARGET STACK ---
     uintptr_t* k_envp = kmalloc(sizeof(uintptr_t) * (envc + 1));
     for (int i = envc - 1; i >= 0; i--) {
         size_t len = strlen(staged_envp[i]) + 1;
@@ -296,7 +292,6 @@ int replace_process_with_elf(process_t* proc, uint8_t* elf_data, char** argv, ch
     }
     k_argv[argc] = 0;
 
-    // --- STAGE 4: BUILD THE ELF AUXILIARY VECTORS BLOCK ---
     stack_ptr -= 8;
     *(uint64_t*)(vmm_virt_to_phys(new_pml4, stack_ptr) + hhdm_offset) = 0;
     stack_ptr -= 8;
@@ -347,13 +342,15 @@ int replace_process_with_elf(process_t* proc, uint8_t* elf_data, char** argv, ch
     proc->brk_start = (max_vaddr + 0xFFF) & ~0xFFFULL;
     proc->brk = proc->brk_start;
 
-    int cpu_id = get_cpu_id();
+    extern void vmm_switch(uint64_t* pml4);
+    vmm_switch(new_pml4);
+    regs = (registers_t*)(proc->kstack_top - sizeof(registers_t));
 
+    int cpu_id = get_cpu_id();
     tss_per_cpu[cpu_id].rsp0 = proc->kstack_top;
 
-    // Set registers sequentially matching GDT mappings
-    regs->cs = 0x23;   // User Code Selector (Index 4 | RPL 3)
-    regs->ss = 0x1B;   // User Data Selector (Index 3 | RPL 3)
+    regs->cs = 0x23;   
+    regs->ss = 0x1B;   
     regs->ds = 0x1B;
     regs->es = 0x1B;
     regs->rip = proc->entry;
@@ -361,14 +358,10 @@ int replace_process_with_elf(process_t* proc, uint8_t* elf_data, char** argv, ch
     regs->rflags = 0x202; 
     regs->rax = 0;
     
-    // Wipe volatile structural register states cleanly
     regs->rbx = 0; regs->rcx = 0; regs->rdx = 0;
     regs->rsi = 0; regs->rdi = 0; regs->rbp = 0;
     regs->r8  = 0; regs->r9  = 0; regs->r10 = 0; regs->r11 = 0;
     regs->r12 = 0; regs->r13 = 0; regs->r14 = 0; regs->r15 = 0;
-
-    extern void vmm_switch(uint64_t* pml4);
-    vmm_switch(new_pml4);
 
     return 0;
 }
