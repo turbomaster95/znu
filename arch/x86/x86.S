@@ -1,3 +1,4 @@
+default rel
 ; Put the random funcs i need here who dont require their own .S file :)
 
 global force_context_restore

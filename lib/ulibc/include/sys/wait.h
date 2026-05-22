@@ -3,6 +3,8 @@
 
 #include <sys/types.h>
 
+struct rusage;
+
 pid_t wait(int *stat_loc);
 pid_t waitpid(pid_t pid, int *stat_loc, int options);
 pid_t wait3(int *stat_loc, int options, struct rusage *resource_usage);

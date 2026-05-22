@@ -43,7 +43,7 @@ extern int       get_cpu_id(void);
 
 /* ───────────────────────── MSR helpers ────────────────────────────── */
 
-#define MSR_FS_BASE   0xC0000100UL
+#define MSR_FS_BASED   0xC0000100UL
 #define MSR_GS_BASE   0xC0000101UL
 
 static inline void wrmsrl(uint32_t msr, uint64_t val)
@@ -733,7 +733,7 @@ process_t *create_process_from_elf(uint8_t *elf_data, char **argv, char **envp)
     proc->files[2] = tty_open_file(0, O_WRONLY);
 
     /* TLS %fs base is written to MSR when the process first runs.
-     * Store it so the context switcher can do: wrmsrl(MSR_FS_BASE, proc->tls_base) */
+     * Store it so the context switcher can do: wrmsrl(MSR_FS_BASED, proc->tls_base) */
 
     return proc;
 }
@@ -994,11 +994,11 @@ int replace_process_with_elf(process_t *proc, uint8_t *elf_data,
     proc->context_ptr = regs;
 
     /* Write %fs base for TLS.  The context switcher must also do this on
-     * every task-switch-in: wrmsrl(MSR_FS_BASE, current_process->tls_base) */
+     * every task-switch-in: wrmsrl(MSR_FS_BASED, current_process->tls_base) */
     if (tls_base)
-        wrmsrl(MSR_FS_BASE, tls_base);
+        wrmsrl(MSR_FS_BASED, tls_base);
     else
-        wrmsrl(MSR_FS_BASE, 0);
+        wrmsrl(MSR_FS_BASED, 0);
 
     /* Reset FPU/SSE state to a clean MXCSR=0x1F80 baseline */
     init_fpu(proc);

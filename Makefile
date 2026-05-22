@@ -118,7 +118,7 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 
 HOSTCC       = gcc
 HOSTCXX      = g++
-HOSTCFLAGS   = -Wall -Wno-unused-variable -Wno-format-security -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer
+HOSTCFLAGS   = -Wall -Wno-unused-variable -Wno-format-security -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -Wno-discarded-qualifiers -Wno-dangling-pointer 
 HOSTCXXFLAGS = -O2
 
 # Beautify output
@@ -198,7 +198,7 @@ LINUXINCLUDE    := -Iinclude \
 
 KBUILD_CPPFLAGS := -D__KERNEL__ -include $(srctree)/include/prelude.h
 
-KBUILD_CFLAGS   := -Wall -Wno-unused-function -Wno-unused-variable -Wno-format-truncation -Wno-misleading-indentation -Wundef -Wstrict-prototypes -Wno-trigraphs -mno-mmx -mno-sse -mno-sse2 \
+KBUILD_CFLAGS   := -Wall -Wno-unused-function -Wno-array-compare -Wno-address-of-packed-member -Wno-infinite-recursion -Wno-unused-variable -Wno-format-truncation -Wno-misleading-indentation -Wundef -Wstrict-prototypes -Wno-trigraphs -mno-mmx -mno-sse -mno-sse2 \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security -include $(srctree)/include/prelude.h \
@@ -393,6 +393,7 @@ $(TARGET): $($(TARGET)-all) FORCE scripts/embsym/embsym
 	$(call if_changed,strip)
 ifeq ($(CONFIG_GENERATE_ISO),y)
 	$(call if_changed,build_limine)
+	(cd configs/sysroot && find . -mindepth 1 -not -path '*/.*' | cpio -o -H newc --quiet | lz4 -12) > configs/iso_root/boot/initramfs.cpio
 	$(call if_changed,mkiso)
 endif
 ifeq ($(CONFIG_MAKE_UKI),y)

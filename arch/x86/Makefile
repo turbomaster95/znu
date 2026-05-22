@@ -25,3 +25,4 @@ obj-y += mutex.o
 obj-y += rwlock.o
 obj-y += semaphore.o
 obj-y += x86.o
+obj-y += panic.o
