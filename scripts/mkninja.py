@@ -4,7 +4,6 @@ import sys
 import fileinput
 import platform
 
-# --- Configuration & Patterns ---
 file_pattern = "[`'](.+)['']."
 start_target_pattern = " *Considering target file " + file_pattern
 pruning_pattern = " *Pruning file " + file_pattern
@@ -164,16 +163,12 @@ if __name__ == "__main__":
         filtered_commands = []
         
         for cmd in commands:
-            # 1. Look for description in echo first
             match = strip_pattern.search(cmd)
             if match:
                 raw_text = ansi_escape.sub('', match.group(6))
                 desc_string = " ".join(raw_text.split())
             
-            # 2. Aggressively remove the echo/printf commands from the string
             clean_cmd = strip_pattern.sub('', cmd)
-            
-            # 3. SPLIT BY && AND ;, FILTER OUT REDIRECT ARTIFACTS
             parts = re.split(r'&&|;', clean_cmd)
             new_parts = []
             for p in parts:
