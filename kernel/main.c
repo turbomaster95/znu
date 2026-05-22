@@ -28,6 +28,8 @@
 #include <smp.h>
 #include <kernel.h>
 #include <sync.h>
+#include <net.h>
+#include <e1000.h>
 
 spinlock_t terminal_print_lock = SPINLOCK_INIT;
 
@@ -112,6 +114,31 @@ void force_sync(void* addr) {
     volatile uint32_t* fb = (volatile uint32_t*)addr;
     uint32_t dummy = *fb; // Force a read
     (void)dummy;
+}
+
+void test_web_request(void) {
+    uint8_t ip[4] = {1, 1, 1, 1};
+
+    // 2. Connect via TCP to Port 80
+    int id = tcp_connect(ip, 80);
+    if (id < 0) {
+        debugln("TCP Connect failed", 3, 1);
+        return;
+    }
+
+    // 3. Send raw HTTP GET
+    const char *req = "GET / HTTP/1.1\r\nHost: google.com\r\nConnection: close\r\n\r\n";
+    tcp_send(id, req, strlen(req));
+
+    // 4. Read response
+    uint8_t response[1024];
+    int len = tcp_recv(id, response, 1023);
+    if (len > 0) {
+        response[len] = 0;
+        debugln("Received: %s", 1, 0, response);
+    }
+
+    tcp_close(id);
 }
 
 void simd_init(void) {
@@ -294,19 +321,23 @@ void kmain(void) {
     lapic_write(LAPIC_REG_INITIAL_COUNT,lapic_ticks_per_ms);
     debugln("LAPIC timer armed.");
 
-    debugln("[ktest] Testing sleep(2000)...");
-    uint64_t s_start = timer_ticks;
-    sleep(2000);
-    uint64_t s_end = timer_ticks;
-    debugln("[ktest] sleep(2000) finished. PIT ticks elapsed: %d", s_end - s_start);
-    if (s_end - s_start != 2000) {
-        debugwarn("sleep(2000) is not accurate!");
-        uint64_t elapsed = s_end - s_start;
-        uint64_t error = (elapsed > 2000) ? (elapsed - 2000) : (2000 - elapsed);
-        debugln("[ktest] Thats like.. %d of error!", (uint32_t)error);
-    } else {
-        debugln("[ktest] sleep(2000) is accurate!");
-    }
+
+    #ifdef CONFIG_KTEST
+     debugln("[ktest] Testing sleep(2000)...");
+     uint64_t s_start = timer_ticks;
+     sleep(2000);
+     uint64_t s_end = timer_ticks;
+     debugln("[ktest] sleep(2000) finished. PIT ticks elapsed: %d", s_end - s_start);
+     if (s_end - s_start != 2000) {
+         debugwarn("sleep(2000) is not accurate!");
+         uint64_t elapsed = s_end - s_start;
+         uint64_t error = (elapsed > 2000) ? (elapsed - 2000) : (2000 - elapsed);
+         debugln("[ktest] Thats like.. %d of error!", (uint32_t)error);
+     } else {
+         debugln("[ktest] sleep(2000) is accurate!");
+     }
+    #endif 
+
     rsdp_response = rsdp_request.response;
     
     debugln("[kernel] Basic System Initialization done!");
@@ -344,6 +375,12 @@ void kmain(void) {
 
     tty_init();
     debugln("[tty] Initialized tty");
+
+    e1000_init();
+    net_init();
+
+    sleep(1000);
+    //test_web_request();
 
     smp_init();
     debugln("[smp] ALL CORES HAVE BEEN WAKEN UP!!!!");

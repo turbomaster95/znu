@@ -37,4 +37,4 @@ force_context_restore:
 
     swapgs
 
-    iretq
+    o64 sysret

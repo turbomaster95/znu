@@ -207,3 +207,59 @@ uint64_t* vmm_get_kernel_pml4(void) {
     return kernel_pml4;
 }
 
+/**
+ * vmm_free_user_pages: Teardown and free all user-space pages and translation tables
+ *                      (Entries 0-255). Prevents massive leaks during exec().
+ */
+void vmm_free_user_pages(uint64_t *pml4) {
+    if (!pml4) return;
+
+    // Walk user space entries only (0 to 255)
+    for (int i = 0; i < 256; i++) {
+        if (!(pml4[i] & PTE_PRESENT)) continue;
+
+        uint64_t pdpt_phys = pml4[i] & ~0xFFF;
+        uint64_t* pdpt = (uint64_t*)PHYS_TO_VIRT(pdpt_phys);
+
+        for (int j = 0; j < 512; j++) {
+            if (!(pdpt[j] & PTE_PRESENT)) continue;
+            
+            // Skip 1GB huge pages if encountered
+            if (pdpt[j] & (1ULL << 7)) continue;
+
+            uint64_t pd_phys = pdpt[j] & ~0xFFF;
+            uint64_t* pd = (uint64_t*)PHYS_TO_VIRT(pd_phys);
+
+            for (int k = 0; k < 512; k++) {
+                if (!(pd[k] & PTE_PRESENT)) continue;
+
+                // Skip 2MB huge pages if encountered
+                if (pd[k] & (1ULL << 7)) continue;
+
+                uint64_t pt_phys = pd[k] & ~0xFFF;
+                uint64_t* pt = (uint64_t*)PHYS_TO_VIRT(pt_phys);
+
+                for (int l = 0; l < 512; l++) {
+                    if (!(pt[l] & PTE_PRESENT)) continue;
+
+                    // Leaf node: Free the actual physical frame holding user data/code
+                    uint64_t frame_phys = pt[l] & ~0xFFF;
+                    pfree((void *)frame_phys);
+                    pt[l] = 0;
+                }
+
+                // Free the Page Table itself
+                pfree((void *)pt_phys);
+                pd[k] = 0;
+            }
+
+            // Free the Page Directory itself
+            pfree((void *)pd_phys);
+            pdpt[j] = 0;
+        }
+
+        // Free the Page Directory Pointer Table itself
+        pfree((void *)pdpt_phys);
+        pml4[i] = 0;
+    }
+}

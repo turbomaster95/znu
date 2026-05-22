@@ -1,3 +1,5 @@
+KBUILD_CPPFLAGS += -I$(srctree)/arch/x86/include -I$(srctree)/arch/x86/drivers/include
+
 obj-y += start.o
 obj-y += gdt.o
 obj-y += gdt_flush.o

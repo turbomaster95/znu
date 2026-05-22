@@ -74,6 +74,8 @@ SECTIONS
     __ksyms_start = .;
     .ksyms : {
         *(.ksyms)
+	. = ALIGN(0x1000);
+	. += 0x20000;
     } :data
     __ksyms_end = .;
 

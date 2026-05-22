@@ -31,6 +31,7 @@ typedef struct {
 void idt_init(void);
 void idt_local_load(void);
 void idt_global_init(void);
+void register_interrupt_handler(uint8_t n, void (*handler)(registers_t*), const char* name);
 
 #endif /* IDT_H */
 

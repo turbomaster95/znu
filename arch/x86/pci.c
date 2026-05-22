@@ -298,3 +298,27 @@ void pci_enable_busmaster(
         value
     );
 }
+
+pci_device_t* pci_find_device(uint16_t vendor_id, uint16_t device_id) {
+    for (int i = 0; i < pci_device_count; i++) {
+        if (pci_devices[i].vendor_id == vendor_id && pci_devices[i].device_id == device_id) {
+            return &pci_devices[i];
+        }
+    }
+    return NULL;
+}
+
+pci_device_t* pci_find_device_by_class(uint8_t class, uint8_t subclass) {
+    for (int i = 0; i < pci_device_count; i++) {
+        if (pci_devices[i].class_code == class && pci_devices[i].subclass == subclass) {
+            return &pci_devices[i];
+        }
+    }
+    return NULL;
+}
+
+void pci_enable_memory_space(pci_device_t* dev) {
+    uint32_t command = pci_read_dword(dev->bus, dev->slot, dev->func, 0x04);
+    command |= (1 << 1); // Set bit 1 (Memory Space bit)
+    pci_write_dword(dev->bus, dev->slot, dev->func, 0x04, command);
+}

@@ -46,6 +46,25 @@ static const pci_class_name_t pci_class_names[] = {
 };
 
 #define PCI_MAX_DEVICES 256
+#define PCI_CLASS_STORAGE     0x01
+#define PCI_CLASS_NETWORK     0x02
+#define PCI_CLASS_DISPLAY     0x03
+#define PCI_CLASS_MULTIMEDIA  0x04
+#define PCI_CLASS_MEMORY      0x05
+#define PCI_CLASS_BRIDGE      0x06
+#define PCI_CLASS_COMM        0x07
+#define PCI_CLASS_PERIPHERAL  0x08
+#define PCI_CLASS_INPUT       0x09
+#define PCI_CLASS_DOCKING     0x0A
+#define PCI_CLASS_PROCESSOR   0x0B
+#define PCI_CLASS_SERIAL      0x0C
+
+#define PCI_SUBCLASS_IDE      0x01
+#define PCI_SUBCLASS_SATA     0x06
+#define PCI_SUBCLASS_ETHERNET 0x00
+#define PCI_SUBCLASS_VGA      0x00
+#define PCI_SUBCLASS_USB      0x03
+#define PCI_SUBCLASS_PCI      0x04
 
 extern pci_device_t pci_devices[PCI_MAX_DEVICES];
 extern int pci_device_count;
@@ -79,6 +98,7 @@ void pci_write_dword(
     uint32_t value
 );
 
+
 void pci_init(void);
 
 pci_device_t* pci_find_class(
@@ -88,5 +108,9 @@ pci_device_t* pci_find_class(
 );
 
 void pci_enable_busmaster(pci_device_t* dev);
+pci_device_t* pci_find_device(uint16_t vendor_id, uint16_t device_id);
+pci_device_t* pci_find_device_by_class(uint8_t class, uint8_t subclass);
+void pci_enable_memory_space(pci_device_t* dev);
+void pci_enable_msi(pci_device_t* dev, uint8_t vector, void (*handler)(void), const char* name);
 
 #endif

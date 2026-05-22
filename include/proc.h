@@ -45,6 +45,8 @@ typedef struct {
     task_prio_t priority;
     vfs_file_t* files[MAX_FILES];
     uint8_t sse_state[512] __attribute__((aligned(16)));
+    uintptr_t tls_base;
+    uint32_t  tls_size;
 
     uint64_t pending_signals;
     uint64_t blocked_signals;
