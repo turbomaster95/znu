@@ -7,6 +7,7 @@
 #include <devfs.h>
 #include <fat32.h>
 #include <vfs.h>
+#include <errno.h>
 
 vfs_node_t* root_node = NULL;
 
@@ -156,7 +157,7 @@ int vfs_write(vfs_node_t* node, const void* buf, size_t size, size_t offset) {
 int vfs_ioctl(vfs_node_t* node, unsigned long request, void* argp) {
     if (!node) return -1;
     if (!node->ops || !node->ops->ioctl) {
-        return -25; // Standard fallback error: -ENOTTY
+        return -ENOTTY;
     }
     return node->ops->ioctl(node, request, argp);
 }

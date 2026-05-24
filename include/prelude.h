@@ -1,7 +1,7 @@
 #ifndef _PRELUDE_H
 #define _PRELUDE_H
 
-#include "../arch/x86/include/cpuid.h"
+#include <cpuid.h>
 
 #define PERFORM __attribute__((no_sanitize("undefined", "address", "thread"), noinline))
 

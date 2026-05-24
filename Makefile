@@ -194,14 +194,14 @@ AFLAGS_KERNEL	=
 # Needed to be compatible with the O= option
 LINUXINCLUDE    := -Iinclude \
                    $(if $(KBUILD_SRC), -I$(srctree)/include) \
-                   -include include/generated/autoconf.h -include $(srctree)/include/prelude.h
+                   -include include/generated/autoconf.h
 
 KBUILD_CPPFLAGS := -D__KERNEL__ -include $(srctree)/include/prelude.h
 
 KBUILD_CFLAGS   := -Wall -Wno-unused-function -Wno-array-compare -Wno-address-of-packed-member -Wno-infinite-recursion -Wno-unused-variable -Wno-format-truncation -Wno-misleading-indentation -Wundef -Wstrict-prototypes -Wno-trigraphs -mno-mmx -mno-sse -mno-sse2 \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
-		   -Wno-format-security -include $(srctree)/include/prelude.h \
+		   -Wno-format-security \
 		   -fno-delete-null-pointer-checks -fno-sanitize=address \
 		   $(EXTRA_CFLAGS)
 

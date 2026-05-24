@@ -81,6 +81,10 @@ znu
 znus
 configs/iso_root/boot/kernel.bin
 configs/sysroot/bin/*
+configs/sysroot/bld/*
+configs/sysroot/bld/sysr/
+configs/sysroot/bld/obj/
+ninja.build
 lib/.uacpi_out
 init/init.elf
 NvVars

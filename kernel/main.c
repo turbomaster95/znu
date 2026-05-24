@@ -282,6 +282,8 @@ void kmain(void) {
     idt_local_load();
     debugln("[idt] IDT initialized.");
 
+    symbols_init();
+
     // Initialize PIT
     pit_init(1000);
     debugln("[pit] PIT initialized for calibration.");
@@ -359,8 +361,6 @@ void kmain(void) {
     //debugln("[kernel_debug] About to initialize namespace..");
     status = uacpi_namespace_initialize();
     debugln("[SUCCESS] uACPI is live.");
-
-    symbols_init();
 
     pci_init();
     debugln("[pci] Init done!");

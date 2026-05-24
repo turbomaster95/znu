@@ -1,25 +1,3 @@
-/*
- * elf.c — Full-featured ELF64 loader for x86-64 kernel
- *
- * Supports:
- *   PT_LOAD     — segment loading with correct PF_R/W/X → PTE flags
- *   PT_TLS      — Thread-Local Storage block + TCB setup, %fs base via WRMSRL
- *   PT_GNU_STACK — NX stack enforcement (stack gets PTE_NX when PF_X absent)
- *   PT_GNU_RELRO — post-load read-only remapping of RELRO segment
- *   PT_INTERP   — detected and rejected with clear error (no dynamic linker yet)
- *   AT_* auxv   — full System V AMD64 ABI auxiliary vector
- *   ABI stack   — correct 16-byte alignment per SysV AMD64 ABI
- *   fxsave area — 16-byte aligned SSE state
- *   brk         — page-aligned, set from PT_LOAD high watermark
- *
- * Bugs fixed vs. original:
- *   - AT_PHDR computed correctly (load base + e_phoff, not e_entry - e_phoff)
- *   - Stack alignment applied before argc push, not after
- *   - Segment pages get NX unless PF_X is set
- *   - Old PML4 freed in replace_process_with_elf
- *   - fxsave buffer is __attribute__((aligned(16)))
- */
-
 #include <elf.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -31,17 +9,13 @@
 #include <gdt.h>
 #include <syscall.h>
 
-/* ───────────────────────── external symbols ───────────────────────── */
-
 extern void     jump_to_usermode(uintptr_t entry, uintptr_t stack);
 extern uint64_t *kernel_pml4;
 extern uint64_t  hhdm_offset;
 extern uintptr_t vmm_virt_to_phys(uint64_t *pml4, uintptr_t virt);
-extern void      vmm_free_user_pages(uint64_t *pml4);   /* you must implement this */
+extern void      vmm_free_user_pages(uint64_t *pml4);
 extern void      vmm_switch(uint64_t *pml4);
 extern int       get_cpu_id(void);
-
-/* ───────────────────────── MSR helpers ────────────────────────────── */
 
 #define MSR_FS_BASED   0xC0000100UL
 #define MSR_GS_BASE   0xC0000101UL
@@ -53,15 +27,6 @@ static inline void wrmsrl(uint32_t msr, uint64_t val)
         : "memory");
 }
 
-/* ───────────────────────── PTE flag helpers ───────────────────────── */
-
-/*
- * Convert ELF segment flags (PF_R / PF_W / PF_X) to page-table entry flags.
- * PTE_NX is the "No-Execute" bit (bit 63).  Assumes your page.h defines:
- *   PTE_PRESENT, PTE_WRITABLE, PTE_USER, PTE_NX
- * If PTE_NX is not defined in your page.h add:
- *   #define PTE_NX (1ULL << 63)
- */
 static uint64_t elf_flags_to_pte(uint32_t pflags, int user)
 {
     uint64_t pte = PTE_PRESENT;
@@ -73,16 +38,12 @@ static uint64_t elf_flags_to_pte(uint32_t pflags, int user)
     return pte;
 }
 
-/* ───────────────────────── HHDM write helpers ─────────────────────── */
-
-/* Write 8 bytes to a user virtual address via HHDM (no CR3 switch needed). */
 static inline void hhdm_write64(uint64_t *pml4, uintptr_t uva, uint64_t val)
 {
     uintptr_t phys = vmm_virt_to_phys(pml4, uva);
     *(uint64_t *)(phys + hhdm_offset) = val;
 }
 
-/* Copy bytes to a user virtual address range via HHDM (handles page boundaries). */
 static void hhdm_copy_to_user(uint64_t *pml4, uintptr_t uva,
                                const void *src, size_t len)
 {
@@ -98,8 +59,6 @@ static void hhdm_copy_to_user(uint64_t *pml4, uintptr_t uva,
         len -= chunk;
     }
 }
-
-/* ───────────────────────── Page mapping helpers ───────────────────── */
 
 /* Allocate and map a contiguous range of user virtual pages. */
 static void map_user_range(uint64_t *pml4, uintptr_t start, uintptr_t end,
@@ -127,26 +86,6 @@ static void remap_user_range(uint64_t *pml4, uintptr_t start, uintptr_t end,
     }
 }
 
-/* ───────────────────────── TLS / TCB ─────────────────────────────── */
-
-/*
- * Thread Control Block layout (variant II — glibc/musl compatible):
- *
- *   [ TLS data block (tls_filesz bytes, zero-extended to tls_memsz) ]
- *   [ TCB: { uintptr_t self; } ]  ← %fs:0 points here
- *
- * %fs base = address of TCB.
- * TCB.self = %fs base  (required by glibc/musl for __thread access).
- *
- * The tls_image (PT_TLS file data) is copied into the data block.
- * We allocate everything from kmalloc (kernel heap) so it's reachable
- * via HHDM; then map a user-accessible alias at a well-known address
- * so user-space can read %fs-relative data through the page tables.
- *
- * For simplicity we put the TLS block + TCB into the user address space
- * at TLS_USER_BASE, mapped with PTE_USER | PTE_WRITABLE.
- */
-
 #define TLS_USER_BASE   0x00007fff00000000ULL   /* well below stack */
 #define TCB_SIZE        16                       /* self ptr + padding */
 
@@ -155,17 +94,6 @@ typedef struct {
     uintptr_t dtv;      /* %fs:8 — unused for static TLS, zero */
 } tcb_t;
 
-/*
- * elf_setup_tls — allocate TLS block + TCB for a process.
- *
- * Returns the user-virtual address of the TCB (= %fs base), or 0 on failure.
- * Sets proc->tls_base and proc->tls_size.
- *
- * tls_image   : pointer to the PT_TLS file data in the ELF image
- * tls_filesz  : PT_TLS p_filesz (initialized bytes)
- * tls_memsz   : PT_TLS p_memsz  (total size, may be > filesz)
- * tls_align   : PT_TLS p_align
- */
 static uintptr_t elf_setup_tls(process_t *proc,
                                 const uint8_t *tls_image,
                                 size_t tls_filesz,
@@ -174,12 +102,6 @@ static uintptr_t elf_setup_tls(process_t *proc,
 {
     if (tls_align < 1) tls_align = 1;
 
-    /*
-     * Layout (low → high):
-     *   [pad to align] [tls_memsz bytes of TLS data] [TCB_SIZE bytes]
-     *
-     * %fs base = start of TCB.
-     */
     size_t total = tls_memsz + TCB_SIZE;
     /* Round total up to page granularity for mapping. */
     size_t total_pages = (total + 0xFFFULL) & ~0xFFFULL;
@@ -214,17 +136,6 @@ static uintptr_t elf_setup_tls(process_t *proc,
     return uva_tcb;   /* = %fs base */
 }
 
-/* ───────────────────────── Auxiliary vector ───────────────────────── */
-
-/*
- * Full System V AMD64 ABI auxiliary vector.
- * Push in reverse order so the stack grows down; the topmost entry
- * ends up at the lowest address after all pushes.
- *
- * Returns the new stack_ptr after all auxv entries are pushed.
- *
- * Note: auxv entries are { uint64_t type, uint64_t value } pairs.
- */
 typedef struct {
     uint64_t type;
     uint64_t value;
@@ -294,54 +205,12 @@ typedef struct {
 # define AT_SYSINFO_EHDR 33
 #endif
 
-/*
- * Push a 16-byte random blob for AT_RANDOM and return its user address.
- * We just use a trivial LFSR seed here; replace with your CSPRNG.
- */
 static uintptr_t push_random_bytes(uint64_t *pml4, uintptr_t *sp)
 {
-    /* 16 bytes of pseudo-random data — replace with real entropy */
-    static uint64_t seed = 0xDEADBEEFCAFEBABEULL;
-    seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17;
-    uint64_t r0 = seed;
-    seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17;
-    uint64_t r1 = seed;
-
-    *sp -= 8; hhdm_write64(pml4, *sp, r1);
-    *sp -= 8; hhdm_write64(pml4, *sp, r0);
+    *sp = rand();
     return *sp;
 }
 
-/* ───────────────────────── Stack builder ──────────────────────────── */
-
-/*
- * Build the initial user stack according to the System V AMD64 ABI:
- *
- *   [stack top]
- *   ... (16-byte alignment pad if needed)
- *   AT_NULL         (2 × uint64_t = 16 bytes)
- *   ...auxv pairs...
- *   0               (envp NULL terminator)
- *   envp[n-1]
- *   ...
- *   envp[0]
- *   0               (argv NULL terminator)
- *   argv[argc-1]
- *   ...
- *   argv[0]
- *   argc            ← RSP points here when _start is called
- *
- * String data is pushed *before* the pointers so it lives above them.
- * The ABI requires RSP % 16 == 0 *before* the call instruction that
- * transfers to _start; since there is no call, RSP % 16 == 8 would be
- * needed if _start is called — but for direct jump we align to 16.
- */
-
-/*
- * elf_build_stack — push all strings, auxv, envp, argv, argc.
- *
- * Returns the final RSP value.
- */
 static uintptr_t elf_build_stack(process_t *proc,
                                   uintptr_t stack_top,
                                   char **argv, int argc,
@@ -355,7 +224,6 @@ static uintptr_t elf_build_stack(process_t *proc,
     uint64_t *pml4  = proc->pml4;
     uintptr_t sp    = stack_top;
 
-    /* ── 1. Copy string data onto the stack (env strings, then arg strings) ── */
 
     uintptr_t *uenvp = kmalloc(sizeof(uintptr_t) * (envc + 1));
     for (int i = envc - 1; i >= 0; i--) {
@@ -397,25 +265,12 @@ static uintptr_t elf_build_stack(process_t *proc,
     /* AT_RANDOM 16-byte blob */
     uintptr_t u_random = push_random_bytes(pml4, &sp);
 
-    /* ── 2. Align stack to 16 bytes before pushing pointer arrays ── */
-    /*
-     * The total number of 8-byte slots we are about to push:
-     *   auxv:  14 entries × 2 = 28 slots  (adjust if you add/remove entries)
-     *   envp:  envc + 1 (NULL)
-     *   argv:  argc + 1 (NULL)
-     *   argc:  1
-     * Total = 28 + envc + 1 + argc + 1 + 1 = 31 + envc + argc slots.
-     *
-     * For RSP to be 16-byte aligned after all pushes (each 8 bytes),
-     * the number of pushes must be even. Pre-align sp here.
-     */
     /* Count slots to be pushed: auxv + envp_ptrs + argv_ptrs + argc */
     int n_auxv = 14; /* AT_NULL + 6 pairs → 14 slots (7 entries × 2) */
     int total_slots = n_auxv + (envc + 1) + (argc + 1) + 1;
     if (total_slots & 1) sp -= 8;  /* alignment pad */
     sp &= ~0xFULL;                 /* final 16-byte align */
 
-    /* ── 3. Push auxv (in reverse — AT_NULL last-pushed → first-read) ── */
     PUSH_AUXV(sp, pml4, AT_NULL,    0);
     PUSH_AUXV(sp, pml4, AT_PLATFORM, u_platform);
     if (u_execfn) PUSH_AUXV(sp, pml4, AT_EXECFN, u_execfn);
@@ -433,24 +288,18 @@ static uintptr_t elf_build_stack(process_t *proc,
     PUSH_AUXV(sp, pml4, AT_ENTRY,   hdr->e_entry);
     PUSH_AUXV(sp, pml4, AT_PHENT,   hdr->e_phentsize);
     PUSH_AUXV(sp, pml4, AT_PHNUM,   hdr->e_phnum);
-    /* AT_PHDR: virtual address where the PHDR table was loaded.
-     * For a non-PIE binary this is load_base + e_phoff.
-     * (Your original code used e_entry - e_phoff which is wrong.) */
     PUSH_AUXV(sp, pml4, AT_PHDR,    load_base + hdr->e_phoff);
 
-    /* ── 4. Push envp pointer array (NULL terminated) ── */
     sp -= 8; hhdm_write64(pml4, sp, 0);           /* NULL terminator */
     for (int i = envc - 1; i >= 0; i--) {
         sp -= 8; hhdm_write64(pml4, sp, uenvp[i]);
     }
 
-    /* ── 5. Push argv pointer array (NULL terminated) ── */
     sp -= 8; hhdm_write64(pml4, sp, 0);           /* NULL terminator */
     for (int i = argc - 1; i >= 0; i--) {
         sp -= 8; hhdm_write64(pml4, sp, uargv[i]);
     }
 
-    /* ── 6. Push argc ── */
     sp -= 8; hhdm_write64(pml4, sp, (uint64_t)argc);
 
     kfree(uenvp);
@@ -458,8 +307,6 @@ static uintptr_t elf_build_stack(process_t *proc,
 
     return sp;
 }
-
-/* ───────────────────────── PML4 creation ──────────────────────────── */
 
 uint64_t *vmm_create_user_pml4(void)
 {
@@ -469,8 +316,6 @@ uint64_t *vmm_create_user_pml4(void)
         pml4[i] = kernel_pml4[i];
     return pml4;
 }
-
-/* ───────────────────────── ELF validation ──────────────────────────── */
 
 static int elf_validate(const Elf64_Ehdr *hdr)
 {
@@ -482,20 +327,6 @@ static int elf_validate(const Elf64_Ehdr *hdr)
     return 0;
 }
 
-/* ───────────────────────── Core loader ─────────────────────────────── */
-
-/*
- * elf_load_segments — parse all PHDRs, map/copy PT_LOAD segments,
- * handle PT_TLS, PT_GNU_STACK, PT_GNU_RELRO, reject PT_INTERP.
- *
- * Fills in:
- *   *out_load_base   — lowest PT_LOAD p_vaddr (for AT_PHDR with PIE)
- *   *out_max_vaddr   — top of highest PT_LOAD segment (for brk)
- *   *out_tls_base    — user virtual address of TCB, or 0
- *   *out_stack_exec  — 1 if stack must be executable (PT_GNU_STACK PF_X)
- *
- * Returns 0 on success, -1 on failure.
- */
 static int elf_load_segments(process_t *proc,
                               const uint8_t *elf_data,
                               const Elf64_Ehdr *hdr,
@@ -510,7 +341,6 @@ static int elf_load_segments(process_t *proc,
     uintptr_t tls_base      = 0;
     int       stack_exec    = 0;
 
-    /* ── First pass: detect PT_INTERP (dynamic executables) ── */
     for (int i = 0; i < hdr->e_phnum; i++) {
         if (phdr[i].p_type == PT_INTERP) {
             debugln("[elf] PT_INTERP found — dynamic executables not yet supported");
@@ -518,7 +348,6 @@ static int elf_load_segments(process_t *proc,
         }
     }
 
-    /* ── Second pass: load segments and handle special PHDRs ── */
     for (int i = 0; i < hdr->e_phnum; i++) {
         const Elf64_Phdr *p = &phdr[i];
 
@@ -547,11 +376,6 @@ static int elf_load_segments(process_t *proc,
         }
 
         case PT_TLS: {
-            /*
-             * PT_TLS describes the TLS initialiser image.
-             * The actual block is allocated via elf_setup_tls() after all
-             * PT_LOAD segments are mapped (so we can be sure the PML4 is ready).
-             */
             const uint8_t *tls_image = (p->p_filesz > 0)
                                        ? elf_data + p->p_offset
                                        : NULL;
@@ -582,7 +406,6 @@ static int elf_load_segments(process_t *proc,
         }
     }
 
-    /* ── Third pass: apply RELRO (read-only after load) ── */
     for (int i = 0; i < hdr->e_phnum; i++) {
         const Elf64_Phdr *p = &phdr[i];
         if (p->p_type == PT_GNU_RELRO) {
@@ -607,15 +430,9 @@ static int elf_load_segments(process_t *proc,
     return 0;
 }
 
-/* ───────────────────────── User stack allocation ────────────────────── */
-
 #define USER_STACK_BASE  0x00007ffff0000000ULL
 #define STACK_PAGES      16          /* 64 KiB */
 
-/*
- * Allocate a user stack.  Returns the initial stack_ptr (top of stack).
- * stack_exec controls whether the stack pages are executable.
- */
 static uintptr_t alloc_user_stack(uint64_t *pml4, int stack_exec)
 {
     uint64_t pte = PTE_PRESENT | PTE_WRITABLE | PTE_USER;
@@ -629,8 +446,6 @@ static uintptr_t alloc_user_stack(uint64_t *pml4, int stack_exec)
     }
     return USER_STACK_BASE + (uintptr_t)STACK_PAGES * 0x1000;
 }
-
-/* ───────────────────────── Initial register state ──────────────────── */
 
 static void init_regs(process_t *proc, uintptr_t entry, uintptr_t stack_top)
 {
@@ -649,11 +464,6 @@ static void init_regs(process_t *proc, uintptr_t entry, uintptr_t stack_top)
     proc->context_ptr = regs;
 }
 
-/*
- * fxsave buffer must be 16-byte aligned.
- * Declare a static aligned buffer and copy into the proc's sse_state array.
- * If proc->sse_state is itself 16-byte aligned in your struct, just use it directly.
- */
 static void init_fpu(process_t *proc)
 {
     static uint8_t fxbuf[512] __attribute__((aligned(16)));
@@ -664,14 +474,6 @@ static void init_fpu(process_t *proc)
     memcpy(proc->sse_state, fxbuf, 512);
 }
 
-/* ───────────────────────── Public API ──────────────────────────────── */
-
-/*
- * create_process_from_elf — create a brand-new process_t from ELF data.
- *
- * Handles: PT_LOAD, PT_TLS, PT_GNU_STACK, PT_GNU_RELRO.
- * Sets up: kernel stack, registers, FPU state, stdio FDs, auxv, TLS.
- */
 process_t *create_process_from_elf(uint8_t *elf_data, char **argv, char **envp)
 {
     static uint64_t next_pid = 1;
@@ -738,48 +540,9 @@ process_t *create_process_from_elf(uint8_t *elf_data, char **argv, char **envp)
     return proc;
 }
 
-/*
- * replace_process_with_elf — atomic exec() implementation.
- *
- * The entire new address space is constructed in a scratch PML4 before the
- * old one is touched.  The commit is a single pointer swap followed by a
- * CR3 write; only after that is the old PML4 freed.  This guarantees:
- *
- *   1. PRE-FLIGHT   — ELF headers validated; argv/envp deep-copied to the
- *                     kernel heap while the old address space is still live.
- *
- *   2. STAGING      — All PT_LOAD segments, TLS, stack, and the full auxv
- *                     are built into `new_pml4`.  The running process is
- *                     completely untouched.
- *
- *   3. ERROR SAFETY — Any failure before the commit calls
- *                     vmm_free_user_pages(new_pml4) and returns -1.
- *                     The caller's address space is intact; sysret is safe.
- *
- *   4. COMMIT       — CR3 is switched to new_pml4, THEN the old PML4 is
- *                     freed.  There is no window where the CPU executes
- *                     against a freed or half-built page table.
- *
- *   5. REGISTER RESET — Both the `regs` argument (the live syscall frame
- *                     that iretq/sysret will consume) AND the frame stored
- *                     at kstack_top - sizeof(registers_t) are overwritten.
- *                     They must be the same object; a debug assertion is
- *                     included to catch mis-wired syscall stubs.
- *
- * `regs` MUST point to the saved register frame that the syscall return
- * path will restore.  In a typical x86-64 kernel this is the struct pushed
- * by the syscall entry trampoline, passed down as the last argument.
- *
- * Returns 0 on success.  On failure returns -1 and leaves `proc` unchanged.
- */
 int replace_process_with_elf(process_t *proc, uint8_t *elf_data,
                               char **argv, char **envp, registers_t *regs)
 {
-    /* ════════════════════════════════════════════════════════════════
-     * PHASE 1 — PRE-FLIGHT VALIDATION
-     * Validate the ELF image and deep-copy argv/envp to kernel heap
-     * while the current address space is still fully intact.
-     * ════════════════════════════════════════════════════════════════ */
 
     const Elf64_Ehdr *hdr = (const Elf64_Ehdr *)elf_data;
     if (elf_validate(hdr) < 0)
@@ -815,12 +578,6 @@ int replace_process_with_elf(process_t *proc, uint8_t *elf_data,
         if (!kenvp[i]) goto fail_before_pml4;
         memcpy(kenvp[i], envp[i], len);
     }
-
-    /* ════════════════════════════════════════════════════════════════
-     * PHASE 2 — STAGING
-     * Build the entire new address space in a scratch PML4.
-     * Nothing in `proc` is modified until the commit.
-     * ════════════════════════════════════════════════════════════════ */
 
     uint64_t *new_pml4 = vmm_create_user_pml4();
     if (!new_pml4) goto fail_before_pml4;
@@ -867,20 +624,6 @@ int replace_process_with_elf(process_t *proc, uint8_t *elf_data,
         goto fail_after_pml4;
     }
 
-    /* ════════════════════════════════════════════════════════════════
-     * PHASE 3 — POINT OF NO RETURN / COMMIT
-     *
-     * Everything below here must not fail.  All fallible operations
-     * (allocation, copying, validation) are complete.
-     *
-     * Order:
-     *   a) Cache old PML4 pointer.
-     *   b) Update proc state with new values.
-     *   c) Switch CR3 to the new PML4  ← CPU is now on new address space.
-     *   d) Free old PML4               ← safe because CR3 no longer points to it.
-     *   e) Rewrite the register frame.
-     * ════════════════════════════════════════════════════════════════ */
-
     uint64_t *old_pml4 = proc->pml4;   /* (a) cache before overwriting */
 
     /* (b) Update proc metadata — no page table access yet */
@@ -908,42 +651,6 @@ int replace_process_with_elf(process_t *proc, uint8_t *elf_data,
     /* old_pml4 itself is a kernel-heap or palloc'd page; free the PML4 frame */
     pfree((void *)VIRT_TO_PHYS((uintptr_t)old_pml4));
 
-    /* ════════════════════════════════════════════════════════════════
-     * PHASE 4 — REGISTER FRAME RESET
-     *
-     * Your syscall_entry.S trampoline works like this:
-     *
-     *   swapgs
-     *   mov [gs:8], rsp        ; save user RSP
-     *   mov rsp, [gs:0]        ; switch to kernel stack (cpu_context.kernel_stack)
-     *   push ...frame...
-     *   mov rdi, rsp           ; regs = pointer to frame on kernel stack
-     *   mov rbp, rsp
-     *   and rsp, -16           ; align for C call
-     *   call syscall_handler   ; regs passed as rdi
-     *   mov rsp, rbp           ; restore pre-align rsp
-     *   cmp rax, rsp
-     *   jne .switch_to_new_context   ; if handler returned a different frame,
-     *                                ;   jump to it (context switch path)
-     *   ; otherwise fall through to .return_to_user and sysret
-     *
-     * There is ONE frame that matters: `regs`.  It is the frame pushed by
-     * the trampoline onto the current process's kernel stack, and it is
-     * the frame the trampoline will sysret through when syscall_handler
-     * returns (uint64_t)regs.
-     *
-     * The scheduler uses proc->context_ptr when it context-switches back
-     * to this task after it has been descheduled.  That path jumps directly
-     * to .switch_to_new_context with rax = context_ptr, bypassing the
-     * sysret path entirely.  So context_ptr must equal `regs` too —
-     * they both describe the same saved state at the same memory location.
-     *
-     * The discrepancy you saw (regs ≠ kstack_top - sizeof(frame)) is
-     * caused by cpu_context.kernel_stack (gs:0) not being updated after
-     * exec/fork, so the next syscall entry pushed the new process's frame
-     * onto the *old* process's kernel stack.  We fix that below.
-     * ════════════════════════════════════════════════════════════════ */
-
     int cpu = get_cpu_id();
 
     /*
@@ -953,34 +660,9 @@ int replace_process_with_elf(process_t *proc, uint8_t *elf_data,
      */
     tss_per_cpu[cpu].rsp0 = proc->kstack_top;
 
-    /*
-     * cpu_context.kernel_stack (gs:0): read by syscall_entry on every
-     * syscall to set up the kernel stack before pushing the register frame.
-     * This is the root cause of the "regs != sched_frame" mismatch — if
-     * this is stale (pointing at the old process's kstack_top), the next
-     * syscall will push the frame onto the wrong stack.
-     *
-     * cpu_contexts is updated by the scheduler on context switch, but exec()
-     * replaces the process in-place without going through the scheduler, so
-     * we must update it here explicitly.
-     */
     extern cpu_context_t cpu_contexts[MAX_CPUS];
     cpu_contexts[cpu].kernel_stack = proc->kstack_top;
 
-    /*
-     * Overwrite the live register frame.
-     *
-     * `regs` IS the frame that sysret will consume — it was pushed by the
-     * trampoline onto this process's kernel stack, and syscall_handler
-     * received it as its argument.  We simply overwrite it in place so
-     * that when syscall_handler returns (uint64_t)regs and the trampoline
-     * falls through to .return_to_user, the restored state points into
-     * the new binary.
-     *
-     * We also set proc->context_ptr = regs so that if the scheduler ever
-     * switches away and back to this process before it runs its first
-     * syscall, the .switch_to_new_context path also gets the right frame.
-     */
     memset(regs, 0, sizeof(registers_t));
     regs->rip    = proc->entry;
     regs->rsp    = proc->stack_top;
@@ -1016,10 +698,6 @@ int replace_process_with_elf(process_t *proc, uint8_t *elf_data,
             (unsigned long)tls_base);
 
     return 0;
-
-    /* ════════════════════════════════════════════════════════════════
-     * ERROR PATHS — old address space is always left intact
-     * ════════════════════════════════════════════════════════════════ */
 
 fail_after_pml4:
     /* Staged new PML4 is partially built — tear it down cleanly */

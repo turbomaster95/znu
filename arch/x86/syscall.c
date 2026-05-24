@@ -7,6 +7,7 @@
 #include <vfs.h>
 #include <page.h>
 #include <stdio.h>
+#include <errno.h>
 #include <kernel/display.h>
 #include <kernel/tty.h>
 #include <elf.h>
@@ -532,7 +533,7 @@ uint64_t sys_mount(uint64_t source_ptr, uint64_t target_ptr, uint64_t fstype_ptr
 
     if (!source || !target || !fstype) {
         enable_smap();
-        return -22; // Invalid argument
+        return -EINVAL;
     }
 
     debugln("[sys] mount: dev=%s, path=%s, type=%s", source, target, fstype);
@@ -742,7 +743,8 @@ uint64_t syscall_handler(registers_t* regs) {
             return (uint64_t)regs;
 
         default:
-            regs->rax = (uint64_t)-1;
+	    debugln("unsupported syscall: %i", num);
+            regs->rax = (uint64_t)-ENOSYS;
             return (uint64_t)regs;
     }
 }
