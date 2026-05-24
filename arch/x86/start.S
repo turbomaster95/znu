@@ -1,5 +1,5 @@
 [BITS 64]
-extern kmain
+extern earlykmain
 global _start
 global stack_top
 global stack_bottom
@@ -14,6 +14,6 @@ section .text
 _start:
     mov rsp, stack_top  ; Set the stack pointer
     mov rbp, rsp
-    call kmain
+    call earlykmain
     hlt
 

@@ -207,7 +207,14 @@ typedef struct {
 
 static uintptr_t push_random_bytes(uint64_t *pml4, uintptr_t *sp)
 {
-    *sp = rand();
+    static uint64_t seed = 0xDEADBEEFCAFEBABEULL;
+    seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17;
+    uint64_t r0 = seed;
+    seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17;
+    uint64_t r1 = seed;
+
+    *sp -= 8; hhdm_write64(pml4, *sp, r1);
+    *sp -= 8; hhdm_write64(pml4, *sp, r0);
     return *sp;
 }
 

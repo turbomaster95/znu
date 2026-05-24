@@ -7,7 +7,8 @@ KBUILD_CPPFLAGS += -DUACPI_OVERRIDE_LIBC -DUACPI_NATIVE_ALLOC_ZEROED -DUACPI_FOR
 KBUILD_LDFLAGS := -T $(srctree)/scripts/linker.ld
 export KBUILD_LDFLAGS
 
-obj-y := main.o
+obj-y := early.o
+obj-y += main.o
 obj-y += ubsan.o
 obj-y += gui.o
 obj-y += acpi.o
