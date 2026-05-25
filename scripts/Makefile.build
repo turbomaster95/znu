@@ -126,7 +126,9 @@ ifneq ($(strip $(obj-y) $(obj-)),)
 builtin-target := $(obj)/built-in.o
 endif
 
-__build: $(builtin-target) $(lib-target) $(extra-y) $(subdir-ym) $(always)
+module-objs := $(filter %.ko, $(obj-y))
+
+__build: $(builtin-target) $(lib-target) $(extra-y) $(subdir-ym) $(always) $(module-objs)
 	@:
 
 # Compile C sources (.c)
@@ -206,6 +208,27 @@ $(obj)/%.o: $(src)/%.asmflat FORCE
 targets += $(real-objs-y) $(lib-y)
 targets += $(extra-y) $(MAKECMDGOALS) $(always)
 
+# Compile C files into relocatable kernel modules (.ko)
+# ---------------------------------------------------------------------------
+
+# This is a weird thing, but it stops make from deleting our .mod.o files
+.SECONDARY:
+
+quiet_cmd_ko_cc = KC $(quiet_modtag)  $@
+      cmd_ko_cc = $(CC) $(c_flags) -fPIC -mcmodel=large -mno-red-zone -c $< -o $@
+
+$(obj)/%.mod.o: $(src)/%.c FORCE
+	$(call if_changed,ko_cc)
+
+quiet_cmd_ko_link = KLD $(quiet_modtag) $@
+      cmd_ko_link = $(LD) $(ld_flags) -r $< -o $@
+
+$(obj)/%.ko: $(obj)/%.mod.o FORCE
+	$(call if_changed,ko_link)
+
+real-ko-objs := $(patsubst %.ko,%.mod.o,$(module-objs))
+targets += $(real-ko-objs)
+
 # Linker scripts preprocessor (.lds.S -> .lds)
 # ---------------------------------------------------------------------------
 quiet_cmd_cpp_lds_S = LDS     $@
@@ -227,11 +250,11 @@ $(sort $(subdir-obj-y)): $(subdir-ym) ;
 ifdef builtin-target
 quiet_cmd_link_o_target = LD      $@
 # If the list of objects to link is empty, just create an empty built-in.o
-cmd_link_o_target = $(if $(strip $(obj-y)),\
-		      $(LD) $(ld_flags) -r -o $@ $(filter $(obj-y), $^), \
+cmd_link_o_target = $(if $(strip $(filter-out %.ko, $(obj-y))),\
+		      $(LD) $(ld_flags) -r -o $@ $(filter-out %.ko, $(filter $(obj-y), $^)), \
 		      rm -f $@; $(AR) rcs$(KBUILD_ARFLAGS) $@)
 
-$(builtin-target): $(obj-y) FORCE
+$(builtin-target): $(filter-out %.ko, $(obj-y)) FORCE
 	$(call if_changed,link_o_target)
 
 targets += $(builtin-target)

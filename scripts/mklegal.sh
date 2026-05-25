@@ -65,13 +65,36 @@ done
 if [ -s "$ROOT_COMBINED" ]; then
     compile_to_obj "$ROOT_COMBINED" "$TEMP_DIR/znu_root.o"
     rm "$ROOT_COMBINED"
+else
+    rm -f "$ROOT_COMBINED"
+fi
+
+# --- Handle Scripts Folder Licenses ---
+SCRIPTS_COMBINED="$TEMP_DIR/znu_scripts.txt"
+> "$SCRIPTS_COMBINED"
+
+if [ -d "$SRCTREE/scripts" ]; then
+    find "$SRCTREE/scripts" -maxdepth 1 -type f \( -iname "LICENSE*" -o -iname "COPYING*" -o -iname "NOTICE*" \) | while read -r script_file; do
+        # Absolute boundary to avoid reading files inside scripts/temp/
+        [[ "$script_file" == *"$TEMP_DIR"* ]] && continue
+        
+        echo "--- SCRIPTS: $(basename "$script_file") ---" >> "$SCRIPTS_COMBINED"
+        cat "$script_file" >> "$SCRIPTS_COMBINED"
+        echo -e "\n" >> "$SCRIPTS_COMBINED"
+    done
+fi
+
+if [ -s "$SCRIPTS_COMBINED" ]; then
+    compile_to_obj "$SCRIPTS_COMBINED" "$TEMP_DIR/znu_scripts.o"
+    rm "$SCRIPTS_COMBINED"
+else
+    rm -f "$SCRIPTS_COMBINED"
 fi
 
 # --- Handle Locations from NOTICE ---
 paths=$(grep "Location:" "$SRCTREE/NOTICE" | sed -n 's/.*\[\(.*\)\].*/\1/p')
 
 for path in $paths; do
-    # Only proceed if the path is a directory; ignore files (like md5.h)
     if [ -d "$path" ]; then
         folder_name=$(basename "$path")
         sub_combined="$TEMP_DIR/${folder_name}.txt"

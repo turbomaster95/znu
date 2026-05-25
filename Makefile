@@ -13,6 +13,10 @@
 # o  print "Entering directory ...";
 MAKEFLAGS += -rR --no-print-directory
 
+VERSION = 0
+PATCHLEVEL = 2
+SUBLEVEL = 1
+EXTRAVERSION =
 
 # To put more focus on warnings, be less verbose as default
 # Use 'make V=1' to see the full commands
@@ -230,6 +234,13 @@ export KBUILD_LDFLAGS
 # Files to ignore in find ... statements
 
 RCS_FIND_IGNORE := \( -name SCCS -o -name BitKeeper -o -name .svn -o -name CVS -o -name .pc -o -name .hg -o -name .git \) -prune -o
+
+kernelversion:
+	@echo $(KERNELVERSION)
+
+kernelrelease:
+	@echo $(KERNELRELEASE)
+
 
 # ===========================================================================
 # Rules shared between *config targets and build targets
@@ -565,6 +576,9 @@ endif	# skip-makefile
 
 PHONY += FORCE
 FORCE:
+
+%.lst: FORCE
+	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.build obj=$(patsubst %/,%,$(dir $@)) $@
 
 # Declare the contents of the .PHONY variable as phony.  We keep that
 # information in a variable so we can use it in if_changed and friends.
