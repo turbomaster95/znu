@@ -1,15 +1,3 @@
-config EG_GUI
-	bool "Show example gui"
-	default n
-	help
-	  Shows an example gui from kernel mode
-
-config BGA
-	bool "Enable BGA (Bochs Graphic Adapter) Support"
-	default y
-	help
-	  Enables the Bochs Graphic Adapter to be used instead of the normal, fixed-size limine framebuffer.
-
 config KTEST
 	bool "Enable the KRTT (Kernel RunTime Testing) Framework"
 	default y

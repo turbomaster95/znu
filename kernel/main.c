@@ -109,7 +109,11 @@ void kmain(void) {
     tty_init();
     debugln("[tty] Initialized tty");
 
-    e1000_init();
+
+    #ifdef CONFIG_E1000
+       e1000_init();
+    #endif
+
     net_init();
 
     sleep(1000);

@@ -1,14 +1,4 @@
-#
-# For a description of the syntax of this configuration file,
-# see Documentation/kbuild/kconfig-language.txt.
-#
 mainmenu "Configuration"
-
-#config SRCARCH
-#	string
-#	option env="SRCARCH"
-
-#source "arch/$SRCARCH/Kconfig"
 
 config CROSS_COMPILE
 	string "Cross-compiler tool prefix"
@@ -18,22 +8,25 @@ config CROSS_COMPILE
 	  need to set this unless you want the configured kernel build
 	  directory to select the cross-compiler automatically.
 
-#source "lib/Kconfig"
 source "kernel/Kconfig"
-
-config FB_TEST
-	bool "Show a small line test"
-	default y
-	help
-	  Shows a small line from the top-left corner to show kernel is working.
 
 config GENERATE_ISO
 	bool "Generate a Limine iso with the kernel"
-#	depends on FOO
 	help
 	  It automatically generates a image.iso file with the Limine bootloader in it.
 
-config MAKE_UKI
-	bool "Generate a UKI (Unified Kernel Image) for a UEFI Bootloader"
+source "uki/Kconfig"
+
+menu "Device Drivers"
+
+source "drivers/Kconfig"
+
+endmenu
+
+config EG_GUI
+	bool "Show example gui"
+	default n
+	select BGA
 	help
-	  This generates a .efi file which contains the limine bootloader aswell as the kernel in a single, contained package.
+	  Shows an example gui from kernel mode (DEPRECATED)
+

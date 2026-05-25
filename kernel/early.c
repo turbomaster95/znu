@@ -29,7 +29,6 @@
 #include <kernel.h>
 #include <sync.h>
 #include <net.h>
-#include <e1000.h>
 
 spinlock_t terminal_print_lock = SPINLOCK_INIT;
 

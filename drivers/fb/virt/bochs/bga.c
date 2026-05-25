@@ -109,8 +109,7 @@ uint32_t* bga_get_lfb(void) {
     return bga_framebuffer;
 }
 
-void test_bga_gradients(void) {
-    // 1. Define the 6 rainbow colors for the vertical bar
+void totally_normal_test(void) {
     uint32_t rainbow_colors[6] = {
         0x00E40303, // Red
         0x00FF8C00, // Orange
@@ -120,7 +119,6 @@ void test_bga_gradients(void) {
         0x00732982  // Purple
     };
 
-    // 2. Define the 6 stepped background grayscale shades (Top to Bottom)
     uint32_t gray_colors[6] = {
         0x00000000, // Pure Black
         0x00333333, // Dark Gray
@@ -132,19 +130,15 @@ void test_bga_gradients(void) {
 
     uint32_t stripe_height = current_height / 6;
     
-    // Define the boundaries for the central vertical stripe
-    // Placing it right in the middle, spanning 15% of the total screen width
     uint32_t central_width = (current_width * 15) / 100;
     uint32_t rainbow_start = (current_width / 2) - (central_width / 2);
     uint32_t rainbow_end = rainbow_start + central_width;
 
     for (uint32_t y = 0; y < current_height; y++) {
-        // Find which of the 6 horizontal rows we are currently drawing
         uint32_t stripe_index = y / stripe_height;
         if (stripe_index > 5) stripe_index = 5; // Guard boundary
 
         for (uint32_t x = 0; x < current_width; x++) {
-            // If inside the central column bounds, draw the rainbow block
             if (x >= rainbow_start && x < rainbow_end) {
                 bga_put_pixel(x, y, rainbow_colors[stripe_index]);
             } else {

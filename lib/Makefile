@@ -13,6 +13,8 @@ quiet_cmd_run_uacpi  = SH      $(patsubst $(srctree)/%,%,$<)
 quiet_cmd_run_flanterm  = SH      $(patsubst $(srctree)/%,%,$<)
       cmd_run_flanterm  = /bin/bash $(srctree)/scripts/mkflanterm.sh $(srctree)
 
+no-clean-files += build-musl/
+
 obj-y += libc/
 CFLAGS_ff.o := -I$(srctree)/include
 obj-y += fatfs/source/ff.o

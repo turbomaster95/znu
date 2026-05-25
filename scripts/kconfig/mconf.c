@@ -529,12 +529,7 @@ static void conf(struct menu *menu)
 		if (!child_count)
 			break;
 		if (menu == &rootmenu) {
-			item_make("--- ");
-			item_set_tag(':');
-			item_make(_("    Load an Alternate Configuration File"));
-			item_set_tag('L');
-			item_make(_("    Save an Alternate Configuration File"));
-			item_set_tag('S');
+			// Removed the Load Alternate Config and Save Alternate Config Options from here
 		}
 		dialog_clear();
 		res = dialog_menu(prompt ? _(prompt) : _("Main Menu"),

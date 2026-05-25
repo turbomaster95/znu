@@ -1,0 +1,4 @@
+config MAKE_UKI
+	bool "Generate a UKI (Unified Kernel Image) for a UEFI Bootloader"
+	help
+	  This generates a .efi file which contains the limine bootloader aswell as the kernel in a single, contained package.

@@ -11,12 +11,12 @@
 bool vmm_ready = false;
 extern spinlock_t terminal_print_lock;
 extern void smp_enqueue_log(const char* str);
-extern bool bga_init;
+extern bool using_bga;
 
 static void raw_putchar(char c) {
     if (get_cpu_id() == 0) {
         outb(0xe9, c);
-        if (vmm_ready && !bga_init) {
+        if (vmm_ready && !using_bga) {
             if (c == '\n') terminal_putchar('\r');
             terminal_putchar(c);
         }
