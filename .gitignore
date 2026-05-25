@@ -88,6 +88,7 @@ lib/.uacpi_out
 init/init.elf
 NvVars
 *.efi
+*.ninja
 *.img
 *.iso
 lib/flanterm/
