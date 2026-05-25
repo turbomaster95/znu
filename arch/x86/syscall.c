@@ -133,29 +133,41 @@ long sys_write(int fd, const void* buf, size_t count) {
 }
 
 int sys_open(const char* path, int flags) {
-    stac();
-    if (!path || !is_user_addr((void*)path, 1)) return -1;
-    if (!current_process) return -1;
+    if (!path) return -EFAULT;
+    if (!is_user_addr((void*)path, 1)) return -EFAULT;
+    if (!current_process) return -EPERM;
 
+    if (is_user_addr((void*)path, 8)) {
+        debugln("[sys] DEBUG: Path points to: '%c%c%c%c'", 
+                path[0], path[1], path[2], path[3]);
+    }
+
+    stac();
     char kpath[256];
     size_t i;
     for (i = 0; i < 255; i++) {
-        if (!is_user_addr((void*)&path[i], 1)) return -1;
+        if (!is_user_addr((void*)&path[i], 1)) {
+            clac();
+            return -EFAULT;
+        }
         kpath[i] = path[i];
         if (kpath[i] == '\0') break;
     }
     kpath[i] = '\0';
- 
-    extern vfs_node_t* root_node;
-    vfs_node_t* node = vfs_path_to_node(kpath);
-    if (!node) return -1;
+    clac();
 
-    if (!current_process) return -1;
+    if (kpath[0] == '\0') return -ENOENT;
+
+    vfs_node_t* node = vfs_path_to_node(kpath);
+    if (!node) return -ENOENT; // File not found
+
+    if ((flags & O_DIRECTORY) && node->type != VFS_DIRECTORY) return -ENOTDIR;
+
     for (int i = 3; i < MAX_FILES; i++) {
         if (current_process->files[i] == NULL) {
             vfs_file_t* file = (vfs_file_t*)kmalloc(sizeof(vfs_file_t));
-            if (!file) return -1;
-            
+            if (!file) return -ENOMEM;
+
             file->node = node;
             file->pos = 0;
             file->flags = flags;
@@ -163,8 +175,8 @@ int sys_open(const char* path, int flags) {
             return i;
         }
     }
-    clac();
-    return -1;
+    
+    return -EMFILE;
 }
 
 int sys_close(int fd) {
@@ -603,6 +615,8 @@ uint64_t syscall_handler(registers_t* regs) {
     uint64_t arg4 = regs->r10;
     uint64_t arg5 = regs->r8;
 
+    //debugln("syscall: %d (arg1: %p)", num, (void*)regs->rdi);
+
     switch (num) {
         case 0: // read
             regs->rax = (uint64_t)sys_read((int)arg1, (void*)arg2, (size_t)arg3);
@@ -707,6 +721,13 @@ uint64_t syscall_handler(registers_t* regs) {
                 regs->rax = 0;
             }
             return (uint64_t)regs;
+
+	case 231: // sys_exit_group
+	    if (current_process) {
+	        extern registers_t* do_exit(int code);
+	        regs = do_exit((int)arg1);
+	    }
+	    return (uint64_t)regs;
 
         case 60: // exit
             if (current_process) {
