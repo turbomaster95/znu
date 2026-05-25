@@ -1,4 +1,4 @@
-KBUILD_CPPFLAGS += -I$(srctree)/arch/x86/include -I$(srctree)/arch/x86/drivers/include
+KBUILD_CPPFLAGS += -I$(srctree)/arch/x86/include
 
 obj-y += start.o
 obj-y += gdt.o
@@ -6,7 +6,6 @@ obj-y += gdt_flush.o
 obj-y += idt.o
 obj-y += idt_stub.o
 obj-y += pit.o
-obj-y += drivers/
 obj-y += pic.o
 obj-y += tsc.o
 obj-y += rtc.o

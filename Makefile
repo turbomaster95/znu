@@ -198,7 +198,7 @@ LINUXINCLUDE    := -Iinclude \
 
 KBUILD_CPPFLAGS := -D__KERNEL__ -include $(srctree)/include/prelude.h
 
-KBUILD_CFLAGS   := -Wall -Wno-unused-function -Wno-array-compare -Wno-address-of-packed-member -Wno-infinite-recursion -Wno-unused-variable -Wno-format-truncation -Wno-misleading-indentation -Wundef -Wstrict-prototypes -Wno-trigraphs -mno-mmx -mno-sse -mno-sse2 \
+KBUILD_CFLAGS   := -Wall -Wno-unused-function -Wno-undef -Wno-array-compare -Wno-address-of-packed-member -Wno-infinite-recursion -Wno-unused-variable -Wno-format-truncation -Wno-misleading-indentation -Wundef -Wstrict-prototypes -Wno-trigraphs -mno-mmx -mno-sse -mno-sse2 \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
@@ -355,6 +355,7 @@ all: $(LEGAL_OBJ) $(TARGET)
 
 objs-y		:= kernel
 objs-y		+= arch
+objs-y		+= drivers
 user-y		:= user
 user-y		+= init
 libs-y		:= lib

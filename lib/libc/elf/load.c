@@ -330,7 +330,7 @@ static int elf_validate(const Elf64_Ehdr *hdr)
     if (hdr->e_ident[EI_CLASS]   != ELFCLASS64)        { debugln("[elf] Not ELF64");           return -1; }
     if (hdr->e_ident[EI_DATA]    != ELFDATA2LSB)        { debugln("[elf] Not little-endian");   return -1; }
     if (hdr->e_machine           != EM_X86_64)          { debugln("[elf] Not x86-64");          return -1; }
-    if (hdr->e_type != ET_EXEC && hdr->e_type != ET_DYN){ debugln("[elf] Not executable/dyn"); return -1; }
+    if (hdr->e_type != ET_EXEC && hdr->e_type != ET_DYN && hdr->e_type != ET_REL){ debugln("[elf] Not executable/dynamic/relocatable"); return -1; }
     return 0;
 }
 

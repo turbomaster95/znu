@@ -95,42 +95,51 @@ int generate_random_b64_string(char *out_str, size_t out_length) {
 
 static int split_args(char *line, char **argv, int max_args);
 
+#include <stdlib.h>
+#include <string.h>
+
 void try_spawn_program(const char *line) {
-    char line_copy[1024];
-    strncpy(line_copy, line, sizeof(line_copy) - 1);
-    line_copy[sizeof(line_copy) - 1] = '\0';
+    char *line_copy = strdup(line);
+    if (!line_copy) return;
 
-    char *args[16];
+    char **args = malloc(sizeof(char*) * 16);
+    if (!args) {
+        free(line_copy);
+        return;
+    }
+
     int argc = split_args(line_copy, args, 16);
-    if (argc == 0) return; // Empty command line
+    if (argc == 0) {
+        free(line_copy);
+        free(args);
+        return;
+    }
 
-    char *cmd = args[0]; 
-
-    int pid = sys_spawn(cmd, args, NULL);
-
-    if (pid < 0) {
+    int pid = -1;
+    const char *prefixes[] = {"", "/bin/", "/sbin/"};
+    
+    for (int i = 0; i < 3; i++) {
         char path[256];
+        snprintf(path, sizeof(path), "%s%s", prefixes[i], args[0]);
         
-        strcpy(path, "/bin/");
-        strcat(path, cmd);
-        args[0] = path;
-        pid = sys_spawn(path, args, NULL);
+        char *path_copy = strdup(path);
+        args[0] = path_copy; 
 
-        if (pid < 0) {
-            strcpy(path, "/sbin/");
-            strcat(path, cmd);
-            args[0] = path;
-            pid = sys_spawn(path, args, NULL);
+        printf("DEBUG: Spawning '%s' with arg[1]: '%s'\n", args[0], args[1] ? args[1] : "NULL");
+        pid = sys_spawn(args[0], args, NULL);
+
+        if (pid >= 0) {
+            sys_wait(pid, NULL);
+            free(path_copy);
+            break;
         }
+        free(path_copy);
     }
 
-    if (pid >= 0) {
-        int status = 0;
-        sys_wait(pid, &status);
-    } else {
-        printf("?: %s\n", cmd);
-    }
+    free(line_copy);
+    free(args);
 }
+
 
 void run_config() {
     int fd = sys_open("/etc/zinit.conf", 0);
@@ -300,25 +309,20 @@ void cmd_mem() {
 
 static int split_args(char *line, char **argv, int max_args) {
     int argc = 0;
-
     while (*line && argc < max_args) {
-        while (*line == ' ')
-            line++;
+        while (*line == ' ') line++; // Skip leading spaces
+        if (*line == '\0') break;
 
-        if (*line == '\0')
-            break;
+        argv[argc++] = line; // Pointer to start of arg
 
-        argv[argc++] = line;
-
-        while (*line && *line != ' ')
-            line++;
+        while (*line && *line != ' ') line++; // Find end of arg
 
         if (*line == ' ') {
-            *line = '\0';
+            *line = '\0'; // Terminate the arg
             line++;
         }
     }
-
+    argv[argc] = NULL; // IMPORTANT: Always null-terminate your argv array!
     return argc;
 }
 

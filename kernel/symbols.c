@@ -144,3 +144,12 @@ void print_stacktrace(uint64_t *rbp, uint64_t max) {
         rbp = (uint64_t*)next;
     }
 }
+
+uint64_t sym_get_addr(const char* name) {
+    for (uint32_t i = 0; i < sym_count; i++) {
+        if (strcmp(sym_table[i].name, name) == 0) {
+            return sym_table[i].addr;
+        }
+    }
+    return 0;
+}

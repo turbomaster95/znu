@@ -9,5 +9,6 @@ subdir-y += ls
 subdir-y += shz
 subdir-y += fuzz
 subdir-y += ttytest
+subdir-y += insmod
 
 #subdir-y += skeleton/

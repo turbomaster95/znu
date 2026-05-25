@@ -344,6 +344,7 @@ int sys_spawn(const char* path, char** argv, char** envp) {
             char* u_arg = argv[j];
             char* k_arg = kmalloc(256); // Limit argument length
             int l;
+	    debugln("DEBUG: Calculated argc: %d", argc);
             for (l = 0; l < 255; l++) {
                 if (!is_user_addr(&u_arg[l], 1)) break;
                 k_arg[l] = u_arg[l];
@@ -414,12 +415,13 @@ int sys_spawn(const char* path, char** argv, char** envp) {
     }
 
     if (k_argv) {
-        for (int j = 0; k_argv[j]; j++) kfree(k_argv[j]);
-        kfree(k_argv);
+//        for (int j = 0; k_argv[j]; j++) kfree(k_argv[j]);
+//        kfree(k_argv);
     }
+
     if (k_envp) {
-        for (int j = 0; k_envp[j]; j++) kfree(k_envp[j]);
-        kfree(k_envp);
+//        for (int j = 0; k_envp[j]; j++) kfree(k_envp[j]);
+//        kfree(k_envp);
     }
  
     if (!proc) {

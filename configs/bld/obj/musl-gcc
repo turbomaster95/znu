@@ -1,2 +1,0 @@
-#!/bin/sh
-exec "${REALGCC:-x86_64-elf-gcc}" "$@" -specs "/home/deva/Projects/znu/configs/bld/sysr/usr/lib/musl-gcc.specs"

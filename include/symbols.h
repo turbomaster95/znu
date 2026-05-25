@@ -17,5 +17,6 @@ typedef struct {
 symbol_info_t symbol_lookup(uint64_t addr);
 void print_stacktrace(uint64_t *rbp, uint64_t max_frames);
 void symbols_init(void);
+uint64_t sym_get_addr(const char* name);
 
 #endif
