@@ -121,21 +121,25 @@ void print_stacktrace(uint64_t *rbp, uint64_t max) {
     debugln("\n--- STACK TRACE ---");
     
     for (uint64_t i = 0; i < max; i++) {
-        if (!rbp || (uintptr_t)rbp < 0xffff800000000000)
+        if (!rbp || (uintptr_t)rbp < 0xffff800000000000 || ((uintptr_t)rbp & 7))
             break;
-        if ((uintptr_t)rbp & 7) break;
         
         uint64_t rip = rbp[1];
         uint64_t next = rbp[0];
-        
-        uint64_t off;
+
+        if (rip < 0xffffffff80000000) { 
+            debugln("  #%lu  %p  <invalid/user RIP>", i, (void*)rip);
+            break; 
+        }
+
+	uint64_t off;        
         const char *name = sym_lookup(rip, &off);
-        
+
         if (off)
             debugln("  #%lu  %p  <%s+0x%lx>", i, (void*)rip, name, off);
         else
             debugln("  #%lu  %p  <%s>", i, (void*)rip, name);
-        
+
         if (next == 0 || next <= (uintptr_t)rbp) break;
         rbp = (uint64_t*)next;
     }

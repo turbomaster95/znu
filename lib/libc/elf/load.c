@@ -481,10 +481,10 @@ static void init_fpu(process_t *proc)
     memcpy(proc->sse_state, fxbuf, 512);
 }
 
+uint64_t next_pid = 1;
+
 process_t *create_process_from_elf(uint8_t *elf_data, char **argv, char **envp)
 {
-    static uint64_t next_pid = 1;
-
     const Elf64_Ehdr *hdr = (const Elf64_Ehdr *)elf_data;
     if (elf_validate(hdr) < 0) return NULL;
 

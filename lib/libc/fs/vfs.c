@@ -199,3 +199,16 @@ bool vfs_mount(const char* device, const char* fs_type, const char* path) {
     debugln("[vfs] unknown filesystem: %s", fs_type);
     return false;
 }
+
+vfs_file_t* dup_file(vfs_file_t* src) {
+    if (!src) return NULL;
+    
+    vfs_file_t* new_file = (vfs_file_t*)kmalloc(sizeof(vfs_file_t));
+    if (!new_file) return NULL;
+    
+    memcpy(new_file, src, sizeof(vfs_file_t));
+    
+    // src->node->ref_count++;
+    
+    return new_file;
+}

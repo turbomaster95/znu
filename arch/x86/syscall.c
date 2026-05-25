@@ -479,10 +479,17 @@ void* sys_mmap(void* addr, size_t len, int prot, int flags, int fd, uint64_t off
 
 long sys_fork(registers_t* regs) {
     if (!current_process) return -1;
-    
+
+    debugln("Forking! Parent RIP: %p", regs->rip);
+    debugln("[debug] Cloning process at %p", current_process);
+
     extern process_t* clone_process(process_t* src, registers_t* regs);
     process_t* child = clone_process(current_process, regs);
-    if (!child) return -1;
+
+    if (!child) {
+        debugerr("[sys_fork] clone_process returned NULL!");
+        return -1;
+    }
     
     add_process(child);
     return (long)child->pid;
@@ -727,6 +734,22 @@ uint64_t syscall_handler(registers_t* regs) {
 	        extern registers_t* do_exit(int code);
 	        regs = do_exit((int)arg1);
 	    }
+	    return (uint64_t)regs;
+
+	case 14: // rt_sigprocmask
+	    regs->rax = 0;
+	    return (uint64_t)regs;
+
+        case 112: // setsid
+	    regs->rax = 0; 
+	    return (uint64_t)regs;
+
+	case 13: // rt_sigaction
+	    regs->rax = 0;
+	    return (uint64_t)regs;
+
+	case 10: // mprotect
+	    regs->rax = 0;
 	    return (uint64_t)regs;
 
         case 60: // exit

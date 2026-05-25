@@ -102,38 +102,34 @@ void try_spawn_program(const char *line) {
 
     char *args[16];
     int argc = split_args(line_copy, args, 16);
-    if (argc == 0) return;
+    if (argc == 0) return; // Empty command line
 
-    // Use a static buffer or global to avoid stack corruption
-    static char path[256]; 
-    char *cmd = args[0];
+    char *cmd = args[0]; 
 
-    // Try direct
-    if (sys_spawn(cmd, args, NULL) >= 0) {
-        int status;
-        sys_wait(0, &status); // Wait for the spawned child
-        return;
+    int pid = sys_spawn(cmd, args, NULL);
+
+    if (pid < 0) {
+        char path[256];
+        
+        strcpy(path, "/bin/");
+        strcat(path, cmd);
+        args[0] = path;
+        pid = sys_spawn(path, args, NULL);
+
+        if (pid < 0) {
+            strcpy(path, "/sbin/");
+            strcat(path, cmd);
+            args[0] = path;
+            pid = sys_spawn(path, args, NULL);
+        }
     }
 
-    // Try /bin/
-    snprintf(path, sizeof(path), "/bin/%s", cmd);
-    args[0] = path;
-    if (sys_spawn(path, args, NULL) >= 0) {
-        int status;
-        sys_wait(0, &status);
-        return;
+    if (pid >= 0) {
+        int status = 0;
+        sys_wait(pid, &status);
+    } else {
+        printf("?: %s\n", cmd);
     }
-
-    // Try /sbin/
-    snprintf(path, sizeof(path), "/sbin/%s", cmd);
-    args[0] = path;
-    if (sys_spawn(path, args, NULL) >= 0) {
-        int status;
-        sys_wait(0, &status);
-        return;
-    }
-
-    printf("?: %s\n", cmd);
 }
 
 void run_config() {

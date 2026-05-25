@@ -10,6 +10,10 @@
 #define MAX_PROCESSES 64
 
 extern void force_context_restore(registers_t* regs) __attribute__((noreturn));
+extern uint64_t next_pid;
+typedef struct vfs_file vfs_file_t; // Forward declare if not already fully visible
+extern uint64_t* vmm_clone_pml4(uint64_t* src_pml4);
+extern vfs_file_t* dup_file(vfs_file_t* src_file);
 
 process_t* processes[MAX_PROCESSES];
 int process_count = 0;
@@ -190,33 +194,39 @@ registers_t* do_exit(int code) {
 
 process_t* clone_process(process_t* src, registers_t* regs) {
     process_t* dst = kmalloc(sizeof(process_t));
-    if (!dst) return NULL;
-    
-    memcpy(dst, src, sizeof(process_t));
-    
-    static uint64_t next_pid = 1000;
-    dst->pid = next_pid++;
-    dst->parent_pid = src->pid;
-    dst->priority = src->priority; 
-    
-    extern uint64_t* vmm_clone_pml4(uint64_t* src_pml4);
-    dst->pml4 = vmm_clone_pml4(src->pml4);
-    if (!dst->pml4) {
-        kfree(dst);
+    if (!dst) {
+        debugerr("[clone_process] kmalloc failed!");
         return NULL;
     }
     
-    void* kstack = kmalloc(32768);
-    dst->kstack_top = (uintptr_t)kstack + 32768;
+    memset(dst, 0, sizeof(process_t));
 
-    uintptr_t offset = src->kstack_top - (uintptr_t)regs;
-    dst->context_ptr = (registers_t*)(dst->kstack_top - offset);
-    
-    memcpy(dst->context_ptr, regs, offset);
-    
-    dst->context_ptr->rax = 0;
-    
+    dst->pid = next_pid++;
+    dst->parent_pid = src->pid;
+    dst->priority = src->priority;
     dst->state = TASK_READY;
+
+    dst->pml4 = vmm_clone_pml4(src->pml4);
+    if (!dst->pml4) { kfree(dst); return NULL; }
     
+    for(int i = 0; i < MAX_FILES; i++) {
+        if(src->files[i]) {
+            dst->files[i] = dup_file(src->files[i]); 
+        }
+    }
+
+    void* kstack = kmalloc(32768);
+    dst->kstack_top = ((uintptr_t)kstack + 32768) & ~0xF;
+
+    dst->context_ptr = (registers_t*)(dst->kstack_top - sizeof(registers_t));
+    memcpy(dst->context_ptr, regs, sizeof(registers_t));
+    dst->context_ptr->rax = 0; 
+    dst->context_ptr->rip = regs->rip;
+
+    debugln("[clone] Source User RSP: %p", (void*)regs->rsp);
+    debugln("[clone] Target Kernel RSP (Context): %p", (void*)dst->context_ptr->rsp);
+
+    debugln("[clone] Child User RSP: %p", (void*)dst->context_ptr->rsp);
+
     return dst;
 }
