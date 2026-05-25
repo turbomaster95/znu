@@ -14,7 +14,7 @@
 #hostprogs-$(CONFIG_IKCONFIG)     += bin2c
 #hostprogs-$(BUILD_C_RECORDMCOUNT) += recordmcount
 
-hostprogs-y += embsym/
+#hostprogs-y += embsym/
 
 always		:= $(hostprogs-y) $(hostprogs-m)
 
