@@ -35,7 +35,7 @@ just #include "cpuid.h" and your good to go. Everything is static inline
 so the compiler can optimise it away completely when not used.
 
 I wrote this because I got tired of copy-pasting cpuid snippets from 
-StackOverflow and Intel's manuals. The main idea is:
+StackOverflow and Intel's manuals. This .h file has:
 
   - One enum (cpu_has_query_t) that lists everything you might want to know
   - One function (cpu_has()) that returns the value for any query
@@ -677,7 +677,6 @@ is good enough.
   helper that searches through the enumerated caches instead of requiring 
   the caller to iterate manually.
 
-
 BUILDING & USING
 ----------------
 
@@ -1009,6 +1008,9 @@ You have a separate written agreement executed with the Author.
 
 CHANGELOG
 ---------
+
+V1.1 (26 May 2026)
+  - Fixed spelling
 
 v1.0 (13 May 2026)
   - Initial release
