@@ -215,7 +215,7 @@ targets += $(extra-y) $(MAKECMDGOALS) $(always)
 .SECONDARY:
 
 quiet_cmd_ko_cc = KC $(quiet_modtag)  $@
-      cmd_ko_cc = $(CC) $(c_flags) -fPIC -mcmodel=large -mno-red-zone -c $< -o $@
+      cmd_ko_cc = $(CC) $(c_flags) -mcmodel=large -mno-red-zone -c $< -o $@
 
 $(obj)/%.mod.o: $(src)/%.c FORCE
 	$(call if_changed,ko_cc)

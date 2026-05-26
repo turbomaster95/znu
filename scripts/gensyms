@@ -6,7 +6,7 @@ OBJCOPY="$3"
 STARGET="$4"
 
 # Generate System.map
-nm -C -n "$KERNELBIN" | grep ' [Tt] ' | awk '{print $1" "$3}' > "$SRCDIR/System.map"
+nm -C -n "$KERNELBIN" | grep -E ' [Tt] |__stack_chk_guard' | awk '{print $1" "$3}' > "$SRCDIR/System.map"
 
 # Use embsym to append symbols to the ELF file
 "$SRCDIR/scripts/embsym/embsym" "$KERNELBIN" "$SRCDIR/System.map" "$STARGET"

@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <kernel/display.h>
 #include <kernel/tty.h>
+#include <kernel/module.h>
 #include <idt.h>
 #include <lapic.h>
 #include <symbols.h>
@@ -30,7 +31,6 @@
 #include <sync.h>
 #include <net.h>
 #include <e1000.h>
-#include <kernel/module.h>
 
 extern void hcf(void);
 extern struct limine_module_response *mod_res;
@@ -198,10 +198,13 @@ void kmain(void) {
     extern process_t* current_process;
     current_process = init_process;
 
-    extern char _binary_hello_mod_o_start[];
-    extern char _binary_hello_mod_o_end[];
-    size_t modlen = (size_t)(_binary_hello_mod_o_end - _binary_hello_mod_o_start);
-    load_kernel_module("hello", (uint8_t*)_binary_hello_mod_o_start, modlen);
+    vfs_node_t* init_module = vfs_path_to_node("/init.ko");
+
+    if (!init_module) {
+	debugwarn("Init.ko initialization module not found!");
+    } else {
+        load_kernel_module("Init", (uint8_t*)init_module->data, init_module->size, NULL);
+    }
 
     if (init_proc) {
        vmm_switch(init_proc->pml4);
