@@ -92,6 +92,7 @@ endif # ifeq ($(KBUILD_SRC),)
 ifeq ($(skip-makefile),)
 
 TARGET       := znus
+TARGET_STAMP := .znus.done
 STARGET      := znu
 ISOIMAGE     := Znu.iso
 # ---------------------------------------------------------------
@@ -414,16 +415,34 @@ endif
 ifeq ($(CONFIG_MAKE_UKI),y)
 	$(call if_changed,mkuki)
 endif
+	@touch $(TARGET_STAMP)
 
 # The actual objects are generated when descending, 
 # make sure no implicit rule kicks in
 $(filter-out $(LEGAL_OBJ),$(sort $($(TARGET)-all))): $($(TARGET)-dirs) ;
 
+FAT32IMG := fat32.img
+
+targets += $(FAT32IMG)
+
 quiet_cmd_qemur = QEMU    $(ISOIMAGE)
       cmd_qemur = qemu-system-x86_64 -display gtk,zoom-to-fit=off -enable-kvm -cpu host -debugcon stdio -drive id=boot_cd,file=$(ISOIMAGE),format=raw,if=none -device virtio-blk-pci,drive=boot_cd,bootindex=0 -device ich9-ahci,id=ahci -drive id=fat_disk,file=$(FAT32IMG),format=raw,if=none -device ide-hd,bus=ahci.0,drive=fat_disk -netdev user,id=net0 -device e1000,netdev=net0
 
+quiet_cmd_fat32img = GEN     $(FAT32IMG)
+      cmd_fat32img = $(srctree)/scripts/mkfat.sh $(srctree) > /dev/null 2>&1
+
+$(FAT32IMG): $(srctree)/scripts/mkfat.sh FORCE
+ifneq ($(CONFIG_GENERATE_ISO),y)
+	$(error Cannot generate image because CONFIG_GENERATE_ISO is disabled)
+endif
+	$(call if_changed,fat32img)
+
 PHONY += run
-run: FORCE
+run: $(TARGET)
+ifneq ($(CONFIG_GENERATE_ISO),y)
+	$(error Cannot run QEMU because CONFIG_GENERATE_ISO is disabled)
+endif
+	$(Q)$(MAKE) $(FAT32IMG)
 	$(call if_changed,qemur)
 
 # Handle descending into subdirectories listed in $(vmlinux-dirs)
@@ -453,7 +472,7 @@ $($(TARGET)-dirs): scripts_basic
 
 # Directories & files removed with 'make clean'
 CLEAN_DIRS  += 
-CLEAN_FILES +=	$(TARGET) $(STARGET) System.map uki/Znu.efi uki/ramdisk.img $(ISOIMAGE) configs/iso_root/boot/initramfs.cpio configs/iso_root/boot/kernel.bin configs/sysroot/bin/* scripts/embsym/embsym
+CLEAN_FILES +=	$(TARGET) $(TARGET_STAMP) $(STARGET) System.map uki/Znu.efi uki/ramdisk.img $(ISOIMAGE) configs/iso_root/boot/initramfs.cpio configs/iso_root/boot/kernel.bin configs/sysroot/bin/* scripts/embsym/embsym
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include/generated lib/uacpi scripts/limine build/ $(CLEAN_DIRS) lib/uacpi/.uacpi_out lib/flanterm/.flt_out

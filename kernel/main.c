@@ -30,6 +30,7 @@
 #include <sync.h>
 #include <net.h>
 #include <e1000.h>
+#include <kernel/module.h>
 
 extern void hcf(void);
 extern struct limine_module_response *mod_res;
@@ -196,6 +197,11 @@ void kmain(void) {
     // Set the current process for the scheduler/syscalls
     extern process_t* current_process;
     current_process = init_process;
+
+    extern char _binary_hello_mod_o_start[];
+    extern char _binary_hello_mod_o_end[];
+    size_t modlen = (size_t)(_binary_hello_mod_o_end - _binary_hello_mod_o_start);
+    load_kernel_module("hello", (uint8_t*)_binary_hello_mod_o_start, modlen);
 
     if (init_proc) {
        vmm_switch(init_proc->pml4);
