@@ -317,11 +317,11 @@ KBUILD_DEFCONFIG := defconfig
 export KBUILD_DEFCONFIG KBUILD_KCONFIG
 
 config: scripts_basic outputmakefile FORCE
-	$(Q)mkdir -p include/linux include/config
+	$(Q)mkdir -p include/config
 	$(Q)$(MAKE) $(build)=scripts/kconfig $@
 
 %config: scripts_basic outputmakefile FORCE
-	$(Q)mkdir -p include/linux include/config
+	$(Q)mkdir -p include/config
 	$(Q)$(MAKE) $(build)=scripts/kconfig $@
 
 else
@@ -393,6 +393,9 @@ quiet_cmd_strip = STRIP   $@ -> $(STARGET)
 quiet_cmd_build_limine = LIMINE  scripts/limine
       cmd_build_limine = $(srctree)/scripts/mklimine.sh $(srctree) "$(MAKEFLAGS)" > /dev/null 2>&1
 
+quiet_cmd_cpio_lz4 = MKCPIO  initramfs.cpio (lz4)
+      cmd_cpio_lz4 = (cd $(srctree)/configs/sysroot && find . -mindepth 1 -not -path '*/.*' | cpio -o -H newc --quiet | lz4 -12) > $(srctree)/configs/iso_root/boot/initramfs.cpio
+
 quiet_cmd_mkiso = MKISO   $(STARGET) -> $(ISOIMAGE)
       cmd_mkiso = $(srctree)/scripts/mkiso.sh $(srctree) $(ISOIMAGE) > /dev/null 2>&1
 
@@ -405,7 +408,7 @@ $(TARGET): $($(TARGET)-all) FORCE scripts/embsym/embsym
 	$(call if_changed,strip)
 ifeq ($(CONFIG_GENERATE_ISO),y)
 	$(call if_changed,build_limine)
-	(cd configs/sysroot && find . -mindepth 1 -not -path '*/.*' | cpio -o -H newc --quiet | lz4 -12) > configs/iso_root/boot/initramfs.cpio
+	$(call if_changed,cpio_lz4)
 	$(call if_changed,mkiso)
 endif
 ifeq ($(CONFIG_MAKE_UKI),y)
@@ -417,7 +420,7 @@ endif
 $(filter-out $(LEGAL_OBJ),$(sort $($(TARGET)-all))): $($(TARGET)-dirs) ;
 
 quiet_cmd_qemur = QEMU    $(ISOIMAGE)
-      cmd_qemur = qemu-system-x86_64 -hdd $(ISOIMAGE) -m 4G -debugcon file:debug.log -cpu qemu64 -accel tcg -serial mon:stdio
+      cmd_qemur = qemu-system-x86_64 -display gtk,zoom-to-fit=off -enable-kvm -cpu host -debugcon stdio -drive id=boot_cd,file=$(ISOIMAGE),format=raw,if=none -device virtio-blk-pci,drive=boot_cd,bootindex=0 -device ich9-ahci,id=ahci -drive id=fat_disk,file=$(FAT32IMG),format=raw,if=none -device ide-hd,bus=ahci.0,drive=fat_disk -netdev user,id=net0 -device e1000,netdev=net0
 
 PHONY += run
 run: FORCE
@@ -432,6 +435,7 @@ run: FORCE
 #PHONY += $(vmlinux-dirs)
 #$(vmlinux-dirs): prepare scripts
 # Dependencies between directories to prevent race conditions in parallel builds
+
 init: user lib lib/ulibc
 user: lib/ulibc
 lib: lib/ulibc
@@ -528,7 +532,7 @@ help:
 	@echo  ''
 	@echo  'Other generic targets:'
 	@echo  '  all		  - Build all targets marked with [*]'
-	@echo  '* $(TARGET)	  	  - Build the application'
+	@echo  '* $(TARGET)	  - Build the application'
 	@echo  '  dir/            - Build all files in dir and below'
 	@echo  '  run             - Run the application in QEMU'
 	@echo  '  dir/file.[oisS] - Build specified target only'
@@ -539,14 +543,6 @@ help:
 	@echo  '  gtags           - Generate GNU GLOBAL index'
 	@echo  '  kernelrelease	  - Output the release version string'
 	@echo  '  kernelversion	  - Output the version stored in Makefile'
-	 echo  ''
-	@echo  'Static analysers'
-	@echo  '  checkstack      - Generate a list of stack hogs'
-	@echo  '  namespacecheck  - Name space analysis on compiled kernel'
-	@echo  '  versioncheck    - Sanity check on version.h usage'
-	@echo  '  includecheck    - Check for duplicate included header files'
-	@echo  '  export_report   - List the usages of all exported symbols'
-	@echo  '  headers_check   - Sanity check on exported headers'
 #	@$(MAKE) -f $(srctree)/scripts/Makefile.help checker-help
 	@echo  ''
 #	@echo  'Kernel packaging:'
