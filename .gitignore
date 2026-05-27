@@ -84,6 +84,7 @@ configs/sysroot/bin/*
 configs/iso_root/EFI/BOOT/BOOTX64.EFI
 ninja.build
 lib/build-musl/
+lib/pbuild-musl/
 lib/.uacpi_out
 init/init.elf
 NvVars

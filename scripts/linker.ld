@@ -69,6 +69,7 @@ SECTIONS
         stack_top = .;
     } :data
 
+    . += 1M;
     . = ALIGN(CONSTANT(MAXPAGESIZE));
     
     __ksyms_start = .;

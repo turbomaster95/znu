@@ -138,8 +138,8 @@ int sys_open(const char* path, int flags) {
     if (!current_process) return -EPERM;
 
     if (is_user_addr((void*)path, 8)) {
-        debugln("[sys] DEBUG: Path points to: '%c%c%c%c'", 
-                path[0], path[1], path[2], path[3]);
+//        debugln("[sys] DEBUG: Path points to: '%c%c%c%c'", 
+  //              path[0], path[1], path[2], path[3]);
     }
 
     stac();
@@ -344,7 +344,7 @@ int sys_spawn(const char* path, char** argv, char** envp) {
             char* u_arg = argv[j];
             char* k_arg = kmalloc(256); // Limit argument length
             int l;
-	    debugln("DEBUG: Calculated argc: %d", argc);
+//	    debugln("DEBUG: Calculated argc: %d", argc);
             for (l = 0; l < 255; l++) {
                 if (!is_user_addr(&u_arg[l], 1)) break;
                 k_arg[l] = u_arg[l];

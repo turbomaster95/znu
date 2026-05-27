@@ -248,7 +248,7 @@ static int parse_modinfo(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf_data
                 } else if (key_len == 7 && strncmp(p, "version", 7) == 0) {
                     size_t n = val_len < MOD_VERSION_LEN-1 ? val_len : MOD_VERSION_LEN-1;
                     memcpy(mod->version, val, n); mod->version[n] = '\0';
-                } else if (key_len == 9 && strncmp(p, "depends", 9) == 0) {
+                } else if (key_len == 7 && strncmp(p, "depends", 7) == 0) {
                     /* Parse comma-separated dependencies */
                     const char *d = val;
                     while (*d && mod->dep_count < MAX_MOD_DEPS) {
@@ -284,6 +284,28 @@ static int parse_modinfo(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf_data
     return 0;  /* no .modinfo is OK */
 }
 
+static void *reloc_ptr(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf_data,
+                        void *ptr, uint16_t *sec_idx, size_t *sec_off, size_t nalloc)
+{
+    uintptr_t p = (uintptr_t)ptr;
+    if (p == 0) return NULL;
+
+    Elf64_Shdr *shdr = (Elf64_Shdr *)((uintptr_t)hdr + hdr->e_shoff);
+
+    for (size_t j = 0; j < nalloc; j++) {
+        Elf64_Shdr *sh = &shdr[sec_idx[j]];
+        uintptr_t sec_data_start = (uintptr_t)(elf_data + sh->sh_offset);
+        uintptr_t sec_data_end = sec_data_start + sh->sh_size;
+
+        if (p >= sec_data_start && p < sec_data_end) {
+            uintptr_t offset = p - sec_data_start;
+            return (void *)((uintptr_t)mod->base + sec_off[j] + offset);
+        }
+    }
+
+    return ptr;
+}
+
 static int parse_export_table(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf_data,
                                uint16_t *sec_idx, size_t *sec_off, size_t nalloc)
 {
@@ -299,7 +321,6 @@ static int parse_export_table(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf
         }
         if (!name || strcmp(name, "__ksymtab") != 0) continue;
 
-        /* Each entry is: { const char *name; void *addr; } */
         typedef struct {
             const char *name;
             void *addr;
@@ -309,29 +330,14 @@ static int parse_export_table(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf
         size_t nentries = shdr[i].sh_size / sizeof(ksymtab_entry_t);
 
         for (size_t e = 0; e < nentries && mod->export_count < MAX_EXPORTED_SYMS; e++) {
-            /* entries[e].name and .addr are currently section-relative (ET_REL).
-             * We need to relocate them to absolute addresses. */
-            const char *sym_name = entries[e].name;
-            void *sym_addr = entries[e].addr;
+            const char *sym_name = reloc_ptr(mod, hdr, elf_data, (void*)entries[e].name,
+                                              sec_idx, sec_off, nalloc);
+            void *sym_addr = reloc_ptr(mod, hdr, elf_data, entries[e].addr,
+                                        sec_idx, sec_off, nalloc);
 
-            /* Find which section these pointers belong to */
-            for (size_t j = 0; j < nalloc; j++) {
-                uintptr_t sec_start = (uintptr_t)mod->base + sec_off[j];
-                uintptr_t sec_end = sec_start + shdr[sec_idx[j]].sh_size;
-
-                /* Check if sym_name falls in this section */
-                if ((uintptr_t)sym_name >= (uintptr_t)(elf_data + shdr[sec_idx[j]].sh_offset) &&
-                    (uintptr_t)sym_name < (uintptr_t)(elf_data + shdr[sec_idx[j]].sh_offset + shdr[sec_idx[j]].sh_size)) {
-                    /* Convert to loaded address */
-                    uintptr_t offset = (uintptr_t)sym_name - (uintptr_t)(elf_data + shdr[sec_idx[j]].sh_offset);
-                    sym_name = (const char *)(sec_start + offset);
-                }
-
-                if ((uintptr_t)sym_addr >= (uintptr_t)(elf_data + shdr[sec_idx[j]].sh_offset) &&
-                    (uintptr_t)sym_addr < (uintptr_t)(elf_data + shdr[sec_idx[j]].sh_offset + shdr[sec_idx[j]].sh_size)) {
-                    uintptr_t offset = (uintptr_t)sym_addr - (uintptr_t)(elf_data + shdr[sec_idx[j]].sh_offset);
-                    sym_addr = (void *)(sec_start + offset);
-                }
+            if (!sym_name || !sym_addr) {
+                debugln("[mod] Export %zu: bad ptr name=%p addr=%p", e, sym_name, sym_addr);
+                continue;
             }
 
             mod->exports[mod->export_count].name = sym_name;
@@ -363,29 +369,24 @@ static int parse_param_table(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf_
         size_t nparams = shdr[i].sh_size / sizeof(mod_param_t);
 
         for (size_t p = 0; p < nparams && mod->param_count < MAX_MOD_PARAMS; p++) {
-            /* Copy parameter descriptor */
             memcpy(&mod->params[mod->param_count], &params[p], sizeof(mod_param_t));
 
-            /* Fix up .addr to point into loaded module memory */
-            void *param_addr = params[p].addr;
-            for (size_t j = 0; j < nalloc; j++) {
-                uintptr_t sec_start = (uintptr_t)mod->base + sec_off[j];
-                uintptr_t sec_data_start = (uintptr_t)(elf_data + shdr[sec_idx[j]].sh_offset);
-                uintptr_t sec_data_end = sec_data_start + shdr[sec_idx[j]].sh_size;
+            /* Relocate pointers in the parameter descriptor */
+            mod->params[mod->param_count].addr = reloc_ptr(mod, hdr, elf_data,
+                params[p].addr, sec_idx, sec_off, nalloc);
+            mod->params[mod->param_count].def_str = reloc_ptr(mod, hdr, elf_data,
+                (void*)params[p].def_str, sec_idx, sec_off, nalloc);
+            mod->params[mod->param_count].desc = reloc_ptr(mod, hdr, elf_data,
+                (void*)params[p].desc, sec_idx, sec_off, nalloc);
 
-                if ((uintptr_t)param_addr >= sec_data_start &&
-                    (uintptr_t)param_addr < sec_data_end) {
-                    uintptr_t offset = (uintptr_t)param_addr - sec_data_start;
-                    mod->params[mod->param_count].addr = (void *)(sec_start + offset);
-                    break;
-                }
-            }
+            debugln("[mod] Param: %s type=%u addr=%p desc=%s",
+                    mod->params[mod->param_count].name,
+                    mod->params[mod->param_count].type,
+                    mod->params[mod->param_count].addr,
+                    mod->params[mod->param_count].desc ?
+                    mod->params[mod->param_count].desc : "(null)");
 
             mod->param_count++;
-            debugln("[mod] Param: %s type=%u addr=%p",
-                    mod->params[mod->param_count-1].name,
-                    mod->params[mod->param_count-1].type,
-                    mod->params[mod->param_count-1].addr);
         }
         return 0;
     }
@@ -408,7 +409,6 @@ static int resolve_dependencies(module_t *mod)
             debugln("[mod] Dependency '%s' not live (state=%d)", depname, dep->state);
             return -1;
         }
-        /* Bump refcount on dependency so it stays loaded */
         mod_get(dep);
         debugln("[mod] Dependency '%s' resolved", depname);
     }

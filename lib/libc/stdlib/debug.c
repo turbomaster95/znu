@@ -16,7 +16,7 @@ extern bool using_bga;
 static void raw_putchar(char c) {
     if (get_cpu_id() == 0) {
         outb(0xe9, c);
-        if (vmm_ready && !using_bga) {
+        if (vmm_ready) {
             if (c == '\n') terminal_putchar('\r');
             terminal_putchar(c);
         }

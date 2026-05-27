@@ -272,7 +272,8 @@ static uintptr_t elf_build_stack(process_t *proc,
     /* AT_RANDOM 16-byte blob */
     uintptr_t u_random = push_random_bytes(pml4, &sp);
 
-    /* Count slots to be pushed: auxv + envp_ptrs + argv_ptrs + argc */
+    
+/* Count slots to be pushed: auxv + envp_ptrs + argv_ptrs + argc */
     int n_auxv = 14; /* AT_NULL + 6 pairs → 14 slots (7 entries × 2) */
     int total_slots = n_auxv + (envc + 1) + (argc + 1) + 1;
     if (total_slots & 1) sp -= 8;  /* alignment pad */
@@ -326,11 +327,14 @@ uint64_t *vmm_create_user_pml4(void)
 
 static int elf_validate(const Elf64_Ehdr *hdr)
 {
-    if (memcmp(hdr->e_ident, ELFMAG, 4) != 0)         { debugln("[elf] Bad magic");           return -1; }
-    if (hdr->e_ident[EI_CLASS]   != ELFCLASS64)        { debugln("[elf] Not ELF64");           return -1; }
-    if (hdr->e_ident[EI_DATA]    != ELFDATA2LSB)        { debugln("[elf] Not little-endian");   return -1; }
-    if (hdr->e_machine           != EM_X86_64)          { debugln("[elf] Not x86-64");          return -1; }
-    if (hdr->e_type != ET_EXEC && hdr->e_type != ET_DYN && hdr->e_type != ET_REL){ debugln("[elf] Not executable/dynamic/relocatable"); return -1; }
+    if (memcmp(hdr->e_ident, ELFMAG, 4) != 0)      { debugln("[elf] Bad magic"); return -1; }
+    if (hdr->e_ident[EI_CLASS]   != ELFCLASS64)    { debugln("[elf] Not ELF64"); return -1; }
+    if (hdr->e_ident[EI_DATA]    != ELFDATA2LSB)    { debugln("[elf] Not LE"); return -1; }
+    if (hdr->e_machine           != EM_X86_64)      { debugln("[elf] Not x86-64"); return -1; }
+    if (hdr->e_type != ET_EXEC && hdr->e_type != ET_DYN) {
+        debugln("[elf] Not executable or dynamic (type=%u)", hdr->e_type);
+        return -1;
+    }
     return 0;
 }
 
@@ -725,10 +729,6 @@ fail_before_pml4:
     return -1;
 }
 
-/*
- * load_elf — boot-time helper to load and jump to the init process
- * directly (no process_t, runs on kernel PML4).  Kept for compatibility.
- */
 void load_elf(uint8_t *elf_data)
 {
     const Elf64_Ehdr *hdr = (const Elf64_Ehdr *)elf_data;
