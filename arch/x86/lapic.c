@@ -228,3 +228,15 @@ void lapic_broadcast_panic_nmi(void) {
 
     lapic_write(LAPIC_REG_ICR_LOW, icr_mask);
 }
+
+void lapic_send_ipi(uint8_t lapic_id, uint8_t vector) {
+    while (lapic_read(LAPIC_REG_ICR_LOW) & (1 << 12)) {
+        __asm__ volatile("pause");
+    }
+
+    lapic_write(LAPIC_REG_ICR_HIGH, (uint32_t)lapic_id << 24);
+
+    uint32_t icr_low = (vector & 0xFF); 
+    
+    lapic_write(LAPIC_REG_ICR_LOW, icr_low);
+}

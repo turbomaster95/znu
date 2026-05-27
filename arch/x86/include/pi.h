@@ -8,7 +8,6 @@ void pic_remap(void);
 uint16_t read_pit_count(void);
 void msleep(uint32_t ms);
 
-// Added for LAPIC sleep
 void lapic_sleep(uint32_t ms);
 
 extern volatile uint64_t timer_ticks;

@@ -34,6 +34,7 @@
 
 extern void hcf(void);
 extern struct limine_module_response *mod_res;
+extern void test_smp_workers(int total_cores);
 
 void kmain(void) {
     debugln("[znu] Reached Kmain!");
@@ -121,7 +122,9 @@ void kmain(void) {
     //test_web_request();
 
     smp_init();
-    debugln("[smp] ALL CORES HAVE BEEN WAKEN UP!!!!");
+
+    sleep(1000);
+    test_smp_workers(2);
 
     enable_syscalls();
     syscall_init();

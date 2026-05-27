@@ -5,8 +5,9 @@
 #include <stddef.h>
 #include <uacpi/types.h>
 #include <uacpi/tables.h>
+#include <gdt.h>
 
-#define MAX_CORES 32
+#define MAX_CORES MAX_CPUS
 #define TRAMPOLINE_PHYS_ADDR 0x8000
 #define TRAMPOLINE_VECTOR    0x08
 

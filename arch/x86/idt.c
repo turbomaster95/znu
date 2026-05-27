@@ -10,6 +10,7 @@
 #include <kernel/display.h>
 #include <symbols.h>
 #include <kernel.h>
+#include <mailbox.h>
 
 extern void hcf(void);
 struct idt_entry idt[256] __attribute__((aligned(16)));
@@ -153,11 +154,14 @@ registers_t* k_exception_handler(registers_t *regs) {
 	    outb(0x20, 0x20); // ACK the irq always
 
 	    lapic_eoi();
+    } else if (int_no == IPI_WAKEUP_VECTOR) {
+	    // do nothing here, this will wake up the AP's
+	    lapic_eoi();
     } else if (int_no >= 32 && int_no <= 47 && int_no != 33) {
 	if (interrupt_handlers[int_no] != NULL) {
             interrupt_handlers[int_no](regs);
         } else {
-            if (int_no >= 40) outb(0xA0, 0x20);
+            if (int_no > 40) outb(0xA0, 0x20);
             outb(0x20, 0x20); 
         }
     }

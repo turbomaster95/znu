@@ -26,5 +26,6 @@ void lapic_broadcast_panic_nmi(void);
 void calibrate_lapic_timer_no_irq();
 void lapic_init_per_core(void);
 int get_cpu_id(void);
+void lapic_send_ipi(uint8_t lapic_id, uint8_t vector);
 
 #endif // LAPIC_H

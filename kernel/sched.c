@@ -188,6 +188,9 @@ registers_t* do_exit(int code) {
     }
     
     registers_t* next_task_regs = scheduler(NULL);
+
+    debugln("Attempting context switch: RIP=%p, RSP=%p, CS=%x", 
+        next_task_regs->rip, next_task_regs->rsp, next_task_regs->cs);
     
     force_context_restore(next_task_regs);
 }

@@ -6,6 +6,7 @@
 #include <limine.h>
 #include <gdt.h>
 #include <idt.h>
+#include <mailbox.h>
 
 extern volatile struct limine_mp_request mp_request;
 extern void debug_write(const char* data);
@@ -20,14 +21,12 @@ void ap_kernel_entry(struct limine_mp_info *info) {
     idt_local_load();
     lapic_init_per_core();
 
-    debugln("[smp-core] CPU Core %d is online and ready.", cpu_id);
+    debugln("[core] CPU Core %d is online and ready.", cpu_id, cpu_id);
 
     while (1) {
-	asm volatile(
-	    "movq $0xCAFEBABECAFEBABE, %%rax"
-    	    : : : "rax"
-	);
-        asm volatile("cli; hlt");
+        asm volatile("sti; hlt");
+	debugln("[smp-core] CPU %d WOKE UP", cpu_id);
+	mailbox_handle_task(cpu_id);
     }
 }
 
@@ -54,7 +53,7 @@ void smp_init(void) {
 
         cpu_info->extra_argument = (uint64_t)current_ap_index;
 
-        debugln("[smp] Booting AP Core (LAPIC ID: %u) with Internal ID: %d...", 
+        debugln("[smp] Booting AP Core (LAPIC ID: %u) with CID: %d...", 
                 cpu_info->lapic_id, current_ap_index);
 
         __atomic_store_n(&cpu_info->goto_address, ap_kernel_entry, __ATOMIC_RELEASE);
@@ -62,5 +61,5 @@ void smp_init(void) {
         current_ap_index++;
     }
 
-    debugln("[smp] All secondary cores signaled.");
+    debugln("[smp] Initialized All AP's");
 }
