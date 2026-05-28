@@ -173,6 +173,7 @@ MAKEFLAGS += --include-dir=$(srctree)
 # We need some generic definitions (do not try to remake the file).
 $(srctree)/scripts/Kbuild.include: ;
 include $(srctree)/scripts/Kbuild.include
+KBUILD_CMDFLAGS := 
 
 # Make variables (CC, etc...)
 
@@ -208,7 +209,7 @@ KBUILD_CFLAGS   := -Wall -Wno-unused-function -Wno-undef -Wno-array-compare -Wno
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
 		   -fno-delete-null-pointer-checks -fno-sanitize=address \
-		   $(EXTRA_CFLAGS)
+		   $(EXTRA_CFLAGS) $(KBUILD_CMDFLAGS)
 
 LDFLAGS += -nostdlib
 

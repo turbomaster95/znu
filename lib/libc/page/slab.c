@@ -149,3 +149,9 @@ void *krealloc(void *ptr, size_t new_size) {
     kfree(ptr);
     return new_ptr;
 }
+
+inline void *kzalloc(size_t size) {
+    void *p = kmalloc(size);
+    if (p) memset(p, 0, size);
+    return p;
+}

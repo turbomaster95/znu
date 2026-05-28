@@ -26,11 +26,4 @@ extern char *strncpy(char *dest, const char *src, size_t n);
 extern void spinlock_acquire(uint32_t *lock);
 extern void spinlock_release(uint32_t *lock);
 
-static inline void *kzalloc(size_t size)
-{
-    void *p = kmalloc(size);
-    if (p) memset(p, 0, size);
-    return p;
-}
-
 #endif

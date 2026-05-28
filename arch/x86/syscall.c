@@ -754,6 +754,22 @@ uint64_t syscall_handler(registers_t* regs) {
 	    regs->rax = 0;
 	    return (uint64_t)regs;
 
+	case 35: // nanosleep
+	    regs->rax = 0;
+	    return (uint64_t)regs;
+
+	case 302: // prlimit64
+	    regs->rax = 0;
+	    return (uint64_t)regs;
+
+	case 97: // setrlimit
+	    regs->rax = 0;
+	    return (uint64_t)regs;
+
+	case 33: // access
+	    regs->rax = 0;
+	    return (uint64_t)regs;
+
         case 60: // exit
             if (current_process) {
                 extern registers_t* do_exit(int code);

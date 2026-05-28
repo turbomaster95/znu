@@ -211,3 +211,7 @@ void idt_global_init(void) {
 void idt_local_load(void) {
     asm volatile ("lidt %0" : : "m"(idtr_instance));
 }
+
+uint64_t get_timer_ticks(void) {
+    return timer_ticks;
+}

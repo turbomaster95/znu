@@ -15,12 +15,12 @@ extern void calibrate_lapic_timer_no_irq(void);
 static volatile uint64_t system_nanoseconds = 0;
 
 void timekeeper_init(void) {
-    debugln("Initializing timekeeping components...");
+    debugln("[timekeeper] Initializing timekeeping components...");
 
     tsc_detect(); 
 
     if (tsc_data.supported && tsc_data.frequency > 0) {
-        debugln("[Timekeeper] Using TSC frequency as CPU speed.");
+        debugln("[timekeeper] Using TSC frequency as CPU speed.");
     } else {
         measure_cpu_speed(); 
     }
@@ -31,18 +31,18 @@ void timekeeper_init(void) {
     if (rtc_init()) {
         rtc_time_t boot_time;
         if (rtc_read_time(&boot_time)) {
-            debugln("[Timekeeper] RTC Boot Time: %02d/%02d/20%02d %02d:%02d:%02d",
+            debugln("[timekeeper] RTC Boot Time: %02d/%02d/20%02d %02d:%02d:%02d",
                     boot_time.day, boot_time.month, boot_time.year,
                     boot_time.hour, boot_time.minute, boot_time.second);
             
         } else {
-            debugwarn("[Timekeeper] RTC read failed.");
+            debugwarn("[timekeeper] RTC read failed.");
         }
     } else {
-        debugwarn("[Timekeeper] RTC hardware not responding.");
+        debugwarn("[timekeeper] RTC hardware not responding.");
     }
 
-    debugln("Timekeeping components initialized.");
+    debugln("[timekeeper] Init done!");
 }
 
 PERFORM void timekeeper_on_tick(void) {

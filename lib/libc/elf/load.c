@@ -499,6 +499,7 @@ process_t *create_process_from_elf(uint8_t *elf_data, char **argv, char **envp)
     proc->pml4       = vmm_create_user_pml4();
     proc->state      = TASK_READY;
     proc->parent_pid = current_process ? current_process->pid : 0;
+    proc->priority = PRIO_NORMAL;
 
     /* Kernel stack */
     void *kstack       = kmalloc(32768);
