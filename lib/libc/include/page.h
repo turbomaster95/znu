@@ -10,11 +10,20 @@
 extern uint64_t hhdm_offset;
 
 #define PAGE_SIZE 4096
-#define PTE_PRESENT (1ULL << 0)
-#define PTE_WRITABLE (1ULL << 1)
-#define PTE_CACHE_DISABLE (1ULL << 4)
-#define PTE_USER     (1ULL << 2)
-#define PTE_HUGE     (1ULL << 7)
+
+#define PTE_PRESENT    (1ULL << 0)  // Page is present in memory
+#define PTE_WRITABLE   (1ULL << 1)  // Page is writable
+#define PTE_USER       (1ULL << 2)  // Page is accessible by Ring 3 (User)
+#define PTE_PWT        (1ULL << 3)  // Page-level Write-Through
+#define PTE_CACHE_DISABLE    (1ULL << 4)  // Page-level Cache Disable
+#define PTE_ACCESSED   (1ULL << 5)  // CPU sets this when accessed
+#define PTE_DIRTY      (1ULL << 6)  // CPU sets this when written to
+#define PTE_HUGE       (1ULL << 7)  // If set in PD/PDPT, points to 2MB/1GB page
+#define PTE_GLOBAL     (1ULL << 8)  // Page is global (ignored in TLB flushes)
+#define PTE_NX         (1ULL << 63) // No-Execute 
+#define PTE_READ_ONLY  (0)
+#define PTE_READ_WRITE (PTE_PRESENT | PTE_WRITABLE)
+#define PTE_USER_DATA  (PTE_PRESENT | PTE_WRITABLE | PTE_USER)
 
 // Extract indices from a virtual address
 #define PML4_IDX(addr) (((uint64_t)(addr) >> 39) & 0x1FF)
