@@ -32,9 +32,9 @@ static uint64_t elf_flags_to_pte(uint32_t pflags, int user)
     uint64_t pte = PTE_PRESENT;
     if (user)        pte |= PTE_USER;
     if (pflags & PF_W) pte |= PTE_WRITABLE;
-#ifdef PTE_NX
-    if (!(pflags & PF_X)) pte |= PTE_NX;
-#endif
+    if (nx_supported && !(pflags & PF_X)) {
+      pte |= PTE_NX;
+    }
     return pte;
 }
 
@@ -108,9 +108,10 @@ static uintptr_t elf_setup_tls(process_t *proc,
 
     uintptr_t uva_base = TLS_USER_BASE;
     uint64_t pte_flags = PTE_PRESENT | PTE_WRITABLE | PTE_USER;
-#ifdef PTE_NX
-    pte_flags |= PTE_NX;
-#endif
+
+    if (nx_supported) {
+       pte_flags |= PTE_NX;
+    }
 
     /* Map pages for TLS block + TCB. */
     for (size_t off = 0; off < total_pages; off += 0x1000) {
@@ -422,9 +423,11 @@ static int elf_load_segments(process_t *proc,
         if (p->p_type == PT_GNU_RELRO) {
             /* Remove PTE_WRITABLE from the RELRO range */
             uint64_t ro_flags = PTE_PRESENT | PTE_USER;
-#ifdef PTE_NX
-            ro_flags |= PTE_NX;
-#endif
+
+            if (nx_supported) {
+              ro_flags |= PTE_NX;
+	    }
+
             remap_user_range(proc->pml4,
                              p->p_vaddr,
                              p->p_vaddr + p->p_memsz,
@@ -447,9 +450,11 @@ static int elf_load_segments(process_t *proc,
 static uintptr_t alloc_user_stack(uint64_t *pml4, int stack_exec)
 {
     uint64_t pte = PTE_PRESENT | PTE_WRITABLE | PTE_USER;
-#ifdef PTE_NX
-    if (!stack_exec) pte |= PTE_NX;
-#endif
+
+    if (nx_supported) {
+       if (!stack_exec) pte |= PTE_NX;
+    }
+
     for (int i = 0; i < STACK_PAGES; i++) {
         void *phys = palloc_zero();
         map_page(pml4, USER_STACK_BASE + (uintptr_t)i * 0x1000,

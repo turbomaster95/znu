@@ -15,6 +15,7 @@
 #include <entropy.h>
 
 extern void hcf(void);
+extern void enable_nx_bit(void);
 extern void syscall_entry(void);
 extern void kernel_reboot(void);
 extern void kernel_shutdown(void);
@@ -80,6 +81,8 @@ void syscall_init() {
 
     wrmsr(MSR_SFMASK, 0x700, 0);
 
+    // Enables the No-Execute bit in the EFER register so we can set pages to not be able to be executed
+    enable_nx_bit();
     debugln("[sys] Syscall MSRs initialized.");
 }
 

@@ -8,6 +8,7 @@
 #include <limine.h>
 
 extern uint64_t hhdm_offset;
+extern bool nx_supported;
 
 #define PAGE_SIZE 4096
 
@@ -20,10 +21,12 @@ extern uint64_t hhdm_offset;
 #define PTE_DIRTY      (1ULL << 6)  // CPU sets this when written to
 #define PTE_HUGE       (1ULL << 7)  // If set in PD/PDPT, points to 2MB/1GB page
 #define PTE_GLOBAL     (1ULL << 8)  // Page is global (ignored in TLB flushes)
-#define PTE_NX         (1ULL << 63) // No-Execute 
-#define PTE_READ_ONLY  (0)
+#define PTE_NX         (1ULL << 63)
+
+#define PTE_READ_ONLY  (PTE_PRESENT)
 #define PTE_READ_WRITE (PTE_PRESENT | PTE_WRITABLE)
 #define PTE_USER_DATA  (PTE_PRESENT | PTE_WRITABLE | PTE_USER)
+#define PTE_USER_RO    (PTE_PRESENT | PTE_USER)
 
 // Extract indices from a virtual address
 #define PML4_IDX(addr) (((uint64_t)(addr) >> 39) & 0x1FF)

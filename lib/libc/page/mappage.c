@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 extern uint64_t hhdm_offset;
+extern bool nx_supported;
 
 void map_page(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t flags) {
     uint64_t pml4_idx = PML4_IDX(virt);
@@ -35,7 +36,12 @@ void map_page(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t flags) {
     uint64_t* pt = (uint64_t*)((pd[pd_idx] & ~0xFFF) + hhdm_offset);
 
     // 4. PT -> Physical Page
-    pt[pt_idx] = (phys & ~0xFFF) | flags | PTE_PRESENT;
+    uint64_t final_flags = flags;
+    if (nx_supported) {
+        final_flags &= ~PTE_NX;
+    }
+
+    pt[pt_idx] = (phys & ~0xFFF) | final_flags | PTE_PRESENT;
 
     __asm__ volatile("invlpg (%0)" : : "r"(virt) : "memory");
 }
