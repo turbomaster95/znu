@@ -18,7 +18,7 @@ BEGIN {
                  "x86_64-elf-gcc|12.0|x86_64-elf-gcc --version;" \
                  "nasm|2.15|nasm -v;" \
                  "python3|3.8|python3 --version;" \
-                 "awk|20200101|awk --version;" \
+                 "awk|5.3.0|awk --version;" \
                  "bash|4.0|bash --version;" \
                  "xorriso|1.5|xorriso --version;" \
                  "llvm-objcopy|15.0|llvm-objcopy --version"
@@ -85,7 +85,7 @@ BEGIN {
         }
     }
 
-    print "======================================"
+    print "============================================="
     if (missing > 0) {
         print "Checks \033[0;31mFAILED\033[0m"
         exit 1

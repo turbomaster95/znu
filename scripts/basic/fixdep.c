@@ -103,17 +103,41 @@
  * those files will have correct dependencies.
  */
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <limits.h>
 #include <ctype.h>
-#include <arpa/inet.h>
+
+#ifdef _WIN32
+    #define WIN32_LEAN_AND_MEAN
+    #include <windows.h>
+    #include <io.h>
+    #include <fcntl.h>
+    #include <winsock2.h>
+    #pragma comment(lib, "ws2_32.lib")
+#else
+    #include <sys/types.h>
+    #include <sys/stat.h>
+    #include <sys/mman.h>
+    #include <unistd.h>
+    #include <fcntl.h>
+    #include <arpa/inet.h>
+#endif
+
+typedef struct {
+    void* map;
+    size_t size;
+#ifdef _WIN32
+    HANDLE hFile;
+    HANDLE hMap;
+#else
+    int fd;
+#endif
+} mapped_file_t;
+
+int map_file(const char* filename, mapped_file_t* mf);
+void unmap_file(mapped_file_t* mf);
 
 #define INT_CONF ntohl(0x434f4e46)
 #define INT_ONFI ntohl(0x4f4e4649)
@@ -158,6 +182,35 @@ static unsigned int strhash(const char *str, unsigned int sz)
 	return hash;
 }
 
+int map_file(const char* filename, mapped_file_t* mf) {
+#ifdef _WIN32
+    mf->hFile = CreateFileA(filename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (mf->hFile == INVALID_HANDLE_VALUE) return -1;
+    mf->size = GetFileSize(mf->hFile, NULL);
+    mf->hMap = CreateFileMappingA(mf->hFile, NULL, PAGE_READONLY, 0, 0, NULL);
+    mf->map = MapViewOfFile(mf->hMap, FILE_MAP_READ, 0, 0, 0);
+    return (mf->map) ? 0 : -1;
+#else
+    mf->fd = open(filename, O_RDONLY);
+    if (mf->fd < 0) return -1;
+    struct stat st;
+    fstat(mf->fd, &st);
+    mf->size = st.st_size;
+    mf->map = mmap(NULL, mf->size, PROT_READ, MAP_PRIVATE, mf->fd, 0);
+    return ((long)mf->map == -1) ? -1 : 0;
+#endif
+}
+
+void unmap_file(mapped_file_t* mf) {
+#ifdef _WIN32
+    UnmapViewOfFile(mf->map);
+    CloseHandle(mf->hMap);
+    CloseHandle(mf->hFile);
+#else
+    munmap(mf->map, mf->size);
+    close(mf->fd);
+#endif
+}
 /*
  * Lookup a value in the configuration string.
  */
@@ -278,35 +331,24 @@ static int strrcmp(char *s, char *sub)
 	return memcmp(s + slen - sublen, sub, sublen);
 }
 
+int map_file(const char* filename, mapped_file_t* mf);
+void unmap_file(mapped_file_t* mf);
+
 static void do_config_file(const char *filename)
 {
-	struct stat st;
-	int fd;
-	void *map;
+    mapped_file_t mf;
 
-	fd = open(filename, O_RDONLY);
-	if (fd < 0) {
-		fprintf(stderr, "fixdep: error opening config file: ");
-		perror(filename);
-		exit(2);
-	}
-	fstat(fd, &st);
-	if (st.st_size == 0) {
-		close(fd);
-		return;
-	}
-	map = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-	if ((long) map == -1) {
-		perror("fixdep: mmap");
-		close(fd);
-		return;
-	}
+    if (map_file(filename, &mf) != 0) {
+        fprintf(stderr, "fixdep: error opening/mapping config file: ");
+        perror(filename);
+        exit(2);
+    }
 
-	parse_config_file(map, st.st_size);
+    if (mf.size > 0) {
+        parse_config_file(mf.map, mf.size);
+    }
 
-	munmap(map, st.st_size);
-
-	close(fd);
+    unmap_file(&mf);
 }
 
 /*
@@ -345,7 +387,8 @@ static void parse_dep_file(void *map, size_t len)
 		memcpy(s, m, p-m); s[p-m] = 0;
 		if (strrcmp(s, "include/generated/autoconf.h") &&
 		    strrcmp(s, "arch/um/include/uml-config.h") &&
-		    strrcmp(s, ".ver")) {
+		    strrcmp(s, ".ver") &&
+		    strncmp(s, "/usr/", 5) != 0) {
 			/*
 			 * Do not list the source file as dependency, so that
 			 * kbuild is not confused if a .c file is rewritten
@@ -368,38 +411,23 @@ static void parse_dep_file(void *map, size_t len)
 
 static void print_deps(void)
 {
-	struct stat st;
-	int fd;
-	void *map;
+    mapped_file_t mf;
 
-	fd = open(depfile, O_RDONLY);
-	if (fd < 0) {
-		fprintf(stderr, "fixdep: error opening depfile: ");
-		perror(depfile);
-		exit(2);
-	}
-	if (fstat(fd, &st) < 0) {
-                fprintf(stderr, "fixdep: error fstat'ing depfile: ");
-                perror(depfile);
-                exit(2);
-        }
-	if (st.st_size == 0) {
-		fprintf(stderr,"fixdep: %s is empty\n",depfile);
-		close(fd);
-		return;
-	}
-	map = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-	if ((long) map == -1) {
-		perror("fixdep: mmap");
-		close(fd);
-		return;
-	}
+    if (map_file(depfile, &mf) != 0) {
+        fprintf(stderr, "fixdep: error opening/mapping depfile: ");
+        perror(depfile);
+        exit(2);
+    }
 
-	parse_dep_file(map, st.st_size);
+    if (mf.size == 0) {
+        fprintf(stderr, "fixdep: %s is empty\n", depfile);
+        unmap_file(&mf);
+        return;
+    }
 
-	munmap(map, st.st_size);
+    parse_dep_file(mf.map, mf.size);
 
-	close(fd);
+    unmap_file(&mf);
 }
 
 static void traps(void)
