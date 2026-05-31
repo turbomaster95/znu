@@ -1,6 +1,11 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+void* __emutls_get_address(void* obj) {
+    (void)obj;
+    return (void*)0;
+}
+
 struct ubsan_source_location {
     const char *filename;
     uint32_t line;

@@ -396,7 +396,7 @@ quiet_cmd_build_limine = LIMINE  scripts/limine
       cmd_build_limine = $(srctree)/scripts/mklimine.sh $(srctree) "$(MAKEFLAGS)" > /dev/null 2>&1
 
 quiet_cmd_cpio_lz4 = MKCPIO  initramfs.cpio (lz4)
-      cmd_cpio_lz4 = (cd $(srctree)/configs/sysroot && find . -mindepth 1 -not -path '*/.*' | cpio -o -H newc --quiet | lz4 -12) > $(srctree)/configs/iso_root/boot/initramfs.cpio
+      cmd_cpio_lz4 = (cd $(srctree)/configs/sysroot && find . -mindepth 1 -not -path '*/.*' | cpio -o -H newc | lz4 -12) > $(srctree)/configs/iso_root/boot/initramfs.cpio
 
 quiet_cmd_mkiso = MKISO   $(STARGET) -> $(ISOIMAGE)
       cmd_mkiso = $(srctree)/scripts/mkiso.sh $(srctree) $(ISOIMAGE) > /dev/null 2>&1
