@@ -1,9 +1,10 @@
 #include <mailbox.h>
 #include <lapic.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <gdt.h>
 
-static struct ap_mailbox mailboxes[MAX_CPUS];
+static struct ap_mailbox mailboxes[MAX_CPUS] __attribute__((aligned(64)));
 
 void mailbox_init(void) {
     for (int i = 0; i < MAX_CPUS; i++) {
@@ -15,6 +16,10 @@ void mailbox_init(void) {
 
 void mailbox_send_task(int cpu_id, ap_task_func func, void *arg) {
     if (cpu_id >= MAX_CPUS) return;
+
+    while (__atomic_load_n(&mailboxes[cpu_id].task_pending, __ATOMIC_ACQUIRE)) {
+        __asm__ volatile("pause");
+    }
 
     mailboxes[cpu_id].func = func;
     mailboxes[cpu_id].arg = arg;

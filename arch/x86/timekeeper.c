@@ -25,7 +25,7 @@ void timekeeper_init(void) {
         measure_cpu_speed(); 
     }
 
-    lapic_init();
+    lapic_init(0);
     calibrate_lapic_timer_no_irq(); 
 
     if (rtc_init()) {

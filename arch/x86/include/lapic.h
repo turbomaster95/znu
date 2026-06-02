@@ -9,12 +9,13 @@
 #define LAPIC_REG_INITIAL_COUNT 0x00380
 #define LAPIC_REG_CURRENT_COUNT 0x00390
 #define LAPIC_REG_DIVIDE_CONF 0x003E0
+#define LAPIC_REG_TPR 0x80
 #define LAPIC_REG_EOI         0x00B0
 #define LAPIC_TIMER_VECTOR 0xF0
 #define LAPIC_REG_ICR_LOW     0x300
 #define LAPIC_REG_ICR_HIGH    0x310
 
-void lapic_init(void);
+void lapic_init(int cpu_id);
 uint32_t lapic_read(uint32_t offset);
 void lapic_write(uint32_t offset, uint32_t value);
 void lapic_eoi(void);
@@ -24,7 +25,7 @@ void sleep(uint32_t ms);
 extern void lapic_timer_isr_wrapper(void);
 void lapic_broadcast_panic_nmi(void);
 void calibrate_lapic_timer_no_irq();
-void lapic_init_per_core(void);
+void lapic_init_per_core(int cpu_id);
 int get_cpu_id(void);
 void lapic_send_ipi(uint8_t lapic_id, uint8_t vector);
 

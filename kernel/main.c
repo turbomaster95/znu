@@ -39,7 +39,7 @@ extern void test_smp_workers(int total_cores);
 void kmain(void) {
     debugln("[znu] Reached Kmain!");
 
-    lapic_init();
+    lapic_init(0);
     debugln("[lapic] LAPIC initialized.");
 
     serial_init();

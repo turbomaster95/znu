@@ -32,7 +32,7 @@ PERFORM void lapic_write(uint32_t offset, uint32_t value) {
     *(volatile uint32_t*)((uintptr_t)lapic_base + offset) = value;
 }
 
-void lapic_init_per_core(void) {
+void lapic_init_per_core(int cpu_id) {
     if (lapic_base == NULL) return;
 
     uint32_t lo, hi;
@@ -46,16 +46,16 @@ void lapic_init_per_core(void) {
 
     lapic_write(0x350, 0x700);
 
-    if (lapic_ticks_per_ms > 0) {
+    if (cpu_id == 0 && lapic_ticks_per_ms > 0) {
         lapic_write(LAPIC_REG_DIVIDE_CONF, 0x03); 
         // Set vector with periodic mode enabled (Bit 17)
         lapic_write(LAPIC_REG_LVT_TIMER, LAPIC_TIMER_VECTOR | (1 << 17)); 
         lapic_write(LAPIC_REG_INITIAL_COUNT, lapic_ticks_per_ms);
     }
-//    lapic_write(LAPIC_REG_TPR, 0);
+    lapic_write(LAPIC_REG_TPR, 0);
 }
 
-void lapic_init() {
+void lapic_init(int cpu_id) {
     if (lapic_base != NULL) return;
 
     if (!hhdm_request.response) {
@@ -72,8 +72,7 @@ void lapic_init() {
     debugln("[dlapic] LAPIC Base (Phys): 0x%p", lapic_phys);
     debugln("[dlapic] LAPIC Base (Virt): 0x%p", lapic_base);
 
-    // Run local hardware initialization for the BSP
-    lapic_init_per_core();
+    lapic_init_per_core(cpu_id);
 }
 
 int get_cpu_id(void) {
@@ -234,9 +233,10 @@ void lapic_send_ipi(uint8_t lapic_id, uint8_t vector) {
         __asm__ volatile("pause");
     }
 
+    // debugln("[ipi] Sending vector 0x%x to LAPIC %d", vector, lapic_id);
     lapic_write(LAPIC_REG_ICR_HIGH, (uint32_t)lapic_id << 24);
 
-    uint32_t icr_low = (vector & 0xFF); 
-    
+    uint32_t icr_low = (vector & 0xFF) | (0 << 8) | (0 << 11) | (1 << 14) | (0 << 18);
+
     lapic_write(LAPIC_REG_ICR_LOW, icr_low);
 }

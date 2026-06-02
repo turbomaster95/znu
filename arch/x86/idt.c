@@ -156,6 +156,7 @@ registers_t* k_exception_handler(registers_t *regs) {
 	    lapic_eoi();
     } else if (int_no == IPI_WAKEUP_VECTOR) {
 	    // do nothing here, this will wake up the AP's
+	    serial_putchar('W');
 	    lapic_eoi();
     } else if (int_no >= 32 && int_no <= 47 && int_no != 33) {
 	if (interrupt_handlers[int_no] != NULL) {

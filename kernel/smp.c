@@ -1,4 +1,5 @@
 #include <smp.h>
+#include <kernel.h>
 #include <string.h>
 #include <lapic.h>
 #include <stdlib.h>
@@ -17,15 +18,16 @@ uint64_t* kernel_pml4_phys = NULL;
 
 void ap_kernel_entry(struct limine_mp_info *info) {
     int cpu_id = (int)info->extra_argument;
+
     gdt_init_core(cpu_id);
     idt_local_load();
-    lapic_init_per_core();
+    lapic_init_per_core(cpu_id);
 
     debugln("[core] CPU Core %d is online and ready.", cpu_id, cpu_id);
 
     while (1) {
         asm volatile("sti; hlt");
-	debugln("[smp-core] CPU %d WOKE UP", cpu_id);
+        asm volatile("cli");
 	mailbox_handle_task(cpu_id);
     }
 }
@@ -51,7 +53,7 @@ void smp_init(void) {
             continue;
         }
 
-        cpu_info->extra_argument = (uint64_t)current_ap_index;
+        cpu_info->extra_argument = (uint64_t)cpu_info->lapic_id;
 
         debugln("[smp] Booting AP Core (LAPIC ID: %u) with CID: %d...", 
                 cpu_info->lapic_id, current_ap_index);
