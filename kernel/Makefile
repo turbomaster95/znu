@@ -33,3 +33,4 @@ obj-y += signal.o
 CFLAGS_diskio.o += -I$(srctree)/lib/fatfs/source
 obj-y += diskio.o
 obj-y += tests.o
+ar-y  += libznutest.a

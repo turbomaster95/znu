@@ -12,6 +12,7 @@ __build:
 # 2) they do not inherit any value from the environment
 obj-y :=
 lib-y :=
+ar-y :=
 always :=
 targets :=
 subdir-y :=
@@ -126,6 +127,10 @@ ifneq ($(strip $(obj-y) $(obj-)),)
 builtin-target := $(obj)/built-in.o
 endif
 
+# Tell the entire engine that any .a target is a precompiled asset
+$(obj)/%.a:
+	@true
+
 module-objs := $(filter %.ko, $(obj-y))
 
 __build: $(builtin-target) $(lib-target) $(extra-y) $(subdir-ym) $(always) $(module-objs)
@@ -205,7 +210,9 @@ cmd_as_flat_o       = nasm -f bin -o $(@:.o=.bin) $< -MD $(depfile); \
 $(obj)/%.o: $(src)/%.asmflat FORCE
 	$(call if_changed,as_flat_o)
 
-targets += $(real-objs-y) $(lib-y)
+ar-y    := $(addprefix $(obj)/, $(notdir $(ar-y)))
+
+targets += $(real-objs-y) $(lib-y) $(ar-y)
 targets += $(extra-y) $(MAKECMDGOALS) $(always)
 
 # Compile C files into relocatable kernel modules (.ko)
@@ -248,13 +255,15 @@ $(sort $(subdir-obj-y)): $(subdir-ym) ;
 # Rule to compile a set of .o files into one .o file
 #
 ifdef builtin-target
+
 quiet_cmd_link_o_target = LD      $@
 # If the list of objects to link is empty, just create an empty built-in.o
 cmd_link_o_target = $(if $(strip $(filter-out %.ko, $(obj-y))),\
-		      $(LD) $(ld_flags) -r -o $@ $(filter-out %.ko, $(filter $(obj-y), $^)), \
-		      rm -f $@; $(AR) rcs$(KBUILD_ARFLAGS) $@)
+                      $(LD) $(ld_flags) -r -o $@ $(filter-out %.ko, $(filter $(obj-y), $^)) \
+                      $(if $(strip $(ar-y)), --whole-archive $(filter %.a, $^) --no-whole-archive), \
+                      rm -f $@; $(AR) rcs$(KBUILD_ARFLAGS) $@)
 
-$(builtin-target): $(filter-out %.ko, $(obj-y)) FORCE
+$(builtin-target): $(filter-out %.ko, $(obj-y)) $(ar-y) FORCE
 	$(call if_changed,link_o_target)
 
 targets += $(builtin-target)
@@ -304,3 +313,4 @@ endif
 # information in a variable se we can use it in if_changed and friends.
 
 .PHONY: $(PHONY)
+
