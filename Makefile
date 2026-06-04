@@ -212,6 +212,9 @@ KBUILD_CFLAGS   := -Wall -Wno-unused-function -Wno-undef -Wno-array-compare -Wno
 		   $(EXTRA_CFLAGS) $(KBUILD_CMDFLAGS)
 
 LDFLAGS += -nostdlib
+LDFLAGS += -z max-page-size=0x1000
+
+KBUILD_LDFLAGS += -mcmodel=large -z max-page-size=0x1000 
 
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL := -fstack-protector-all -fno-delete-null-pointer-checks -fno-strict-aliasing -fno-omit-frame-pointer
@@ -383,7 +386,7 @@ scripts/embsym/embsym: scripts/embsym/embsym.c
 	$(Q)$(HOSTCC) $(HOSTCFLAGS) scripts/embsym/embsym.c -o scripts/embsym/embsym
 
 quiet_cmd_$(TARGET) = KRNLD   $@
-      cmd_$(TARGET) = $(CC) $(LDFLAGS) $(KBUILD_LDFLAGS) -o $@ \
+      cmd_$(TARGET) = $(CC) $(LDFLAGS) -z max-page-size=0x1000 $(KBUILD_LDFLAGS) -o $@ \
       -Wl,--start-group $($(TARGET)-libs) $($(TARGET)-objs) $(LEGAL_OBJ) -Wl,--end-group -T $(srctree)/scripts/linker.ld
 
 quiet_cmd_syms = SYMS    $@
