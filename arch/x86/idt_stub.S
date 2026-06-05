@@ -3,11 +3,10 @@
 
 extern k_exception_handler
 
-; Limine usually maps data to 0x30, but if you use your own GDT
-; as we discussed, this should match your Data Segment (usually 0x10)
 %define KERNEL_DATA_SEG 0x10
 
 ; --- Register Save/Restore ---
+; Exact Size: 15 registers * 8 bytes = 120 bytes
 %macro pushaq 0
     push rax
     push rcx
@@ -53,33 +52,38 @@ asm_lidt:
 isr_stub:
     pushaq
 
-    ; Check if we came from user-mode (Ring 3)
-    ; At this point, stack has: int_no, err_code, rip, cs, rflags, rsp, ss
-    ; CS is at [rsp + 144] (15 regs from pushaq + 2 from wrappers)
+    ; --- CRITICAL CORRECTION: USER-MODE CHECK ---
+    ; Layout on stack at this point:
+    ; [rsp + 0]   to [rsp + 112] -> Saved 15 Registers from pushaq (120 bytes)
+    ; [rsp + 120]                -> int_no (8 bytes)
+    ; [rsp + 128]                -> err_code (8 bytes)
+    ; [rsp + 136]                -> RIP (8 bytes)
+    ; [rsp + 144]                -> CS Selector (8 bytes) <-- EXACT TARGET
+    
     test qword [rsp + 144], 3
     jz .no_swapgs
     swapgs
 .no_swapgs:
 
-    ; Save Segment Registers (64-bit push to keep alignment)
+    ; Save Segment Registers (64-bit push to maintain 16-byte stack alignment)
     xor rax, rax
     mov ax, ds
     push rax
     mov ax, es
     push rax
 
-    ; Load Kernel Data Segments
+    ; Enforce clean Kernel Data Segments
     mov ax, KERNEL_DATA_SEG
     mov ds, ax
     mov es, ax
 
     ; --- STACK ALIGNMENT & ANCHOR ---
-    mov r12, rsp    ; Store the current "clean" stack top in R12
-    and rsp, -16    ; Align to 16-bytes for System V ABI
-    mov rdi, r12    ; Pass pointer to our registers_t struct
-    cld             ; Ensure direction flag is clear for C
+    mov r12, rsp    ; Store the current structural stack top in R12
+    and rsp, -16    ; Align stack pointer to 16-bytes for System V ABI compliance
+    mov rdi, r12    ; Pass pointer to our structural state table to C
+    cld             ; Clear direction flag for compiler safety
     call k_exception_handler
-    mov rsp, rax    ; rax contains the new stack pointer returned by k_exception_handler
+    mov rsp, rax    ; Safely transition to the stack pointer context returned by C
     ; --------------------------------
 
     ; Restore Segments
@@ -90,15 +94,19 @@ isr_stub:
 
     popaq
 
-    ; Conditionally swapgs back if we're returning to user-mode
-    ; Stack now has: int_no, err_code, rip, cs, ...
-    ; CS is at [rsp + 24]
+    ; --- CRITICAL CORRECTION: RETURN USER-MODE CHECK ---
+    ; Layout on stack here:
+    ; [rsp + 0]  -> int_no (8 bytes)
+    ; [rsp + 8]  -> err_code (8 bytes)
+    ; [rsp + 16] -> RIP (8 bytes)
+    ; [rsp + 24] -> CS Selector (8 bytes) <-- EXACT TARGET
+    
     test qword [rsp + 24], 3
     jz .no_swapgs_back
     swapgs
 .no_swapgs_back:
 
-    add rsp, 16     ; Pops the 'int_no' and 'err_code' pushed by wrappers
+    add rsp, 16     ; Clean off the dummy/real error code and interrupt number
     iretq
 
 ; --- ISR Wrapper Macro ---
@@ -106,7 +114,7 @@ isr_stub:
 global isr%1
 isr%1:
     ; Check if CPU already pushed an error code
-    ; Errors: 8, 10-14, 17, 21
+    ; Real hardware error codes: 8, 10-14, 17, 21
     %if !(%1 == 8 || (%1 >= 10 && %1 <= 14) || %1 == 17 || %1 == 21)
         push 0      ; Push dummy error code
     %endif
@@ -126,6 +134,6 @@ isr%1:
 isr_ptr_table:
 %assign i 0
 %rep 256
-    dq isr%+i       ; Table of pointers for idt_init()
+    dq isr%+i       ; Array block of pointers mapped natively by idt_init()
     %assign i i+1
 %endrep

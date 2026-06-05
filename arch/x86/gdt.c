@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stddef.h>
+#include <string.h>
 #include <page.h>
 #include <syscall.h>
 
@@ -40,6 +41,9 @@ cpu_context_t    cpu_contexts[MAX_CPUS];
 __attribute__((aligned(16)))
 uint8_t ap_kernel_stacks[MAX_CPUS][32768];
 
+/* Dedicated 4KB hardware emergency stack per CPU for handling heavy exceptions */
+static uint8_t emergency_fault_stack[MAX_CPUS][4096] __attribute__((aligned(16)));
+
 void gdt_set_gate_mp(int cpu_id, int num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran) {
     gdt_per_cpu[cpu_id][num].base_low    = (base & 0xFFFF);
     gdt_per_cpu[cpu_id][num].base_middle = (base >> 16) & 0xFF;
@@ -56,7 +60,7 @@ void gdt_set_tss_mp(int cpu_id, int num, uint64_t base, uint32_t limit) {
     tss->length       = limit & 0xFFFF;
     tss->base_low     = base & 0xFFFF;
     tss->base_mid     = (base >> 16) & 0xFF;
-    tss->flags1       = 0x89; // Present, Executable, TSS descriptor
+    tss->flags1       = 0x89; // Present, Executable, 64-bit TSS descriptor type
     tss->flags2       = (limit >> 16) & 0x0F;
     tss->base_hi      = (base >> 24) & 0xFF;
     tss->base_upper32 = (base >> 32) & 0xFFFFFFFF;
@@ -64,25 +68,40 @@ void gdt_set_tss_mp(int cpu_id, int num, uint64_t base, uint32_t limit) {
 }
 
 void gdt_init_core(int cpu_id) {
-    gdt_ptr_per_cpu[cpu_id].limit = (sizeof(struct gdt_entry) * 8) - 1;
+    /* Limit explicitly covers the full allocated structural bounds of our GDT array block */
+    gdt_ptr_per_cpu[cpu_id].limit = sizeof(gdt_per_cpu[cpu_id]) - 1;
     gdt_ptr_per_cpu[cpu_id].base  = (uintptr_t)&gdt_per_cpu[cpu_id];
 
-    gdt_set_gate_mp(cpu_id, 0, 0, 0, 0, 0);                                // Null
-    gdt_set_gate_mp(cpu_id, 1, 0, 0xFFFFFFFF, 0x9A, 0xAF); // Kernel Code
-    gdt_set_gate_mp(cpu_id, 2, 0, 0xFFFFFFFF, 0x92, 0xCF); // Kernel Data
-    gdt_set_gate_mp(cpu_id, 3, 0, 0xFFFFFFFF, 0xF2, 0xCF); // User Data
-    gdt_set_gate_mp(cpu_id, 4, 0, 0xFFFFFFFF, 0xFA, 0xAF); // User Code
+    gdt_set_gate_mp(cpu_id, 0, 0, 0, 0, 0);                                // Null Segment
+    gdt_set_gate_mp(cpu_id, 1, 0, 0xFFFFFFFF, 0x9A, 0xAF);                 // Kernel Code Selector (0x08)
+    gdt_set_gate_mp(cpu_id, 2, 0, 0xFFFFFFFF, 0x92, 0xCF);                 // Kernel Data Selector (0x10)
+    gdt_set_gate_mp(cpu_id, 3, 0, 0xFFFFFFFF, 0xF2, 0xCF);                 // User Data Selector   (0x18)
+    gdt_set_gate_mp(cpu_id, 4, 0, 0xFFFFFFFF, 0xFA, 0xAF);                 // User Code Selector   (0x20)
 
+    /* Completely zero out the Task State Segment memory context */
     memset(&tss_per_cpu[cpu_id], 0, sizeof(struct tss));
 
-    tss_per_cpu[cpu_id].rsp0 = (uintptr_t)&ap_kernel_stacks[cpu_id][32768];
+    /* Set up structural base standard stack target for User -> Ring 0 transitions */
+    tss_per_cpu[cpu_id].rsp0 = (uintptr_t)ap_kernel_stacks[cpu_id] + 32768;
+    
+    /* Calculate the absolute TOP layout boundary address via direct offset math */
+    uintptr_t ist1_top = (uintptr_t)emergency_fault_stack[cpu_id] + 4096;
+    
+    /* Assign top memory pointer target directly into IST Index 0 (Architectural IST1) */
+    tss_per_cpu[cpu_id].ist[0] = ist1_top;
+
+    /* Offset the I/O Permissions Bit Map safely past the total length bounds of our TSS */
     tss_per_cpu[cpu_id].iopb_offset = sizeof(struct tss);
 
+    /* Construct the 16-byte TSS descriptor entry inside GDT layout Index 5 */
     gdt_set_tss_mp(cpu_id, 5, (uintptr_t)&tss_per_cpu[cpu_id], sizeof(struct tss) - 1);
 
+    /* Load Global Descriptor Table register pointer into active execution */
     asm volatile("lgdt %0" : : "m"(gdt_ptr_per_cpu[cpu_id]));
     
+    /* Flush pipeline context and sync CS/DS selectors registers securely */
     gdt_reload_segments();
     
+    /* Direct the internal hardware Task Register (TR) selector explicitly to entry index 5 (0x28) */
     asm volatile("ltr %%ax" : : "a"(0x28));
 }

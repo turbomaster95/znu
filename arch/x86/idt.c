@@ -36,11 +36,11 @@ extern void smp_flush_logs_to_screen(void);
 extern void nmi_panic_handler_stub(void);
 extern void signal_check_and_deliver(registers_t* regs);
 
-void idt_set_gate(uint8_t vector, void *isr) {
+void idt_set_gate(uint8_t vector, void *isr, uint8_t ist_index) {
     uint64_t addr = (uint64_t)isr;
     idt[vector].isr_low    = (uint16_t)addr;
     idt[vector].kernel_cs  = 0x08;
-    idt[vector].ist        = 0;
+    idt[vector].ist        = ist_index & 0x07;
     idt[vector].attributes = 0x8E; // Present, Ring 0, Interrupt Gate
     idt[vector].isr_mid    = (uint16_t)(addr >> 16);
     idt[vector].isr_high   = (uint32_t)(addr >> 32);
@@ -165,6 +165,9 @@ registers_t* k_exception_handler(registers_t *regs) {
             if (int_no > 40) outb(0xA0, 0x20);
             outb(0x20, 0x20); 
         }
+    } else {
+        // We must issue an EOI to prevent the LAPIC from infinite-looping.
+        lapic_eoi();
     }
 
     return regs;
@@ -174,10 +177,13 @@ void idt_init() {
     memset(idt, 0, sizeof(struct idt_entry) * 256);
 
     for (int i = 0; i < 256; i++) {
-        idt_set_gate(i, isr_ptr_table[i]);
+        idt_set_gate(i, isr_ptr_table[i], 0);
     }
 
     debugln("[idt] Set all IDT gates");
+
+    idt_set_gate(8,  isr_ptr_table[8],  1); // Vector 8: #DF Double Fault
+    idt_set_gate(14, isr_ptr_table[14], 1); // Vector 14: #PF Page Fault
 
     idtr_instance.limit = (sizeof(struct idt_entry) * 256) - 1;
     idtr_instance.base  = (uint64_t)&idt;
@@ -200,11 +206,14 @@ void idt_global_init(void) {
     memset(idt, 0, sizeof(struct idt_entry) * 256);
 
     for (int i = 0; i < 256; i++) {
-        idt_set_gate(i, isr_ptr_table[i]);
+        idt_set_gate(i, isr_ptr_table[i], 0);
     }
 
 
-    idt_set_gate(2, (void*)nmi_panic_handler_stub);
+    idt_set_gate(2, (void*)nmi_panic_handler_stub, 0);
+    idt_set_gate(8,  isr_ptr_table[8],  1); // Vector 8: #DF Double Fault
+    idt_set_gate(14, isr_ptr_table[14], 1); // Vector 14: #PF Page Fault
+
     idtr_instance.limit = (sizeof(struct idt_entry) * 256) - 1;
     idtr_instance.base  = (uint64_t)&idt;
 
