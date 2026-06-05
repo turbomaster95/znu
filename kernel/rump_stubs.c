@@ -1,5 +1,6 @@
 /* Automatically generated clean stubs for kernel building */
 #include <stddef.h>
+extern int rump_init(void);
 
 __attribute__((weak)) void rumpns_kmem_alloc(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_kmem_free(void) { /* Dummy Stub */ }
@@ -369,6 +370,15 @@ __attribute__((weak)) void rumpns_sys_write(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_sys_writev(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rump_syscall_boot_establish(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rump_lwproc_curlwp_hypercall(void) { /* Dummy Stub */ }
+__attribute__((weak)) void cv_broadcast(void) { /* Dummy Stub */ }
+__attribute__((weak)) void cv_destroy(void) { /* Dummy Stub */ }
+__attribute__((weak)) void cv_init(void) { /* Dummy Stub */ }
+__attribute__((weak)) void cv_timedwait(void) { /* Dummy Stub */ }
+__attribute__((weak)) void _kernel_lock(void) { /* Dummy Stub */ }
+__attribute__((weak)) void _kernel_unlock(void) { /* Dummy Stub */ }
+__attribute__((weak)) void membar_release(void) { /* Dummy Stub */ }
+__attribute__((weak)) void mutex_spin_enter(void) { /* Dummy Stub */ }
+__attribute__((weak)) void mutex_spin_exit(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_closef(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_copyoutstr(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_fd_dup(void) { /* Dummy Stub */ }
@@ -486,6 +496,7 @@ __attribute__((weak)) void rumpns_preempt_needed(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_rw_syncobj(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_trace_is_enabled(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_uio_setup_sysspace(void) { /* Dummy Stub */ }
+__attribute__((weak)) void rumpns_uvmexp_pagesize(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_aprint_debug(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_chacha_const32(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_hexdump(void) { /* Dummy Stub */ }
@@ -498,8 +509,6 @@ __attribute__((weak)) void rumpns_evcnt_attach_dynamic(void) { /* Dummy Stub */ 
 __attribute__((weak)) void rumpns_percpu_create(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_percpu_getref(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_percpu_putref(void) { /* Dummy Stub */ }
-__attribute__((weak)) void rumpns_spllower(void) { /* Dummy Stub */ }
-__attribute__((weak)) void rumpns_splraise(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_prop_dictionary_get_bool(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_atomic_dec_uint_nv(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_membar_acquire(void) { /* Dummy Stub */ }
@@ -555,6 +564,8 @@ __attribute__((weak)) void rumpns_uvm_km_free(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_cpu_info_list(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_mp_online(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_ncpu(void) { /* Dummy Stub */ }
+__attribute__((weak)) void rumpns_spllower(void) { /* Dummy Stub */ }
+__attribute__((weak)) void rumpns_splraise(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rump_xc_highpri(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_kthread_fpu_enter(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_kmem_arena(void) { /* Dummy Stub */ }
@@ -776,6 +787,8 @@ __attribute__((weak)) void rumpns_maxproc(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_proc_uidmatch(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_rw_tryenter(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_sched_nice(void) { /* Dummy Stub */ }
+__attribute__((weak)) void rumpns_uvmexp_pagemask(void) { /* Dummy Stub */ }
+__attribute__((weak)) void rumpns_uvmexp_pageshift(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_uvm_map_protect(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_copyin_proc(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_copyin_vmspace(void) { /* Dummy Stub */ }
@@ -932,8 +945,6 @@ __attribute__((weak)) void rumpuser_putchar(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_fs_filtops(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_sig_filtops(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_consttime_memequal(void) { /* Dummy Stub */ }
-__attribute__((weak)) void rumpns_cpu_counter32(void) { /* Dummy Stub */ }
-__attribute__((weak)) void rumpns_cpu_hascounter(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_entpool_enter(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_entpool_enter_nostir(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_entpool_extract(void) { /* Dummy Stub */ }
@@ -952,7 +963,6 @@ __attribute__((weak)) void rumpns_kpgsignal(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_pgid_in_session(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_sysctl_file_marker_lock(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_tablefull(void) { /* Dummy Stub */ }
-__attribute__((weak)) void rumpns_addupc_intr(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_callout_hardclock(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_cpu_initclocks(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_ptimer_tick(void) { /* Dummy Stub */ }
@@ -1029,6 +1039,10 @@ __attribute__((weak)) void rumpns_cpu_setmodel(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_initproc(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_mi_cpu_init(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rump_softint_run(void) { /* Dummy Stub */ }
+__attribute__((weak)) void rump_schedule_cpu(void) { /* Dummy Stub */ }
+__attribute__((weak)) void rump_schedule_cpu_interlock(void) { /* Dummy Stub */ }
+__attribute__((weak)) void rump_unschedule_cpu1(void) { /* Dummy Stub */ }
+__attribute__((weak)) void rump_unschedule_cpu_interlock(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_doexithooks(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_fd_copy(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_fd_free(void) { /* Dummy Stub */ }
@@ -1055,14 +1069,15 @@ __attribute__((weak)) void rump_proc_vfs_init(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rump_proc_vfs_release(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpuser_curlwp(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpuser_curlwpop(void) { /* Dummy Stub */ }
+__attribute__((weak)) void rumpns_specificdata_getspecific_unlocked(void) { /* Dummy Stub */ }
+__attribute__((weak)) void rumpuser_kill(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_doshutdownhooks(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_pserialize_not_in_read_section(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpns_uvm_default_mapaddr(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rump_sysent_nomodbits(void) { /* Dummy Stub */ }
 __attribute__((weak)) void rumpuser_exit(void) { /* Dummy Stub */ }
-__attribute__((weak)) void rumpns_specificdata_getspecific_unlocked(void) { /* Dummy Stub */ }
-__attribute__((weak)) void rumpuser_kill(void) { /* Dummy Stub */ }
-__attribute__((weak)) void rump_schedule_cpu(void) { /* Dummy Stub */ }
-__attribute__((weak)) void rump_schedule_cpu_interlock(void) { /* Dummy Stub */ }
-__attribute__((weak)) void rump_unschedule_cpu1(void) { /* Dummy Stub */ }
-__attribute__((weak)) void rump_unschedule_cpu_interlock(void) { /* Dummy Stub */ }
+int __wrap_rump_init(void) {
+    // Force GCC to load a full 64-bit absolute address into a register
+    int (*volatile long_rump_init)(void) = &rump_init;
+    return long_rump_init();
+}

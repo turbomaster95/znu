@@ -1,0 +1,7 @@
+create librumpy.a
+addlib librump.a
+addlib librumpnet.a
+addlib librumpdev.a
+addlib librumpvfs.a
+save
+end

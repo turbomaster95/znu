@@ -29,5 +29,8 @@ extern void lapic_timer_test(void);
 void parse_cmdline(char *cmdline);
 bool boot_get_flag(const char *key);
 const char* boot_get_value(const char *key);
+int rump_init(void);
+void rump_schedule(void);
+void rump_unschedule(void);
 
 #endif

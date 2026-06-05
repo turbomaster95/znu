@@ -15,6 +15,32 @@ PHDRS
 
 SECTIONS
 {
+    /* Map picky rump symbols into lower 32-bit address space */
+    . = 0x1000000; 
+
+    .rump_low_text : {
+        /* Capture any section containing rump symbols from any object file */
+	*(.text.*rumpns_* .text.*rump_*)
+        /* Backup file catchers */
+        *librumpy.a*(.text .text.*)
+        *built-in.o*(.text.*rump*)
+    }
+
+    .rump_low_data : {
+        *(.rodata.*rumpns_* .rodata.*rump_*)
+        *(.data.*rumpns_* .data.*rump_*)
+        *(.bss.*rumpns_* .bss.*rump_*)
+        /* Backup file catchers */
+        *librumpy.a*(.rodata .rodata.* .data .data.* .bss .bss.*)
+        *built-in.o*(.rodata.*rump* .data.*rump* .bss.*rump*)
+    }
+
+    .link_set_rump_components : {
+        __start_link_set_rump_components = .;
+        *(link_set_rump_components)
+        __stop_link_set_rump_components = .;
+    }
+
     /* We want to be placed in the topmost 2GiB of the address space, for optimisations */
     /* and because that is what the Limine spec mandates. */
     /* Any address in this region will do, but often 0xffffffff80000000 is chosen as */
@@ -69,8 +95,7 @@ SECTIONS
         stack_top = .;
     } :data
 
-    . += 1M;
-    . = ALIGN(CONSTANT(MAXPAGESIZE));
+    . = ALIGN(0x200000);
     
     __ksyms_start = .;
     .ksyms : {

@@ -4,7 +4,7 @@ KBUILD_CFLAGS += -mcmodel=large -mno-red-zone -Wno-return-type -Wno-format-secur
 KBUILD_CPPFLAGS += -I$(srctree)/include -I$(srctree)/lib/libc/include -I$(srctree)/arch/x86/include -I$(srctree)/lib/uacpi/include/ -I$(srctree)/drivers/include
 KBUILD_CPPFLAGS += -DUACPI_OVERRIDE_LIBC -DUACPI_NATIVE_ALLOC_ZEROED -DUACPI_FORMATTED_LOGGING
 
-KBUILD_LDFLAGS := -T $(srctree)/scripts/linker.ld -z max-page-size=0x1000
+KBUILD_LDFLAGS := -T $(srctree)/scripts/linker.ld -z max-page-size=0x1000 --no-relax
 export KBUILD_LDFLAGS
 
 obj-y := early.o
@@ -34,4 +34,5 @@ CFLAGS_diskio.o += -I$(srctree)/lib/fatfs/source
 obj-y += diskio.o
 obj-y += tests.o
 obj-y += rump_stubs.o
-ar-y  += librumpy.a
+obj-y += rums.o
+#ar-y  += librumpy.a

@@ -134,6 +134,7 @@ void kmain(void) {
        panic("Initramfs (CPIO) module not found! Check limine.conf");
     }
 
+    rump_init();
     void* initrd_addr = mod_res->modules[0]->address;
     size_t initrd_size = mod_res->modules[0]->size;
     
