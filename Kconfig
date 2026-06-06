@@ -10,10 +10,32 @@ config CROSS_COMPILE
 
 source "kernel/Kconfig"
 
-config GENERATE_ISO
-	bool "Generate a Limine iso with the kernel"
-	help
-	  It automatically generates a image.iso file with the Limine bootloader in it.
+
+menuconfig GENERATE_ISO
+    bool "Generate a Limine iso with the kernel"
+    help
+      It automatically generates a image.iso file with the Limine bootloader in it.
+
+if GENERATE_ISO
+
+config ISO_MULTI
+    bool "Generate a multi-boot iso with both UEFI and BIOS limine."
+    select ISO_UEFI
+    select ISO_BIOS
+    help
+      Enabling this creates a single Znu.iso with both UEFI and BIOS limine.
+
+config ISO_BIOS
+    bool "Generate Znu.bios.iso"
+    help
+      This option generates a seperate Znu.bios.iso file with only BIOS limine.
+
+config ISO_UEFI
+    bool "Generate Znu.uefi.iso"
+    help
+      This option generates a seperate Znu.uefi.iso file with only UEFI limine.
+
+endif # GENERATE_ISO
 
 source "uki/Kconfig"
 

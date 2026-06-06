@@ -401,8 +401,28 @@ quiet_cmd_build_limine = LIMINE  scripts/limine
 quiet_cmd_cpio_lz4 = MKCPIO  initramfs.cpio (lz4)
       cmd_cpio_lz4 = (cd $(srctree)/configs/sysroot && find . -mindepth 1 -not -path '*/.*' | cpio -o -H newc | lz4 -12) > $(srctree)/configs/iso_root/boot/initramfs.cpio
 
-quiet_cmd_mkiso = MKISO   $(STARGET) -> $(ISOIMAGE)
-      cmd_mkiso = $(srctree)/scripts/mkiso.sh $(srctree) $(ISOIMAGE) > /dev/null 2>&1
+ISO_OUTPUTS :=
+
+ifeq ($(CONFIG_ISO_MULTI),y)
+    ISO_OUTPUTS += Znu.iso
+endif
+ifeq ($(CONFIG_ISO_BIOS),y)
+    ISO_OUTPUTS += Znu.bios.iso
+endif
+ifeq ($(CONFIG_ISO_UEFI),y)
+    ISO_OUTPUTS += Znu.uefi.iso
+endif
+
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+COMMA := ,$(SPACE)
+ISO_STR := $(subst $(SPACE),$(COMMA),$(strip $(ISO_OUTPUTS)))
+
+quiet_cmd_mkiso = MKISO   $(STARGET) -> $(ISO_STR)
+      cmd_mkiso = CONFIG_ISO_MULTI=$(CONFIG_ISO_MULTI) \
+                  CONFIG_ISO_BIOS=$(CONFIG_ISO_BIOS) \
+                  CONFIG_ISO_UEFI=$(CONFIG_ISO_UEFI) \
+                  $(srctree)/scripts/mkiso.sh $(srctree) "Znu" > /dev/null 2>&1
 
 quiet_cmd_mkuki = MKUKI   uki/Znu.efi
       cmd_mkuki = $(srctree)/scripts/mkuki.sh $(srctree)
