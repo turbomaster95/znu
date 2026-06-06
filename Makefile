@@ -123,7 +123,7 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 
 HOSTCC       = gcc
 HOSTCXX      = g++
-HOSTCFLAGS   = -Wall -Wno-unused-variable -Wno-format-security -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -Wno-discarded-qualifiers -Wno-dangling-pointer 
+HOSTCFLAGS   = -Wall -Wno-unknown-warning-option -Wno-unused-variable -Wno-format-security -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -Wno-discarded-qualifiers -Wno-dangling-pointer -Wno-format
 HOSTCXXFLAGS = -O2
 
 # Beautify output
@@ -369,6 +369,7 @@ $(LEGAL_OBJ): $(srctree)/LICENSE $(srctree)/NOTICE $(srctree)/scripts/mklegal.sh
 # Defaults to vmlinux, but the arch makefile usually adds further targets
 all: $(LEGAL_OBJ) $(TARGET)
 
+no-clean-files  := rump-a
 objs-y		:= kernel
 objs-y		+= arch
 objs-y		+= drivers
@@ -386,8 +387,8 @@ scripts/embsym/embsym: scripts/embsym/embsym.c
 	$(Q)$(HOSTCC) $(HOSTCFLAGS) scripts/embsym/embsym.c -o scripts/embsym/embsym
 
 quiet_cmd_$(TARGET) = KRNLD   $@
-      cmd_$(TARGET) = $(CC) $(LDFLAGS) $(KBUILD_LDFLAGS) -Wl,--wrap=rump_init -o $@ \
-      -Wl,--start-group $($(TARGET)-libs) $($(TARGET)-objs) kernel/librumpy.a $(LEGAL_OBJ) -Wl,--end-group -T $(srctree)/scripts/linker.ld
+      cmd_$(TARGET) = $(CC) $(LDFLAGS) $(KBUILD_LDFLAGS) -o $@ \
+      -Wl,--start-group $($(TARGET)-libs) $($(TARGET)-objs) $(LEGAL_OBJ) -Wl,--end-group -T $(srctree)/scripts/linker.ld
 
 quiet_cmd_syms = SYMS    $@
       cmd_syms = $(srctree)/scripts/gensyms $(TARGET) $(srctree) $(OBJCOPY) $(TARGET)
@@ -496,7 +497,7 @@ $($(TARGET)-dirs): scripts_basic
 
 # Directories & files removed with 'make clean'
 CLEAN_DIRS  += 
-CLEAN_FILES +=	$(TARGET) $(TARGET_STAMP) $(STARGET) System.map uki/Znu.efi uki/ramdisk.img $(ISOIMAGE) configs/iso_root/boot/initramfs.cpio configs/iso_root/boot/kernel.bin configs/sysroot/bin/* scripts/embsym/embsym
+CLEAN_FILES +=	$(TARGET) $(TARGET_STAMP) $(STARGET) System.map uki/Znu.efi uki/ramdisk.img Znu.bios.iso Znu.uefi.iso Znu.iso configs/iso_root/boot/initramfs.cpio configs/iso_root/boot/kernel.bin configs/sysroot/bin/* scripts/embsym/embsym
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include/generated lib/uacpi scripts/limine build/ $(CLEAN_DIRS) lib/uacpi/.uacpi_out lib/flanterm/.flt_out

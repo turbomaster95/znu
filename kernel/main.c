@@ -35,6 +35,7 @@
 extern void hcf(void);
 extern struct limine_module_response *mod_res;
 extern void test_smp_workers(int total_cores);
+extern void net_test_suite(void);
 
 void kmain(void) {
     debugln("[znu] Reached Kmain!");
@@ -119,7 +120,7 @@ void kmain(void) {
     net_init();
 
     sleep(1000);
-    //test_web_request();
+    net_test_suite();
 
     smp_init();
 
@@ -133,30 +134,6 @@ void kmain(void) {
     if (mod_res == NULL || mod_res->module_count == 0) {
        panic("Initramfs (CPIO) module not found! Check limine.conf");
     }
-    debugln("[kernel] Subsystems ready. Waking up Rump...\n"); 
-    debugln("[kernel] Allocating dedicated execution stack for Rump...");
-    size_t rump_stack_size = 128 * 1024; // 128KB
-    void *rump_stack_raw = kmalloc(rump_stack_size);
-    if (!rump_stack_raw) {
-        panic("Failed to allocate Rump initialization stack!");
-    }
-    
-    // Ensure 16-byte alignment required by System V AMD64 ABI
-    uintptr_t rump_stack_top = ((uintptr_t)rump_stack_raw + rump_stack_size) & ~0xFULL;
-
-    debugln("[kernel] Subsystems ready. Switching stack safely...");
-
-    __asm__ volatile (
-        "mov %%rsp, %%r12\n\t"     // 1. Save current kernel RSP into a callee-saved register (r12)
-        "mov %[kstack], %%rsp\n\t" // 2. Force load the absolute 64-bit stack top address into RSP
-        "call rump_init\n\t"       // 3. Invoke rump_init on the new, massive stack
-        "mov %%r12, %%rsp\n\t"     // 4. Restore the original kernel stack pointer safely
-        :
-        : [kstack] "r"(rump_stack_top)
-        : "r12", "rax", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "memory"
-    );
-
-    debugln("[SUCCESS] Returned from Rump Initialization!");
 
     void* initrd_addr = mod_res->modules[0]->address;
     size_t initrd_size = mod_res->modules[0]->size;

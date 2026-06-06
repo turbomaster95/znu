@@ -10,16 +10,12 @@
 #include <kernel/module.h>
 
 static int parse_modinfo(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf_data);
-static int parse_export_table(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf_data,
-                               uint16_t *sec_idx, size_t *sec_off, size_t nalloc);
-static int parse_param_table(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf_data,
-                              uint16_t *sec_idx, size_t *sec_off, size_t nalloc);
+static int parse_export_table(module_t *mod, const Elf64_Ehdr *hdr, uint16_t *sec_idx, size_t *sec_off, size_t nalloc);
+static int parse_param_table(module_t *mod, const Elf64_Ehdr *hdr, uint16_t *sec_idx, size_t *sec_off, size_t nalloc);
 static int resolve_dependencies(module_t *mod);
 static int apply_params(module_t *mod, const char *args);
-static void find_module_hooks(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf_data,
-                               uint16_t *sec_idx, size_t *sec_off, size_t nalloc);
-static uint64_t resolve_symbol_full(module_t *mod, const char *name,
-                                     Elf64_Sym **out_sym, module_t **out_owner);
+static void find_module_hooks(module_t *mod, const Elf64_Ehdr *hdr, uint16_t *sec_idx, size_t *sec_off, size_t nalloc);
+static uint64_t resolve_symbol_full(module_t *mod, const char *name, Elf64_Sym **out_sym, module_t **out_owner);
 
 static module_t modules[MAX_MODULES];
 static uint32_t mod_count = 0;
@@ -30,15 +26,15 @@ static int elf_validate_reloc(const Elf64_Ehdr *hdr)
         debugln("[mod] Bad magic");
         return -1;
     }
-    if (hdr->e_ident[EI_CLASS]   != ELFCLASS64) {
+    if (hdr->e_ident[EI_CLASS] != ELFCLASS64) {
         debugln("[mod] Not ELF64");
         return -1;
     }
-    if (hdr->e_ident[EI_DATA]    != ELFDATA2LSB) {
+    if (hdr->e_ident[EI_DATA] != ELFDATA2LSB) {
         debugln("[mod] Not little-endian");
         return -1;
     }
-    if (hdr->e_machine           != EM_X86_64) {
+    if (hdr->e_machine != EM_X86_64) {
         debugln("[mod] Not x86-64");
         return -1;
     }
@@ -49,20 +45,29 @@ static int elf_validate_reloc(const Elf64_Ehdr *hdr)
     return 0;
 }
 
-static size_t calc_alloc_size(const Elf64_Ehdr *hdr, uint16_t **out_idx,
-                               size_t **out_off, size_t *out_nalloc)
+static size_t calc_alloc_size(const Elf64_Ehdr *hdr, uint16_t **out_idx, size_t **out_off, size_t *out_nalloc)
 {
     Elf64_Shdr *shdr = (Elf64_Shdr *)((uintptr_t)hdr + hdr->e_shoff);
     size_t nalloc = 0;
 
-    for (uint16_t i = 0; i < hdr->e_shnum; i++)
-        if (shdr[i].sh_flags & SHF_ALLOC) nalloc++;
+    for (uint16_t i = 0; i < hdr->e_shnum; i++) {
+        if (shdr[i].sh_flags & SHF_ALLOC) {
+            nalloc++;
+        }
+    }
 
-    if (nalloc == 0) { *out_nalloc = 0; return 0; }
+    if (nalloc == 0) {
+        *out_nalloc = 0;
+        return 0;
+    }
 
     uint16_t *idx = kmalloc(sizeof(uint16_t) * nalloc);
     size_t   *off = kmalloc(sizeof(size_t)   * nalloc);
-    if (!idx || !off) { kfree(idx); kfree(off); return 0; }
+    if (!idx || !off) {
+        kfree(idx);
+        kfree(off);
+        return 0;
+    }
 
     size_t total = 0, j = 0;
     for (uint16_t i = 0; i < hdr->e_shnum; i++) {
@@ -75,7 +80,9 @@ static size_t calc_alloc_size(const Elf64_Ehdr *hdr, uint16_t **out_idx,
         total += shdr[i].sh_size;
         j++;
     }
-    *out_idx = idx; *out_off = off; *out_nalloc = nalloc;
+    *out_idx = idx;
+    *out_off = off;
+    *out_nalloc = nalloc;
     return total;
 }
 
@@ -99,10 +106,8 @@ uint64_t mod_resolve_symbol(const char *name, module_t *requester)
     return 0;
 }
 
-static uint64_t resolve_symbol_full(module_t *mod, const char *name,
-                                     Elf64_Sym **out_sym, module_t **out_owner)
+static uint64_t resolve_symbol_full(module_t *mod, const char *name, Elf64_Sym **out_sym, module_t **out_owner)
 {
-    /* Check module's own local symbols first */
     if (mod->symtab && mod->strtab) {
         for (uint32_t i = 0; i < mod->sym_count; i++) {
             Elf64_Sym *s = &mod->symtab[i];
@@ -111,13 +116,12 @@ static uint64_t resolve_symbol_full(module_t *mod, const char *name,
                 if (strcmp(sname, name) == 0) {
                     if (out_sym) *out_sym = s;
                     if (out_owner) *out_owner = mod;
-                    return 0;  /* caller must add section offset */
+                    return 0;
                 }
             }
         }
     }
 
-    /* External: kernel or other modules */
     uint64_t addr = mod_resolve_symbol(name, mod);
     if (addr) {
         if (out_sym) *out_sym = NULL;
@@ -126,18 +130,25 @@ static uint64_t resolve_symbol_full(module_t *mod, const char *name,
     return addr;
 }
 
-static int apply_rela(module_t *mod, Elf64_Rela *rela, uint64_t symval,
-                       size_t sec_offset)
+static int apply_rela(module_t *mod, Elf64_Rela *rela, uint64_t symval, size_t sec_offset)
 {
     uint64_t *where = (uint64_t *)((uintptr_t)mod->base + sec_offset + rela->r_offset);
     uint64_t S = symval, A = rela->r_addend, P = (uint64_t)where;
 
     switch (ELF64_R_TYPE(rela->r_info)) {
-    case R_X86_64_64:       *where = S + A; break;
+    case R_X86_64_64:
+        *where = S + A;
+        break;
     case R_X86_64_PC32:
-    case R_X86_64_PLT32:    *(uint32_t *)where = (uint32_t)(S + A - P); break;
-    case R_X86_64_32:       *(uint32_t *)where = (uint32_t)(S + A); break;
-    case R_X86_64_32S:      *(int32_t *)where  = (int32_t)(S + A); break;
+    case R_X86_64_PLT32:
+        *(uint32_t *)where = (uint32_t)(S + A - P);
+        break;
+    case R_X86_64_32:
+        *(uint32_t *)where = (uint32_t)(S + A);
+        break;
+    case R_X86_64_32S:
+        *(int32_t *)where  = (int32_t)(S + A);
+        break;
     default:
         debugln("[mod] Unknown reloc type %lu", ELF64_R_TYPE(rela->r_info));
         return -1;
@@ -145,8 +156,7 @@ static int apply_rela(module_t *mod, Elf64_Rela *rela, uint64_t symval,
     return 0;
 }
 
-static int process_relocations(module_t *mod, const Elf64_Ehdr *hdr,
-                                uint16_t *sec_idx, size_t *sec_off, size_t nalloc)
+static int process_relocations(module_t *mod, const Elf64_Ehdr *hdr, uint16_t *sec_idx, size_t *sec_off, size_t nalloc)
 {
     Elf64_Shdr *shdr = (Elf64_Shdr *)((uintptr_t)hdr + hdr->e_shoff);
 
@@ -166,8 +176,12 @@ static int process_relocations(module_t *mod, const Elf64_Ehdr *hdr,
         size_t nrela = shdr[i].sh_size / sizeof(Elf64_Rela);
 
         size_t target_off = 0;
-        for (size_t j = 0; j < nalloc; j++)
-            if (sec_idx[j] == target) { target_off = sec_off[j]; break; }
+        for (size_t j = 0; j < nalloc; j++) {
+            if (sec_idx[j] == target) {
+                target_off = sec_off[j];
+                break;
+            }
+        }
 
         for (size_t r = 0; r < nrela; r++) {
             uint32_t symidx = ELF64_R_SYM(rela[r].r_info);
@@ -185,8 +199,12 @@ static int process_relocations(module_t *mod, const Elf64_Ehdr *hdr,
                 symval = sym->st_value;
             } else if (sym->st_shndx < hdr->e_shnum) {
                 size_t soff = 0;
-                for (size_t j = 0; j < nalloc; j++)
-                    if (sec_idx[j] == sym->st_shndx) { soff = sec_off[j]; break; }
+                for (size_t j = 0; j < nalloc; j++) {
+                    if (sec_idx[j] == sym->st_shndx) {
+                        soff = sec_off[j];
+                        break;
+                    }
+                }
                 symval = (uint64_t)mod->base + soff + sym->st_value;
             } else {
                 return -1;
@@ -206,7 +224,6 @@ static int parse_modinfo(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf_data
         if (shdr[i].sh_type != SHT_PROGBITS) continue;
 
         const char *name = NULL;
-        /* Find section name via shstrtab */
         if (hdr->e_shstrndx != SHN_UNDEF && hdr->e_shstrndx < hdr->e_shnum) {
             const char *shstrtab = (const char *)((uintptr_t)hdr + shdr[hdr->e_shstrndx].sh_offset);
             name = shstrtab + shdr[i].sh_name;
@@ -222,10 +239,12 @@ static int parse_modinfo(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf_data
             while (end < data + len && *end != '\0') end++;
             size_t line_len = end - p;
 
-            /* Parse "key=value" */
             const char *eq = NULL;
             for (size_t k = 0; k < line_len; k++) {
-                if (p[k] == '=') { eq = p + k; break; }
+                if (p[k] == '=') {
+                    eq = p + k;
+                    break;
+                }
             }
 
             if (eq) {
@@ -234,27 +253,31 @@ static int parse_modinfo(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf_data
                 size_t val_len = line_len - key_len - 1;
 
                 if (key_len == 4 && strncmp(p, "name", 4) == 0) {
-                    size_t n = val_len < MOD_NAME_LEN-1 ? val_len : MOD_NAME_LEN-1;
-                    memcpy(mod->name, val, n); mod->name[n] = '\0';
+                    size_t n = val_len < MOD_NAME_LEN - 1 ? val_len : MOD_NAME_LEN - 1;
+                    memcpy(mod->name, val, n);
+                    mod->name[n] = '\0';
                 } else if (key_len == 11 && strncmp(p, "description", 11) == 0) {
-                    size_t n = val_len < MOD_DESC_LEN-1 ? val_len : MOD_DESC_LEN-1;
-                    memcpy(mod->desc, val, n); mod->desc[n] = '\0';
+                    size_t n = val_len < MOD_DESC_LEN - 1 ? val_len : MOD_DESC_LEN - 1;
+                    memcpy(mod->desc, val, n);
+                    mod->desc[n] = '\0';
                 } else if (key_len == 6 && strncmp(p, "author", 6) == 0) {
-                    size_t n = val_len < MOD_AUTHOR_LEN-1 ? val_len : MOD_AUTHOR_LEN-1;
-                    memcpy(mod->author, val, n); mod->author[n] = '\0';
+                    size_t n = val_len < MOD_AUTHOR_LEN - 1 ? val_len : MOD_AUTHOR_LEN - 1;
+                    memcpy(mod->author, val, n);
+                    mod->author[n] = '\0';
                 } else if (key_len == 7 && strncmp(p, "license", 7) == 0) {
-                    size_t n = val_len < MOD_LICENSE_LEN-1 ? val_len : MOD_LICENSE_LEN-1;
-                    memcpy(mod->license, val, n); mod->license[n] = '\0';
+                    size_t n = val_len < MOD_LICENSE_LEN - 1 ? val_len : MOD_LICENSE_LEN - 1;
+                    memcpy(mod->license, val, n);
+                    mod->license[n] = '\0';
                 } else if (key_len == 7 && strncmp(p, "version", 7) == 0) {
-                    size_t n = val_len < MOD_VERSION_LEN-1 ? val_len : MOD_VERSION_LEN-1;
-                    memcpy(mod->version, val, n); mod->version[n] = '\0';
+                    size_t n = val_len < MOD_VERSION_LEN - 1 ? val_len : MOD_VERSION_LEN - 1;
+                    memcpy(mod->version, val, n);
+                    mod->version[n] = '\0';
                 } else if (key_len == 7 && strncmp(p, "depends", 7) == 0) {
-                    /* Parse comma-separated dependencies */
                     const char *d = val;
-                    while (*d && mod->dep_count < MAX_MOD_DEPS) {
-                        while (*d == ' ' || *d == ',') d++;
+                    while (*d && (d < val + val_len) && mod->dep_count < MAX_MOD_DEPS) {
+                        while ((*d == ' ' || *d == ',') && (d < val + val_len)) d++;
                         const char *start = d;
-                        while (*d && *d != ',') d++;
+                        while (*d && *d != ',' && (d < val + val_len)) d++;
                         size_t dlen = d - start;
                         if (dlen > 0 && dlen < MOD_NAME_LEN) {
                             char *dep = kmalloc(dlen + 1);
@@ -276,38 +299,14 @@ static int parse_modinfo(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf_data
                     }
                 }
             }
-
             p = end + 1;
         }
-        return 0;  /* found and parsed .modinfo */
+        return 0;
     }
-    return 0;  /* no .modinfo is OK */
+    return 0;
 }
 
-static void *reloc_ptr(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf_data,
-                        void *ptr, uint16_t *sec_idx, size_t *sec_off, size_t nalloc)
-{
-    uintptr_t p = (uintptr_t)ptr;
-    if (p == 0) return NULL;
-
-    Elf64_Shdr *shdr = (Elf64_Shdr *)((uintptr_t)hdr + hdr->e_shoff);
-
-    for (size_t j = 0; j < nalloc; j++) {
-        Elf64_Shdr *sh = &shdr[sec_idx[j]];
-        uintptr_t sec_data_start = (uintptr_t)(elf_data + sh->sh_offset);
-        uintptr_t sec_data_end = sec_data_start + sh->sh_size;
-
-        if (p >= sec_data_start && p < sec_data_end) {
-            uintptr_t offset = p - sec_data_start;
-            return (void *)((uintptr_t)mod->base + sec_off[j] + offset);
-        }
-    }
-
-    return ptr;
-}
-
-static int parse_export_table(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf_data,
-                               uint16_t *sec_idx, size_t *sec_off, size_t nalloc)
+static int parse_export_table(module_t *mod, const Elf64_Ehdr *hdr, uint16_t *sec_idx, size_t *sec_off, size_t nalloc)
 {
     Elf64_Shdr *shdr = (Elf64_Shdr *)((uintptr_t)hdr + hdr->e_shoff);
 
@@ -326,17 +325,23 @@ static int parse_export_table(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf
             void *addr;
         } ksymtab_entry_t;
 
-        ksymtab_entry_t *entries = (ksymtab_entry_t *)(elf_data + shdr[i].sh_offset);
+        size_t sec_offset = 0;
+        for (size_t j = 0; j < nalloc; j++) {
+            if (sec_idx[j] == i) {
+                sec_offset = sec_off[j];
+                break;
+            }
+        }
+
+        ksymtab_entry_t *entries = (ksymtab_entry_t *)((uintptr_t)mod->base + sec_offset);
         size_t nentries = shdr[i].sh_size / sizeof(ksymtab_entry_t);
 
         for (size_t e = 0; e < nentries && mod->export_count < MAX_EXPORTED_SYMS; e++) {
-            const char *sym_name = reloc_ptr(mod, hdr, elf_data, (void*)entries[e].name,
-                                              sec_idx, sec_off, nalloc);
-            void *sym_addr = reloc_ptr(mod, hdr, elf_data, entries[e].addr,
-                                        sec_idx, sec_off, nalloc);
+            const char *sym_name = entries[e].name;
+            void *sym_addr = entries[e].addr;
 
             if (!sym_name || !sym_addr) {
-                debugln("[mod] Export %zu: bad ptr name=%p addr=%p", e, sym_name, sym_addr);
+                debugln("[mod] Export %zu: bad relocated ptr name=%p addr=%p", e, sym_name, sym_addr);
                 continue;
             }
 
@@ -350,8 +355,7 @@ static int parse_export_table(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf
     return 0;
 }
 
-static int parse_param_table(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf_data,
-                              uint16_t *sec_idx, size_t *sec_off, size_t nalloc)
+static int parse_param_table(module_t *mod, const Elf64_Ehdr *hdr, uint16_t *sec_idx, size_t *sec_off, size_t nalloc)
 {
     Elf64_Shdr *shdr = (Elf64_Shdr *)((uintptr_t)hdr + hdr->e_shoff);
 
@@ -365,26 +369,25 @@ static int parse_param_table(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf_
         }
         if (!name || strcmp(name, "__param") != 0) continue;
 
-        mod_param_t *params = (mod_param_t *)(elf_data + shdr[i].sh_offset);
+        size_t sec_offset = 0;
+        for (size_t j = 0; j < nalloc; j++) {
+            if (sec_idx[j] == i) {
+                sec_offset = sec_off[j];
+                break;
+            }
+        }
+
+        mod_param_t *params = (mod_param_t *)((uintptr_t)mod->base + sec_offset);
         size_t nparams = shdr[i].sh_size / sizeof(mod_param_t);
 
         for (size_t p = 0; p < nparams && mod->param_count < MAX_MOD_PARAMS; p++) {
             memcpy(&mod->params[mod->param_count], &params[p], sizeof(mod_param_t));
 
-            /* Relocate pointers in the parameter descriptor */
-            mod->params[mod->param_count].addr = reloc_ptr(mod, hdr, elf_data,
-                params[p].addr, sec_idx, sec_off, nalloc);
-            mod->params[mod->param_count].def_str = reloc_ptr(mod, hdr, elf_data,
-                (void*)params[p].def_str, sec_idx, sec_off, nalloc);
-            mod->params[mod->param_count].desc = reloc_ptr(mod, hdr, elf_data,
-                (void*)params[p].desc, sec_idx, sec_off, nalloc);
-
             debugln("[mod] Param: %s type=%u addr=%p desc=%s",
                     mod->params[mod->param_count].name,
                     mod->params[mod->param_count].type,
                     mod->params[mod->param_count].addr,
-                    mod->params[mod->param_count].desc ?
-                    mod->params[mod->param_count].desc : "(null)");
+                    mod->params[mod->param_count].desc ? mod->params[mod->param_count].desc : "(null)");
 
             mod->param_count++;
         }
@@ -392,7 +395,6 @@ static int parse_param_table(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf_
     }
     return 0;
 }
-
 
 static int resolve_dependencies(module_t *mod)
 {
@@ -479,8 +481,7 @@ static int apply_params(module_t *mod, const char *args)
     return 0;
 }
 
-static void find_module_hooks(module_t *mod, const Elf64_Ehdr *hdr, uint8_t *elf_data,
-                               uint16_t *sec_idx, size_t *sec_off, size_t nalloc)
+static void find_module_hooks(module_t *mod, const Elf64_Ehdr *hdr, uint16_t *sec_idx, size_t *sec_off, size_t nalloc)
 {
     if (!mod->symtab || !mod->strtab) {
         debugln("[mod] No symtab/strtab for hook search");
@@ -529,44 +530,52 @@ void mod_put(module_t *mod)
     debugln("[mod] %s refcount -> %d", mod->name, mod->refcount);
 }
 
-module_t *load_kernel_module(const char *name, uint8_t *elf_data, size_t len,
-                              const char *args)
+module_t *load_kernel_module(const char *name, uint8_t *elf_data, size_t len, const char *args)
 {
     if (!elf_data || len < sizeof(Elf64_Ehdr)) return NULL;
-    if (mod_count >= MAX_MODULES) { debugln("[mod] Module table full"); return NULL; }
+    if (mod_count >= MAX_MODULES) {
+        debugln("[mod] Module table full");
+        return NULL;
+    }
 
     const Elf64_Ehdr *hdr = (const Elf64_Ehdr *)elf_data;
     if (elf_validate_reloc(hdr) < 0) return NULL;
 
     symbols_init();
 
-    /* Calculate layout for SHF_ALLOC sections */
     uint16_t *sec_idx = NULL;
     size_t   *sec_off = NULL;
     size_t    nalloc = 0;
     size_t    total = calc_alloc_size(hdr, &sec_idx, &sec_off, &nalloc);
-    if (!total || !sec_idx) { kfree(sec_idx); kfree(sec_off); return NULL; }
+    if (!total || !sec_idx) {
+        kfree(sec_idx);
+        kfree(sec_off);
+        return NULL;
+    }
 
-    /* Allocate and copy sections */
     void *base = kmalloc(total);
-    if (!base) { kfree(sec_idx); kfree(sec_off); return NULL; }
+    if (!base) {
+        kfree(sec_idx);
+        kfree(sec_off);
+        return NULL;
+    }
     memset(base, 0, total);
 
     Elf64_Shdr *shdr = (Elf64_Shdr *)((uintptr_t)hdr + hdr->e_shoff);
     for (size_t j = 0; j < nalloc; j++) {
         uint16_t i = sec_idx[j];
         void *dest = (void *)((uintptr_t)base + sec_off[j]);
-        if (shdr[i].sh_type != SHT_NOBITS && shdr[i].sh_size > 0)
+        if (shdr[i].sh_type != SHT_NOBITS && shdr[i].sh_size > 0) {
             memcpy(dest, elf_data + shdr[i].sh_offset, shdr[i].sh_size);
+        }
     }
 
-    /* Allocate module descriptor */
     module_t *mod = &modules[mod_count++];
     memset(mod, 0, sizeof(*mod));
     mod->base = base;
     mod->size = total;
     mod->state = MOD_STATE_LOADING;
-    mod->refcount = 1;  /* held by being loaded */
+    mod->refcount = 1;
     mod->ehdr = hdr;
 
     size_t nlen = strlen(name);
@@ -574,24 +583,13 @@ module_t *load_kernel_module(const char *name, uint8_t *elf_data, size_t len,
     memcpy(mod->name, name, nlen);
     mod->name[nlen] = '\0';
 
-    /* Parse metadata, exports, params from original ELF */
     parse_modinfo(mod, hdr, elf_data);
-    parse_export_table(mod, hdr, elf_data, sec_idx, sec_off, nalloc);
-    parse_param_table(mod, hdr, elf_data, sec_idx, sec_off, nalloc);
 
-    /* Apply load-time arguments */
-    if (args && apply_params(mod, args) < 0) {
-        debugln("[mod] Failed to apply parameters");
-        goto fail;
-    }
-
-    /* Resolve declared dependencies */
     if (resolve_dependencies(mod) < 0) {
         debugln("[mod] Dependency resolution failed");
         goto fail;
     }
 
-    /* Find symbol table in original ELF (not loaded) */
     for (uint16_t i = 0; i < hdr->e_shnum; i++) {
         if (shdr[i].sh_type == SHT_SYMTAB) {
             mod->symtab = (Elf64_Sym *)(elf_data + shdr[i].sh_offset);
@@ -604,14 +602,20 @@ module_t *load_kernel_module(const char *name, uint8_t *elf_data, size_t len,
         }
     }
 
-    /* Process relocations */
     if (process_relocations(mod, hdr, sec_idx, sec_off, nalloc) < 0) {
         debugln("[mod] Relocation failed");
         goto fail;
     }
 
-    /* Find init/exit hooks */
-    find_module_hooks(mod, hdr, elf_data, sec_idx, sec_off, nalloc);
+    parse_export_table(mod, hdr, sec_idx, sec_off, nalloc);
+    parse_param_table(mod, hdr, sec_idx, sec_off, nalloc);
+
+    if (args && apply_params(mod, args) < 0) {
+        debugln("[mod] Failed to apply parameters");
+        goto fail;
+    }
+
+    find_module_hooks(mod, hdr, sec_idx, sec_off, nalloc);
 
     kfree(sec_idx);
     kfree(sec_off);
@@ -619,10 +623,8 @@ module_t *load_kernel_module(const char *name, uint8_t *elf_data, size_t len,
     sec_off = NULL;
 
     debugln("[mod] Loaded '%s' base=%p size=%lu init=%p exit=%p exports=%u",
-            mod->name, mod->base, mod->size, mod->init_fn, mod->exit_fn,
-            mod->export_count);
+            mod->name, mod->base, mod->size, mod->init_fn, mod->exit_fn, mod->export_count);
 
-    /* Call init */
     if (mod->init_fn) {
         debugln("[mod] Calling %s::module_init", mod->name);
         mod->state = MOD_STATE_LOADING;
@@ -692,8 +694,7 @@ int unload_kernel_module(module_t *mod)
 module_t *mod_find(const char *name)
 {
     for (uint32_t i = 0; i < mod_count; i++) {
-        if (modules[i].state != MOD_STATE_UNLOADED &&
-            strcmp(modules[i].name, name) == 0)
+        if (modules[i].state != MOD_STATE_UNLOADED && strcmp(modules[i].name, name) == 0)
             return &modules[i];
     }
     return NULL;

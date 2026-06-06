@@ -17,6 +17,7 @@
 !.vscode/
 .vscode/compile_commands.json
 !subb.json
+*.ro
 *.o
 *.o.*
 *.ko
@@ -30,7 +31,7 @@
 modules.builtin
 *.elf
 *.bin
-configs/iso_root/boot/limine/limine-bios.sys
+configs/iso_root/boot/limine-bios.sys
 *.gz
 *.bz2
 *.lzma

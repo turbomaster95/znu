@@ -2,7 +2,7 @@
 set -e
 
 SRCTREE=$1
-IMG_NAME=$2 # Base name passed from Makefile (e.g., "Znu")
+IMG_NAME=$2
 
 if [ -z "$SRCTREE" ] || [ -z "$IMG_NAME" ]; then
     echo "Usage: $0 <srctree> <img_name>"
@@ -10,59 +10,86 @@ if [ -z "$SRCTREE" ] || [ -z "$IMG_NAME" ]; then
 fi
 
 ISO_ROOT="$SRCTREE/configs/iso_root"
-# Ensure the kernel binary is staged inside the iso_root before running xorriso
-cp -f znu "$ISO_ROOT/boot/kernel.bin"
+mkdir -p "$ISO_ROOT/boot"
 
-# Fetch Limine's system boot sector path
-LIMINE_SYS="$SRCTREE/scripts/limine/share/limine/limine-bios.sys"
+# Pre-stage the kernel binary
+cp -f znu "$ISO_ROOT/boot/kernel.bin"
 
 build_xorriso() {
     local OUT_FILE=$1
-    local MODE=$2 # "multi", "bios", "uefi"
-    
-    local OPTS=()
+    local MODE=$2
 
-    # Base xorriso options for standard ISO generation
-    OPTS+=("-as" "mkisofs")
-    OPTS+=("-b" "boot/limine-bios-cd.bin") # Path inside iso_root or relative
-    OPTS+=("-no-emul-boot")
-    OPTS+=("-boot-load-size" "4")
-    OPTS+=("-boot-info-table")
+    # Array to track dynamic xorriso arguments
+    local OPTS=("-as" "mkisofs")
 
-    # Handle BIOS/MBR Boot options
+    # --- BIOS SETUP ---
     if [ "$MODE" = "multi" ] || [ "$MODE" = "bios" ]; then
-        # We assume limine-bios-cd.bin is copied or available in your staging root
-        # If limine-bios-cd.bin isn't in your iso_root, make sure to stage it there first!
-        if [ -f "$SRCTREE/scripts/limine/share/limine/limine-bios-cd.bin" ]; then
-            mkdir -p "$ISO_ROOT/boot"
-            cp -f "$SRCTREE/scripts/limine/share/limine/limine-bios-cd.bin" "$ISO_ROOT/boot/"
+        # Check where limine-bios-cd.bin is located and copy it to ISO root boot folder
+        if [ -f "$SRCTREE/scripts/limine/bin/limine-bios-cd.bin" ]; then
+            cp -f "$SRCTREE/scripts/limine/bin/limine-bios-cd.bin" "$ISO_ROOT/boot/"
+        else
+            echo "[-] Error: limine-bios-cd.bin not found in scripts/limine!" >&2
+            exit 1
+        fi
+        
+        # Keep limine-bios.sys in root/boot if it's currently sitting in root/boot/limine
+        if [ -f "$ISO_ROOT/boot/limine/limine-bios.sys" ] && [ ! -f "$ISO_ROOT/boot/limine-bios.sys" ]; then
+            cp -f "$ISO_ROOT/boot/limine/limine-bios.sys" "$ISO_ROOT/boot/"
+        fi
+
+        OPTS+=("-b" "boot/limine-bios-cd.bin")
+        OPTS+=("-no-emul-boot")
+        OPTS+=("-boot-load-size" "4")
+        OPTS+=("-boot-info-table")
+    fi
+
+    # --- UEFI SETUP ---
+    if [ "$MODE" = "multi" ] || [ "$MODE" = "uefi" ]; then
+        # Find BOOTX64.EFI from your limine build directory and stage it dynamically
+        local EFI_SRC=""
+        if [ -f "$SRCTREE/scripts/limine/share/limine/BOOTX64.EFI" ]; then
+            EFI_SRC="$SRCTREE/scripts/limine/share/limine/BOOTX64.EFI"
+        elif [ -f "$SRCTREE/scripts/limine/BOOTX64.EFI" ]; then
+            EFI_SRC="$SRCTREE/scripts/limine/BOOTX64.EFI"
+        fi
+
+        if [ -n "$EFI_SRC" ]; then
+            mkdir -p "$ISO_ROOT/EFI/BOOT"
+            cp -f "$EFI_SRC" "$ISO_ROOT/EFI/BOOT/BOOTX64.EFI"
+            
+            # Only add El Torito UEFI alt boot configuration if we actually have the binary file
+            if [ "$MODE" = "multi" ]; then
+                OPTS+=("-eltorito-alt-boot")
+            fi
+            OPTS+=("-e" "EFI/BOOT/BOOTX64.EFI")
+            OPTS+=("-no-emul-boot")
+        else
+            # Fallback handling if building UEFI component but missing the payload binary
+            if [ "$MODE" = "uefi" ]; then
+                echo "[-] Error: BOOTX64.EFI missing. Cannot compile explicit UEFI ISO." >&2
+                exit 1
+            elif [ "$MODE" = "multi" ]; then
+                echo "[!] Warning: BOOTX64.EFI missing. Compiling Multi-ISO variant downshifted to BIOS-only mode." >&2
+            fi
         fi
     fi
 
-    # Handle UEFI Boot options via MBR El Torito Alt-Boot
-    if [ "$MODE" = "multi" ] || [ "$MODE" = "uefi" ]; then
-        OPTS+=("-eltorito-alt-boot")
-        OPTS+=("-e" "EFI/BOOT/BOOTX64.EFI") # Point directly to the EFI executable inside ISO
-        OPTS+=("-no-emul-boot")
-    fi
-
-    # Output details
     OPTS+=("-o" "$OUT_FILE")
     OPTS+=("$ISO_ROOT")
 
-    # Run xorriso safely
     rm -f "$OUT_FILE"
-    xorriso "${OPTS[@]}" 2>/dev/null
+    
+    # Run xorriso cleanly without suppressing errors so you can see warnings
+    xorriso "${OPTS[@]}"
 
-    # For BIOS or Multi targets, we must run the limine deployment post-processing step
+    # Run the structural post-install logic if BIOS execution layers exist
     if [ "$MODE" = "multi" ] || [ "$MODE" = "bios" ]; then
         "$SRCTREE/scripts/limine/bin/limine" bios-install "$OUT_FILE"
     fi
 
-    echo "ISO built successfully via xorriso: $OUT_FILE"
+    echo "[+] ISO built successfully: $OUT_FILE"
 }
 
-# Process paths depending on Makefile variables
 if [ "$CONFIG_ISO_MULTI" = "y" ]; then
     build_xorriso "$IMG_NAME.iso" "multi"
 fi

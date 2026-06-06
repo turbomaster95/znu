@@ -33,6 +33,4 @@ obj-y += signal.o
 CFLAGS_diskio.o += -I$(srctree)/lib/fatfs/source
 obj-y += diskio.o
 obj-y += tests.o
-obj-y += rump_stubs.o
-obj-y += rums.o
-#ar-y  += librumpy.a
+

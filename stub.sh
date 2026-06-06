@@ -27,7 +27,7 @@ awk '
   
   # 4. If it survives, format it as a clean unique function declaration
   { 
-    print "__attribute__((weak)) void " $1 "(void) { /* Dummy Stub */ }" 
+    print "__attribute__((weak)) long " $1 "() { /* Dummy Stub */ return 0; }" 
   }
 ' >> "$OUTPUT_FILE"
 
