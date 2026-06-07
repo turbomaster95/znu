@@ -386,9 +386,13 @@ $(TARGET)-all	:= $($(TARGET)-objs) $($(TARGET)-libs) $(LEGAL_OBJ)
 scripts/embsym/embsym: scripts/embsym/embsym.c
 	$(Q)$(HOSTCC) $(HOSTCFLAGS) scripts/embsym/embsym.c -o scripts/embsym/embsym
 
+quiet_cmd_$(TARGET)_a = KRNLA   $@
+      cmd_$(TARGET)_a = rm -f $@; $(AR) rcsT $@ \
+      $($(TARGET)-libs) $($(TARGET)-objs) $(LEGAL_OBJS)
+
 quiet_cmd_$(TARGET) = KRNLD   $@
       cmd_$(TARGET) = $(CC) $(LDFLAGS) $(KBUILD_LDFLAGS) -o $@ \
-      -Wl,--start-group $($(TARGET)-libs) $($(TARGET)-objs) $(LEGAL_OBJ) -Wl,--end-group -T $(srctree)/scripts/linker.ld
+      -Wl,--start-group $(TARGET).a -Wl,--end-group -T $(srctree)/scripts/linker.ld
 
 quiet_cmd_syms = SYMS    $@
       cmd_syms = $(srctree)/scripts/gensyms $(TARGET) $(srctree) $(OBJCOPY) $(TARGET)
@@ -428,7 +432,10 @@ quiet_cmd_mkiso = MKISO   $(STARGET) -> $(ISO_STR)
 quiet_cmd_mkuki = MKUKI   uki/Znu.efi
       cmd_mkuki = $(srctree)/scripts/mkuki.sh $(srctree)
 
-$(TARGET): $($(TARGET)-all) FORCE scripts/embsym/embsym
+$(TARGET).a: $($(TARGET)-all) FORCE
+	$(call if_changed,$(TARGET)_a)
+
+$(TARGET): $(TARGET).a FORCE scripts/embsym/embsym
 	$(call if_changed,$(TARGET))
 	$(call if_changed,syms)
 	$(call if_changed,strip)

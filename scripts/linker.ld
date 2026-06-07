@@ -95,7 +95,7 @@ SECTIONS
         stack_top = .;
     } :data
 
-    . = ALIGN(0x200000);
+    . = ALIGN(0x400000);
     
     __ksyms_start = .;
     .ksyms : {

@@ -18,10 +18,10 @@
 #define DNS_LOCAL_PORT 53000
 static void udp_dns_handle(const uint8_t *payload, size_t len);
 
-static uint8_t my_ip[4] = {10, 0, 2, 15};
-static uint8_t my_gw[4] = {10, 0, 2, 2};
-static uint8_t my_mac[6] = {01, 00, 52, 54, 00, 12};
-static uint8_t bcast_mac[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+uint8_t my_ip[4] = {10, 0, 2, 15};
+uint8_t my_gw[4] = {10, 0, 2, 2};
+uint8_t my_mac[6] = {01, 00, 52, 54, 00, 12};
+uint8_t bcast_mac[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 void net_set_ip(const uint8_t ip[4], const uint8_t gw[4])
 {

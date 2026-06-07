@@ -119,8 +119,8 @@ void kmain(void) {
 
     net_init();
 
-    sleep(1000);
-    net_test_suite();
+    // sleep(1000);
+    // net_test_suite();
 
     smp_init();
 

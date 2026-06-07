@@ -4,6 +4,8 @@
 #include <net.h>
 #include <e1000.h>
 
+extern uint8_t my_gw[4];
+
 void worker_hello_task(void *arg) {
     int core_id = (int)(uintptr_t)arg;
     debugln("[worker] Hello from core %d!", core_id);
