@@ -5,6 +5,7 @@
 #include <string.h>
 #include <proc.h>
 #include <vfs.h>
+#include <vfse.h>
 #include <page.h>
 #include <stdio.h>
 #include <errno.h>
@@ -161,7 +162,10 @@ int sys_open(const char* path, int flags) {
 
     if (kpath[0] == '\0') return -ENOENT;
 
-    vfs_node_t* node = vfs_path_to_node(kpath);
+    char abspath[4096];
+    vfse_resolve(kpath, abspath, sizeof(abspath));
+
+    vfs_node_t* node = vfs_path_to_node(abspath);
     if (!node) return -ENOENT; // File not found
 
     if ((flags & O_DIRECTORY) && node->type != VFS_DIRECTORY) return -ENOTDIR;
@@ -741,6 +745,25 @@ uint64_t syscall_handler(registers_t* regs) {
 	    }
 	    return (uint64_t)regs;
 
+	case 22: // pipe
+	    regs->rax = vfse_pipe((int*)arg1);
+	    return (uint64_t)regs;
+	case 32: // dup
+	    regs->rax = vfse_dup((int)arg1);
+	    return (uint64_t)regs;
+	case 33: // dup2
+	    regs->rax = vfse_dup2((int)arg1, (int)arg2);
+	    return (uint64_t)regs;
+	case 72: // fcntl
+	    regs->rax = vfse_fcntl((int)arg1, (int)arg2, (long)arg3);
+	    return (uint64_t)regs;
+	case 80: // chdir 
+	    regs->rax = vfse_chdir((const char*)arg1);
+	    return (uint64_t)regs;
+	case 79: // getcwd
+	    regs->rax = (uint64_t)vfse_getcwd((char*)arg1, (size_t)arg2);
+	    return (uint64_t)regs;
+
 	case 14: // rt_sigprocmask
 	    regs->rax = 0;
 	    return (uint64_t)regs;
@@ -769,7 +792,7 @@ uint64_t syscall_handler(registers_t* regs) {
 	    regs->rax = 0;
 	    return (uint64_t)regs;
 
-	case 33: // access
+	case 21: // access
 	    regs->rax = 0;
 	    return (uint64_t)regs;
 

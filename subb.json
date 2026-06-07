@@ -3,17 +3,17 @@
         "lib/flanterm": {
             "url": "https://github.com/Mintsuki/Flanterm",
             "branch": "trunk",
-            "hash": "dfa1922c0749faf64c4423a81b233a20c08a7db7"
+            "hash": "e231edd0e508022521c8233392aabc8ce5c9b242"
         },
         "user/dash": {
             "url": "https://git.kernel.org/pub/scm/utils/dash/dash.git",
             "branch": "master",
-            "hash": "6a1533f24b646364ad514c542292b5c85b2adabf"
+            "hash": "38158adce43467969be49f1cc375cd74806d0b31"
         },
         "scripts/limine": {
             "url": "https://github.com/limine-bootloader/limine",
             "branch": "v12.x",
-            "hash": "5e24ff775af55e6222cec8bd6cba66b90d759fd1"
+            "hash": "8c8a688776735b2b2d12683a032e442583d361db"
         },
         "lib/uacpi": {
             "url": "https://github.com/uACPI/uACPI",
