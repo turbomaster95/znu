@@ -1,8 +1,6 @@
 #include <stdint.h>
 #include <limine.h>
 
-#if defined(__is_libk)
-
 static inline int abs(int j) {
     return j < 0 ? -j : j;
 }
@@ -66,6 +64,3 @@ void draw_circle(int xm, int ym, int r, uint32_t color) {
         if (r > x || err > y) err += ++x * 2 + 1;
     } while (x < 0);
 }
-
-
-#endif

@@ -163,8 +163,8 @@ int sys_open(const char* path, int flags) {
     if (kpath[0] == '\0') return -ENOENT;
 
     char abspath[4096];
-    vfse_resolve(kpath, abspath, sizeof(abspath));
-
+    vfse_resolve_path(kpath, abspath, sizeof(abspath));
+    
     vfs_node_t* node = vfs_path_to_node(abspath);
     if (!node) return -ENOENT; // File not found
 

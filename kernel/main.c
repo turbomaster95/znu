@@ -20,6 +20,7 @@
 #include <gdt.h>
 #include <proc.h>
 #include <vfs.h>
+#include <vfse.h>
 #include <x86.h>
 #include <pci.h>
 #include <ahci.h>
@@ -108,6 +109,9 @@ void kmain(void) {
 
     init_vfs();
     debugln("[vfs] Initialized VFS");
+
+    vfse_init();
+    debugln("[vfse] Initialized VFSe");
 
     tty_init();
     debugln("[tty] Initialized tty");

@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <idt.h>
 #include <vfs.h>
+#include <vfse.h>
 
 #define SIGINT   2
 #define SIGKILL  9
@@ -45,6 +46,7 @@ typedef struct process {
     task_state_t state;
     task_prio_t priority;
     vfs_file_t* files[MAX_FILES];
+    vfse_process_t* vfse;
     uint8_t sse_state[512] __attribute__((aligned(16)));
     uintptr_t tls_base;
     uint32_t  tls_size;
