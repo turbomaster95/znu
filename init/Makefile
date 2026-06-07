@@ -5,11 +5,15 @@ KBUILD_CPPFLAGS := -I$(srctree)/lib/ulibc/include -I$(srctree)/lib/ulibc/third-p
 LINUXINCLUDE    :=
 KBUILD_CPPFLAGS += -Wno-builtin-declaration-mismatch
 
-ULIBC_LIB := $(srctree)/lib/ulibc/built-in.o
+ULIBC_LIB := $(srctree)/lib/ulibc/built-in.a
 always-y += init.elf
 
 quiet_cmd_znu_ld = LD      $@
-      cmd_znu_ld = $(CC) $(USER_TARGET) -static -nostdlib -Wl,-z,noexecstack -Wl,--no-warn-rwx-segments -T $(srctree)/init/linker.ld $(obj)/built-in.o $(ULIBC_LIB) -o $@
+      cmd_znu_ld = $(CC) $(USER_CFLAGS) -static -nostdlib \
+                     -Wl,-z,noexecstack -Wl,--no-warn-rwx-segments \
+                     -T $(srctree)/init/linker.ld \
+                     -Wl,--start-group $< $(ULIBC_LIB) -Wl,--end-group \
+                     -o $@
 
 $(obj)/init.elf: $(addprefix $(obj)/,$(obj-y)) $(ULIBC_LIB) FORCE
 	$(call if_changed,znu_ld)

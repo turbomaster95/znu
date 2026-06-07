@@ -379,8 +379,8 @@ libs-y		:= lib
 ulibc-y		:= lib/ulibc
 
 $(TARGET)-dirs	:= $(objs-y) $(libs-y) $(ulibc-y) $(user-y)
-$(TARGET)-objs	:= $(patsubst %,%/built-in.o, $(objs-y))
-$(TARGET)-libs	:= $(patsubst %,%/built-in.o, $(libs-y))
+$(TARGET)-objs	:= $(patsubst %,%/built-in.a, $(objs-y))
+$(TARGET)-libs	:= $(patsubst %,%/built-in.a, $(libs-y))
 $(TARGET)-all	:= $($(TARGET)-objs) $($(TARGET)-libs) $(LEGAL_OBJ)
 
 scripts/embsym/embsym: scripts/embsym/embsym.c

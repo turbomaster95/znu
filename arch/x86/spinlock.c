@@ -1,5 +1,6 @@
 #include <sync.h>
 #include <stdio.h>
+#include <proc.h>
 
 void spinlock_init(spinlock_t *lock) {
     lock->locked = 0;

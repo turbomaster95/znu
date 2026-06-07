@@ -86,6 +86,7 @@ void debug_putchar(char c);
 void debugerr(const char* format, ...);
 void debugwarn(const char* format, ...);
 void debugln(const char* format, ...);
+void debug_write(const char* data);
 void wrmsr(uint32_t msr, uint32_t lo, uint32_t hi);
 uint64_t rdmsr(uint32_t msr);
 void write_cr4(uint64_t cr4);

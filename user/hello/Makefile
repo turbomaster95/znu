@@ -6,7 +6,7 @@ KBUILD_CPPFLAGS += -I$(srctree)/lib/ulibc/include
 LINUXINCLUDE    :=
 KBUILD_CPPFLAGS += -Wno-builtin-declaration-mismatch
 
-ULIBC_LIB := $(srctree)/lib/ulibc/built-in.o
+ULIBC_LIB := $(srctree)/lib/ulibc/built-in.a
 
 always-y += hello.elf
 

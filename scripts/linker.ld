@@ -19,20 +19,19 @@ SECTIONS
     . = 0x1000000; 
 
     .rump_low_text : {
-        /* Capture any section containing rump symbols from any object file */
-	*(.text.*rumpns_* .text.*rump_*)
-        /* Backup file catchers */
+        *(.text.*rumpns_* .text.*rump_*)
+        /* Updated backup archive file catchers */
         *librumpy.a*(.text .text.*)
-        *built-in.o*(.text.*rump*)
+        *built-in.a*(.text.*rump*)  /* <-- Updated to .a */
     }
 
     .rump_low_data : {
         *(.rodata.*rumpns_* .rodata.*rump_*)
         *(.data.*rumpns_* .data.*rump_*)
         *(.bss.*rumpns_* .bss.*rump_*)
-        /* Backup file catchers */
+        /* Updated backup archive file catchers */
         *librumpy.a*(.rodata .rodata.* .data .data.* .bss .bss.*)
-        *built-in.o*(.rodata.*rump* .data.*rump* .bss.*rump*)
+        *built-in.a*(.rodata.*rump* .data.*rump* .bss.*rump*) /* <-- Updated to .a */
     }
 
     .link_set_rump_components : {
@@ -42,9 +41,6 @@ SECTIONS
     }
 
     /* We want to be placed in the topmost 2GiB of the address space, for optimisations */
-    /* and because that is what the Limine spec mandates. */
-    /* Any address in this region will do, but often 0xffffffff80000000 is chosen as */
-    /* that is the beginning of the region. */
     . = 0xffffffff80000000;
     _kernel_virtual_start = .;
 
@@ -95,20 +91,25 @@ SECTIONS
         stack_top = .;
     } :data
 
-    . = ALIGN(0x400000);
+    /* Move completely clear of the .bss tracking frame */
+    . = ALIGN(CONSTANT(MAXPAGESIZE));
     
-    __ksyms_start = .;
+    /* * FIXED: Explicitly allocate space inside the curly braces 
+     * and force SHT_PROGBITS so it takes real space in the file map.
+     */
     .ksyms : {
+        __ksyms_start = .;
         *(.ksyms)
-	. = ALIGN(0x1000);
-	. += 0x20000;
+        QUAD(0); /* Forces the section type to initialized PROGBITS data */
+        . = ALIGN(0x1000);
+        . += 0x20000; /* Allocate your full symbol table tracking buffer window */
+        __ksyms_end = .;
     } :data
-    __ksyms_end = .;
 
-    /* Discard .note.* and .eh_frame* since they may cause issues on some hosts. */
+    /* Discard .note.* and .eh_frame* safely without stepping on .note.znu */
     /DISCARD/ : {
         *(.eh_frame*)
-        *(.note .note.*)
+        *(.note.gnu*)
     }
 
     _kernel_virtual_end = .;

@@ -1,4 +1,5 @@
 #include <string.h>
+#include <page.h>
 
 char *strcpy(char *dest, const char *src) {
     stac();
@@ -51,4 +52,20 @@ char* strrchr(const char* s, int c) {
     } while (*s++);
     clac();
     return last;
+}
+
+char *strdup(const char *s) {
+    size_t len = strlen(s) + 1;
+    char *new_s = kmalloc(len);
+    if (new_s == NULL) return NULL;
+    return memcpy(new_s, s, len);
+}
+
+char *strndup(const char *s, size_t n) {
+    size_t len = 0;
+    while (len < n && s[len] != '\0') len++;
+    char *new_s = kmalloc(len + 1);
+    if (new_s == NULL) return NULL;
+    new_s[len] = '\0';
+    return memcpy(new_s, s, len);
 }

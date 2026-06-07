@@ -31,7 +31,7 @@ typedef enum {
 #define MAX_FILES 32
 #define KTHREAD_STACK_SIZE  16384
 
-typedef struct {
+typedef struct process {
     uint64_t pid;
     uint64_t parent_pid;
     int exit_code;

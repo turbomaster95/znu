@@ -1,4 +1,5 @@
 #include <sync.h>
+#include <proc.h>
 
 void semaphore_init(semaphore_t *sem, int32_t initial) {
     sem->count = initial;

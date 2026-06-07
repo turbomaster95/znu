@@ -124,7 +124,7 @@ lib-target := $(obj)/lib.a
 endif
 
 ifneq ($(strip $(obj-y) $(obj-)),)
-builtin-target := $(obj)/built-in.o
+builtin-target := $(obj)/built-in.a
 endif
 
 # Tell the entire engine that any .a target is a precompiled asset
@@ -251,19 +251,20 @@ $(obj)/%.lds: $(src)/%.lds.S FORCE
 # To build objects in subdirs, we need to descend into the directories
 $(sort $(subdir-obj-y)): $(subdir-ym) ;
 
-#
-# Rule to compile a set of .o files into one .o file
-#
+# ===========================================================================
+# Rule to bundle directory objects into a thin built-in.a archive
+# ===========================================================================
 ifdef builtin-target
 
-quiet_cmd_link_o_target = LD      $@
-# If the list of objects to link is empty, just create an empty built-in.o
-cmd_link_o_target = $(if $(strip $(filter-out %.ko, $(obj-y))),\
-                      $(LD) $(ld_flags) -r -o $@ $(filter-out %.ko, $(filter $(obj-y), $^)) \
-                      $(if $(strip $(ar-y)), --whole-archive $(filter %.a, $^) --no-whole-archive), \
-                      rm -f $@; $(AR) rcs$(KBUILD_ARFLAGS) $@)
+quiet_cmd_link_o_target = AR      $@
+# If obj-y contains object files, package them into a thin archive.
+# If it's completely empty, create an empty standard archive so the build loop doesn't break.
+cmd_link_o_target = rm -f $@; \
+                    $(if $(strip $(filter-out %.ko, $(obj-y))), \
+                      $(AR) rcsT $@ $(filter-out %.ko, $(filter $(obj-y), $^)), \
+                      $(AR) rcs $@)
 
-$(builtin-target): $(filter-out %.ko, $(obj-y)) $(ar-y) FORCE
+$(builtin-target): $(filter-out %.ko, $(obj-y)) FORCE
 	$(call if_changed,link_o_target)
 
 targets += $(builtin-target)
@@ -273,7 +274,7 @@ endif # builtin-target
 # Rule to compile a set of .o files into one .a file
 #
 ifdef lib-target
-quiet_cmd_link_l_target = AR      $@
+quiet_cmd_link_l_target = LAR     $@
 cmd_link_l_target = rm -f $@; $(AR) rcs$(KBUILD_ARFLAGS) $@ $(lib-y)
 
 $(lib-target): $(lib-y) FORCE

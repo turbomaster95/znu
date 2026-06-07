@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <proc.h>
 #include <lapic.h>
 
 extern uint32_t lapic_ticks_per_ms;
@@ -38,7 +37,7 @@ static inline uint32_t atomic_load(volatile uint32_t *ptr) {
 
 #define compiler_barrier() __asm__ volatile ("" ::: "memory")
 
-typedef struct {
+typedef struct spinlock {
     volatile uint32_t locked;
     const char *name;
     uint64_t owner_pid;
@@ -54,6 +53,8 @@ bool spinlock_is_held(spinlock_t *lock);
 
 uint64_t spinlock_irq_save(spinlock_t *lock);
 void spinlock_irq_restore(spinlock_t *lock, uint64_t flags);
+
+typedef struct process process_t;
 
 typedef struct mutex_waiter {
     struct mutex_waiter *next;

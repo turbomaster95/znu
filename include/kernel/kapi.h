@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <sync.h>
 
 extern void debugln(const char *fmt, ...);
 extern void kprintf(const char *fmt, ...);
@@ -23,7 +24,7 @@ extern size_t strlen(const char *s);
 extern char *strcpy(char *dest, const char *src);
 extern char *strncpy(char *dest, const char *src, size_t n);
 
-extern void spinlock_acquire(uint32_t *lock);
-extern void spinlock_release(uint32_t *lock);
+extern void spinlock_acquire(spinlock_t *lock);
+extern void spinlock_release(spinlock_t *lock);
 
 #endif

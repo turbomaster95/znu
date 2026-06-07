@@ -1,7 +1,3 @@
-# This is a skeleton from which you can build user applications for znu
-# Copy this folder and rename to the name that you want your user app to be named and then,
-# simply change the BINNAME variable to the name of the folder which this Makefile is currently in.
-
 BINNAME := shz
 
 extra-y += $(BINNAME).elf
@@ -11,7 +7,7 @@ KBUILD_CPPFLAGS += -I$(srctree)/lib/ulibc/include
 LINUXINCLUDE    :=
 KBUILD_CPPFLAGS += -Wno-builtin-declaration-mismatch
 
-ULIBC_LIB := $(srctree)/lib/ulibc/built-in.o
+ULIBC_LIB := $(srctree)/lib/ulibc/built-in.a
 
 always-y += $(BINNAME).elf
 

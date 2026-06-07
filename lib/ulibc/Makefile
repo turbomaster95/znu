@@ -1,9 +1,10 @@
 KBUILD_CPPFLAGS := -I$(src)/include -I$(src)/third-party/zline/
 KBUILD_CFLAGS := -Wno-builtin-declaration-mismatch -msse -msse2 
+CFLAGS_KERNEL :=
 
 export KBUILD_CPPFLAGS KBUILD_CPPFLAGS
 
-always-y += stdio/built-in.o
+always-y += stdio/built-in.a
 
 obj-y := crt0.o malloc.o posix.o stack_check.o
 obj-y += qsort.o

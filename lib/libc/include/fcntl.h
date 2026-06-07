@@ -7,6 +7,6 @@
 #define O_CREAT  0x0040
 #define O_TRUNC  0x0200
 #define O_APPEND 0x0400
-#define O_DIRECTORY 0x8000
+#define O_DIRECTORY 0x10000
 
 #endif
