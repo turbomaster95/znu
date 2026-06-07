@@ -10,37 +10,11 @@ PHDRS
     text PT_LOAD;
     rodata PT_LOAD;
     data PT_LOAD;
-    note PT_NOTE;
 }
 
 SECTIONS
 {
-    /* Map picky rump symbols into lower 32-bit address space */
-    . = 0x1000000; 
-
-    .rump_low_text : {
-        *(.text.*rumpns_* .text.*rump_*)
-        /* Updated backup archive file catchers */
-        *librumpy.a*(.text .text.*)
-        *built-in.a*(.text.*rump*)  /* <-- Updated to .a */
-    }
-
-    .rump_low_data : {
-        *(.rodata.*rumpns_* .rodata.*rump_*)
-        *(.data.*rumpns_* .data.*rump_*)
-        *(.bss.*rumpns_* .bss.*rump_*)
-        /* Updated backup archive file catchers */
-        *librumpy.a*(.rodata .rodata.* .data .data.* .bss .bss.*)
-        *built-in.a*(.rodata.*rump* .data.*rump* .bss.*rump*) /* <-- Updated to .a */
-    }
-
-    .link_set_rump_components : {
-        __start_link_set_rump_components = .;
-        *(link_set_rump_components)
-        __stop_link_set_rump_components = .;
-    }
-
-    /* We want to be placed in the topmost 2GiB of the address space, for optimisations */
+    /* We want to be placed in the topmost 2GiB of the address space, for limine*/
     . = 0xffffffff80000000;
     _kernel_virtual_start = .;
 
@@ -61,10 +35,6 @@ SECTIONS
     /* Move to the next memory page for .rodata */
     . = ALIGN(CONSTANT(MAXPAGESIZE));
 
-    .note.znu : {
-        KEEP(*(.note.znu))
-    } :rodata :note
-    
     .rodata : {
         *(.rodata .rodata.*)
         . = ALIGN(8);
