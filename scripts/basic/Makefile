@@ -7,8 +7,10 @@
 # .config is included by main Makefile.
 # ---------------------------------------------------------------------------
 # fixdep: 	 Used to generate dependency information during build process
+# devcom: 	 Used to generate devfs listings automatically during build
 
 hostprogs-y	:= fixdep
+hostprogs-y	+= devcom
 always		:= $(hostprogs-y)
 
 # fixdep is needed to compile other host programs

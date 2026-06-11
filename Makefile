@@ -123,7 +123,7 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 
 HOSTCC       = gcc
 HOSTCXX      = g++
-HOSTCFLAGS   = -Wall -Wno-unknown-warning-option -Wno-unused-variable -Wno-format-security -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -Wno-discarded-qualifiers -Wno-dangling-pointer -Wno-format
+HOSTCFLAGS   = -Wall -Wno-unknown-warning-option -Wno-unused-variable -Wno-format-security -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -Wno-discarded-qualifiers -Wno-dangling-pointer -Wno-format -Wno-missing-prototypes
 HOSTCXXFLAGS = -O2
 
 # Beautify output
@@ -384,6 +384,7 @@ $(TARGET)-libs	:= $(patsubst %,%/built-in.a, $(libs-y))
 $(TARGET)-all	:= $($(TARGET)-objs) $($(TARGET)-libs) $(LEGAL_OBJ)
 
 scripts/embsym/embsym: scripts/embsym/embsym.c
+	@echo "  HOSTCC  $@"
 	$(Q)$(HOSTCC) $(HOSTCFLAGS) scripts/embsym/embsym.c -o scripts/embsym/embsym
 
 quiet_cmd_$(TARGET)_a = KRNLA   $@
@@ -432,10 +433,10 @@ quiet_cmd_mkiso = MKISO   $(STARGET) -> $(ISO_STR)
 quiet_cmd_mkuki = MKUKI   uki/Znu.efi
       cmd_mkuki = $(srctree)/scripts/mkuki.sh $(srctree)
 
-$(TARGET).a: $($(TARGET)-all) FORCE
+$(TARGET).a: scripts/embsym/embsym $($(TARGET)-all) FORCE
 	$(call if_changed,$(TARGET)_a)
 
-$(TARGET): $(TARGET).a FORCE scripts/embsym/embsym
+$(TARGET): $(TARGET).a FORCE 
 	$(call if_changed,$(TARGET))
 	$(call if_changed,syms)
 	$(call if_changed,strip)
@@ -458,7 +459,7 @@ FAT32IMG := fat32.img
 targets += $(FAT32IMG)
 
 quiet_cmd_qemur = QEMU    $(ISOIMAGE)
-      cmd_qemur = qemu-system-x86_64 -display gtk,zoom-to-fit=off -enable-kvm -cpu host -debugcon stdio -drive id=boot_cd,file=$(ISOIMAGE),format=raw,if=none -device virtio-blk-pci,drive=boot_cd,bootindex=0 -device ich9-ahci,id=ahci -drive id=fat_disk,file=$(FAT32IMG),format=raw,if=none -device ide-hd,bus=ahci.0,drive=fat_disk -netdev user,id=net0 -device e1000,netdev=net0
+      cmd_qemur = qemu-system-x86_64 -display gtk,zoom-to-fit=off -enable-kvm -cpu host -debugcon stdio -drive id=boot_cd,file=Znu.bios.iso,format=raw,if=none -device virtio-blk-pci,drive=boot_cd,bootindex=0 -device ich9-ahci,id=ahci -drive id=fat_disk,file=$(FAT32IMG),format=raw,if=none -device ide-hd,bus=ahci.0,drive=fat_disk -netdev user,id=net0 -device e1000,netdev=net0
 
 quiet_cmd_fat32img = GEN     $(FAT32IMG)
       cmd_fat32img = $(srctree)/scripts/mkfat.sh $(srctree) > /dev/null 2>&1
