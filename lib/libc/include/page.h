@@ -48,6 +48,7 @@ void  pfree(void* phys_addr);
 void *krealloc(void *ptr, size_t new_size);
 void  init_slab(void);
 void  map_page(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t flags);
+void  map_page_huge(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t flags);
 void unmap_page(uint64_t* pml4, uint64_t virt);
 void  debug_ram_map(struct limine_memmap_response* memmap);
 void* kmalloc(uint64_t size);

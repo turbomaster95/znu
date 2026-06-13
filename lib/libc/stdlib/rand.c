@@ -114,3 +114,68 @@ void random_bytes(uint8_t *out, size_t len) {
     ensure_initialized();
     secure_random_bytes(&k_drbg, out, len);
 }
+
+void entropy_garden(void) {
+    uint64_t state_buf[24]; 
+    int idx = 0;
+
+    // TSC 
+    uint32_t lo, hi;
+    __asm__ volatile ("rdtsc" : "=a"(lo), "=d"(hi));
+    state_buf[idx++] = ((uint64_t)hi << 32) | lo;
+
+    // Control Registers
+    uint64_t cr0, cr2, cr3, cr4;
+    __asm__ volatile ("mov %%cr0, %0" : "=r"(cr0)); state_buf[idx++] = cr0;
+    __asm__ volatile ("mov %%cr2, %0" : "=r"(cr2)); state_buf[idx++] = cr2;
+    __asm__ volatile ("mov %%cr3, %0" : "=r"(cr3)); state_buf[idx++] = cr3;
+    __asm__ volatile ("mov %%cr4, %0" : "=r"(cr4)); state_buf[idx++] = cr4;
+
+    // Processor Status & RFLAGS
+    uint64_t rflags;
+    __asm__ volatile ("pushfq; pop %0" : "=r"(rflags)); 
+    state_buf[idx++] = rflags;
+
+    // Memory Stack
+    uint64_t rsp, rbp;
+    __asm__ volatile ("mov %%rsp, %0" : "=r"(rsp)); state_buf[idx++] = rsp;
+    __asm__ volatile ("mov %%rbp, %0" : "=r"(rbp)); state_buf[idx++] = rbp;
+
+    // Segment Selectors
+    uint16_t cs, ds, ss, es, fs, gs;
+    __asm__ volatile ("mov %%cs, %0" : "=r"(cs)); state_buf[idx++] = cs;
+    __asm__ volatile ("mov %%ds, %0" : "=r"(ds)); state_buf[idx++] = ds;
+    __asm__ volatile ("mov %%ss, %0" : "=r"(ss)); state_buf[idx++] = ss;
+    __asm__ volatile ("mov %%es, %0" : "=r"(es)); state_buf[idx++] = es;
+    __asm__ volatile ("mov %%fs, %0" : "=r"(fs)); state_buf[idx++] = fs;
+    __asm__ volatile ("mov %%gs, %0" : "=r"(gs)); state_buf[idx++] = gs;
+
+    if (cpu_has_rdseed()) {
+        uint64_t seed_val;
+        if (rdseed64(&seed_val)) state_buf[idx++] = seed_val;
+    }
+    if (cpu_has_rdrand()) {
+        uint64_t rand_val;
+        if (rdrand64(&rand_val)) state_buf[idx++] = rand_val;
+    }
+
+    uint64_t local_rand_state = state_buf[0];
+    if (local_rand_state == 0) {
+        local_rand_state = 0x55AA55AA55AA55AAULL; // Fail-safe non-zero anchor
+    }
+
+    for (int i = 0; i < idx; i++) {
+        local_rand_state ^= local_rand_state << 13;
+        local_rand_state ^= local_rand_state >> 7;
+        local_rand_state ^= local_rand_state << 17;
+        int shift_amount = local_rand_state % 64;
+        uint64_t dynamic_mask = local_rand_state;
+        uint64_t rotated = (state_buf[i] >> shift_amount) | (state_buf[i] << (64 - shift_amount));
+        state_buf[i] = rotated ^ dynamic_mask;
+    }
+
+    entropy_pool_add(&k_pool, (uint8_t *)state_buf, idx * sizeof(uint64_t));
+
+    memset(state_buf, 0, sizeof(state_buf));
+    local_rand_state = 0;
+}

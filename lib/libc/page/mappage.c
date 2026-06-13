@@ -46,3 +46,37 @@ void map_page(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t flags) {
     __asm__ volatile("invlpg (%0)" : : "r"(virt) : "memory");
 }
 
+void map_page_huge(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t flags) {
+    uint64_t pml4_idx = PML4_IDX(virt);
+    uint64_t pdp_idx  = PDP_IDX(virt);
+    uint64_t pd_idx   = PD_IDX(virt);
+
+    // PML4 -> PDP
+    if (!(pml4[pml4_idx] & PTE_PRESENT)) {
+       pml4[pml4_idx] = (uint64_t)palloc_zero() | PTE_PRESENT | PTE_WRITABLE | (flags & PTE_USER);
+    } else {
+       pml4[pml4_idx] |= (flags & PTE_USER);
+    }
+    uint64_t* pdp = (uint64_t*)((pml4[pml4_idx] & ~0xFFF) + hhdm_offset);
+
+    // PDP -> PD
+    if (!(pdp[pdp_idx] & PTE_PRESENT)) {
+        pdp[pdp_idx] = (uint64_t)palloc_zero() | PTE_PRESENT | PTE_WRITABLE | (flags & PTE_USER);
+    } else {
+        pdp[pdp_idx] |= (flags & PTE_USER);
+    }
+    uint64_t* pd = (uint64_t*)((pdp[pdp_idx] & ~0xFFF) + hhdm_offset);
+
+    // Configure flags
+    uint64_t final_flags = flags;
+    if (nx_supported) {
+        final_flags &= ~PTE_NX;
+    }
+
+    // PD -> 2MB Physical Frame
+    // We clear the lower 21 bits (~0x1FFFFF) for 2MB alignment.
+    // (1ULL << 7) is the Page Size (PS) bit that turns this into a huge leaf node.
+    pd[pd_idx] = (phys & ~0x1FFFFF) | final_flags | PTE_PRESENT | (1ULL << 7);
+
+    __asm__ volatile("invlpg (%0)" : : "r"(virt) : "memory");
+}

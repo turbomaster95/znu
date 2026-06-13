@@ -24,8 +24,23 @@ void vmm_switch(uint64_t* pml4_virt) {
 void vmm_map_region(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t size, uint64_t flags) {
     debugln("[VMM] Mapping region: %p -> %p (Size: %d KB)", virt, phys, (int)(size / 1024));
     
-    for (uint64_t offset = 0; offset < size; offset += PAGE_SIZE) {
-        map_page(pml4, virt + offset, phys + offset, flags);
+    uint64_t offset = 0;
+    while (offset < size) {
+        uint64_t curr_virt = virt + offset;
+        uint64_t curr_phys = phys + offset;
+        uint64_t remaining = size - offset;
+
+        if ((curr_virt % 0x200000 == 0) && 
+            (curr_phys % 0x200000 == 0) && 
+            (remaining >= 0x200000)) {
+            
+            map_page_huge(pml4, curr_virt, curr_phys, flags);
+            offset += 0x200000; // Leap forward by 2MB
+        } else {
+            // Fallback for unaligned edges
+            map_page(pml4, curr_virt, curr_phys, flags);
+            offset += PAGE_SIZE; // Step forward by 4KB
+        }
     }
     
     debugln("[VMM] Region mapping complete.");

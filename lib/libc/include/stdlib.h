@@ -98,6 +98,7 @@ int rand(void);
 void srand(unsigned int seed);
 int rdrand64(uint64_t* val);
 void seed_from_hardware(void);
+void entropy_garden(void);
 
 #endif
 

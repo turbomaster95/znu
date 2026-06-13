@@ -122,6 +122,7 @@ registers_t* k_exception_handler(registers_t *regs) {
         }
 
 	smp_flush_logs_to_screen();
+	// entropy_garden();
         lapic_eoi();
     } else if (int_no == 0x30) {
         regs = scheduler(regs);
