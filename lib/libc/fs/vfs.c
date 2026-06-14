@@ -27,9 +27,28 @@ int mem_vfs_ioctl(vfs_node_t* node, unsigned long request, void* argp) {
     return -ENOTTY;
 }
 
+int mem_vfs_write(vfs_node_t* node, const void* buf, size_t size, size_t offset) {
+    if (!node || !buf) return -1;
+
+    size_t required_size = offset + size;
+
+    if (required_size > node->size) {
+        // Automatically grow the allocation buffer on the heap
+        void* new_data = krealloc((void*)node->data, required_size);
+        if (!new_data && required_size > 0) {
+            return -ENOMEM;
+        }
+        node->data = (uintptr_t)new_data;
+        node->size = required_size;
+    }
+
+    memcpy((void*)(node->data + offset), buf, size);
+    return (int)size;
+}
+
 vfs_ops_t mem_ops = {
     .read      = mem_vfs_read,
-    .write     = NULL,
+    .write     = mem_vfs_write,
     .readdir   = NULL,        /* getdents walks children directly for memfs */
     .find_node = NULL,
     .ioctl     = mem_vfs_ioctl

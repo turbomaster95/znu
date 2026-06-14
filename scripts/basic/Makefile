@@ -8,9 +8,11 @@
 # ---------------------------------------------------------------------------
 # fixdep: 	 Used to generate dependency information during build process
 # devcom: 	 Used to generate devfs listings automatically during build
+# procom: 	 Used to generate procfs listings automatically during build
 
 hostprogs-y	:= fixdep
 hostprogs-y	+= devcom
+hostprogs-y	+= procom
 always		:= $(hostprogs-y)
 
 # fixdep is needed to compile other host programs

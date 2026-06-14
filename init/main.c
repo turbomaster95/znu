@@ -24,6 +24,7 @@ void shell_completion(const char *buf, zl_completions_t *lc) {
         "cat",
         "reboot",
         "shutdown",
+        "touch",
         "clear",
         "mem",
         "echo",
@@ -254,6 +255,35 @@ void cmd_ls(const char *line) {
     sys_close(fd);
 }
 
+void cmd_touch(const char *line) {
+    const char *path = line + 5; // Move pointer past "touch "
+
+    // Skip any extra spaces between "touch" and the path
+    while (*path == ' ') {
+        path++;
+    }
+
+    if (*path == '\0') {
+        printf("touch: missing file operand\n");
+        return;
+    }
+
+    /* * In standard systems:
+     * 0x0001 = O_WRONLY
+     * 0x0040 = O_CREAT
+     * Adjust these hex bitmasks if your custom kernel defines O_CREAT differently!
+     */
+    int fd = sys_open(path, 0x0001 | 0x0040); 
+    
+    if (fd < 0) {
+        printf("touch: cannot create '%s' (error: %d)\n", path, fd);
+        return;
+    }
+
+    // A standard touch on an empty or existing file finishes by closing the handle immediately
+    sys_close(fd);
+}
+
 void cmd_cat(const char *path) {
     int fd = sys_open(path, 0);
 
@@ -405,6 +435,7 @@ int main() {
                 "  cat <file>\n"
                 "  reboot\n"
                 "  shutdown\n"
+                "  touch <file>\n"
                 "  clear\n"
                 "  mem\n"
                 "  echo <text>\n"
@@ -430,6 +461,10 @@ int main() {
         } else if (strncmp(line, "cat ", 4) == 0) {
 
             cmd_cat(line + 4);
+
+        } else if (strncmp(line, "touch ", 6) == 0) { 
+
+            cmd_touch(line);
 
         } else if (strcmp(line, "mem") == 0) {
 
