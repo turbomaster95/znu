@@ -45,9 +45,9 @@ SECTION_NAME=".legal"
 compile_to_obj() {
     local input_txt=$1
     local output_obj=$2
-    objcopy $OBJCOPY_FLAGS --rename-section .data=$SECTION_NAME "$input_txt" "$output_obj"
+    llvm-objcopy $OBJCOPY_FLAGS --rename-section .data=$SECTION_NAME "$input_txt" "$output_obj"
     # Set flags so the section is included in the final binary
-    objcopy --set-section-flags $SECTION_NAME=alloc,load,contents,readonly "$output_obj"
+    llvm-objcopy --set-section-flags $SECTION_NAME=alloc,load,contents,readonly "$output_obj"
 }
 
 # --- Handle Root Licenses ---
