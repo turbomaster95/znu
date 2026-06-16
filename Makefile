@@ -102,10 +102,6 @@ ISOIMAGE     := Znu.iso
 PHONY += all
 _all: all
 
-ifndef INREPO
-$(error You must compile using './build.sh')
-endif
-
 srctree		:= $(if $(KBUILD_SRC),$(KBUILD_SRC),$(CURDIR))
 objtree		:= $(CURDIR)
 src		:= $(srctree)
@@ -193,8 +189,6 @@ OBJDUMP		= $(CROSS_COMPILE)objdump
 AWK		= awk
 INSTALLKERNEL  := installkernel
 PERL		= perl
-LZ4		= lz4
-NASM		= nasm
 
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
@@ -411,7 +405,7 @@ quiet_cmd_build_limine = LIMINE  scripts/limine
       cmd_build_limine = $(srctree)/scripts/mklimine.sh $(srctree) "$(MAKEFLAGS)" > /dev/null 2>&1
 
 quiet_cmd_cpio_lz4 = MKCPIO  initramfs.cpio (lz4)
-      cmd_cpio_lz4 = (cd $(srctree)/configs/sysroot && find . -mindepth 1 -not -path '*/.*' | cpio -o -H newc | $(LZ4) -12) > $(srctree)/configs/iso_root/boot/initramfs.cpio
+      cmd_cpio_lz4 = (cd $(srctree)/configs/sysroot && find . -mindepth 1 -not -path '*/.*' | cpio -o -H newc | lz4 -12) > $(srctree)/configs/iso_root/boot/initramfs.cpio
 
 ISO_OUTPUTS :=
 
@@ -510,7 +504,7 @@ $($(TARGET)-dirs): scripts_basic
 # make distclean Remove editor backup files, patch leftover files and the like
 
 # Directories & files removed with 'make clean'
-CLEAN_DIRS  +=  tools/obj
+CLEAN_DIRS  += 
 CLEAN_FILES +=	$(TARGET) $(TARGET_STAMP) $(STARGET) System.map uki/Znu.efi uki/ramdisk.img Znu.bios.iso Znu.uefi.iso Znu.iso configs/iso_root/boot/initramfs.cpio configs/iso_root/boot/kernel.bin configs/sysroot/bin/* scripts/embsym/embsym
 
 # Directories & files removed with 'make mrproper'

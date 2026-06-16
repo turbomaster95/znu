@@ -5,7 +5,7 @@ TOP_DIR="$(cd "$(dirname "$0")" && pwd)"
 export TOOLDIR="$TOP_DIR/tools/obj/tooldir"
 export DIRTOOL="$TOP_DIR/tools"
 export DL_DIR="$TOP_DIR/tools/obj/downloads"
-export JOBS=4
+export JOBS=5
 export MFLAGS="LZ4=znlz4 NASM=znnasm"
 
 mkdir -p "$TOOLDIR/bin" "$DL_DIR"
