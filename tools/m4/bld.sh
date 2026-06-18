@@ -13,7 +13,7 @@ if [ ! -f "$TOOLDIR/bin/znm4" ]; then
 
     ./configure $ZCONFLAGS --prefix="$TOOLDIR" CFLAGS="-Wno-attributes -std=gnu11"
 
-    zngmake -j"$JOBS" CFLAGS="-Wno-attributes -std=gnu11"
+    zngmake -j"$JOBS" CFLAGS="-Wno-attributes -std=gnu11 -Wno-int-conversion"
     zngmake install
 
     mv "$TOOLDIR/bin/m4" "$TOOLDIR/bin/znm4"
