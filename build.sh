@@ -52,7 +52,7 @@ else
     export TOOLDIR="$TOP_DIR/tools/obj/tooldir"
 fi
 export DL_DIR="$TOP_DIR/tools/obj/downloads"
-export MFLAGS="INREPO=yes LZ4=znlz4 NASM=znnasm XORRISO=znxorriso"
+export MFLAGS="INREPO=yes LZ4=znlz4 NASM=znnasm XORRISO=znxorriso MCOPY=znmcopy MFORMAT=znmformat MMD=znmmd CPIO=zncpio"
 
 echo "===> build.sh command:    $0 $*"
 echo "===> build.sh started:    $(date)"
