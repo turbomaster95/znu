@@ -198,6 +198,11 @@ AWK		= awk
 PERL		= perl
 NASM		= nasm
 LZ4		= lz4
+XORRISO		= xorriso
+MCOPY		= mcopy
+MFORMAT		= mformat
+MMD		= mmd
+CPIO		= cpio
 
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
@@ -238,7 +243,9 @@ KERNELVERSION = $(VERSION)$(if $(PATCHLEVEL),.$(PATCHLEVEL)$(if $(SUBLEVEL),.$(S
 
 export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE AS LD CC
 export CPP AR NM STRIP OBJCOPY OBJDUMP
-export NASM LZ4
+
+export NASM LZ4 XORRISO MCOPY MFORMAT MMD CPIO
+
 export MAKE AWK GENKSYMS INSTALLKERNEL PERL UTS_MACHINE
 export HOSTCXX HOSTCXXFLAGS
 
@@ -417,7 +424,7 @@ quiet_cmd_build_limine = LIMINE  scripts/limine
       cmd_build_limine = $(srctree)/scripts/mklimine.sh $(srctree) "$(MAKEFLAGS)" > /dev/null 2>&1
 
 quiet_cmd_cpio_lz4 = MKCPIO  initramfs.cpio (lz4)
-      cmd_cpio_lz4 = (cd $(srctree)/configs/sysroot && find . -mindepth 1 -not -path '*/.*' | cpio -o -H newc | $(LZ4) -12) > $(srctree)/configs/iso_root/boot/initramfs.cpio
+      cmd_cpio_lz4 = (cd $(srctree)/configs/sysroot && find . -mindepth 1 -not -path '*/.*' | $(CPIO) --quiet -o -H newc | $(LZ4) -12) > $(srctree)/configs/iso_root/boot/initramfs.cpio
 
 ISO_OUTPUTS :=
 
@@ -440,10 +447,10 @@ quiet_cmd_mkiso = MKISO   $(STARGET) -> $(ISO_STR)
       cmd_mkiso = CONFIG_ISO_MULTI=$(CONFIG_ISO_MULTI) \
                   CONFIG_ISO_BIOS=$(CONFIG_ISO_BIOS) \
                   CONFIG_ISO_UEFI=$(CONFIG_ISO_UEFI) \
-                  $(srctree)/scripts/mkiso.sh $(srctree) "Znu" > /dev/null 2>&1
+                  $(srctree)/scripts/mkiso.sh $(srctree) "Znu" $(XORRISO) > /dev/null 2>&1
 
 quiet_cmd_mkuki = MKUKI   uki/Znu.efi
-      cmd_mkuki = $(srctree)/scripts/mkuki.sh $(srctree)
+      cmd_mkuki = $(srctree)/scripts/mkuki.sh $(srctree) $(MFORMAT) $(MCOPY) $(MMD)
 
 $(TARGET).a: scripts/embsym/embsym $($(TARGET)-all) FORCE
 	$(call if_changed,$(TARGET)_a)
@@ -474,7 +481,7 @@ quiet_cmd_qemur = QEMU    $(ISOIMAGE)
       cmd_qemur = qemu-system-x86_64 -display gtk,zoom-to-fit=off -enable-kvm -cpu host -debugcon stdio -drive id=boot_cd,file=Znu.bios.iso,format=raw,if=none -device virtio-blk-pci,drive=boot_cd,bootindex=0 -device ich9-ahci,id=ahci -drive id=fat_disk,file=$(FAT32IMG),format=raw,if=none -device ide-hd,bus=ahci.0,drive=fat_disk -netdev user,id=net0 -device e1000,netdev=net0
 
 quiet_cmd_fat32img = GEN     $(FAT32IMG)
-      cmd_fat32img = $(srctree)/scripts/mkfat.sh $(srctree) > /dev/null 2>&1
+      cmd_fat32img = $(srctree)/scripts/mkfat.sh $(srctree) $(MCOPY) > /dev/null 2>&1
 
 $(FAT32IMG): $(srctree)/scripts/mkfat.sh FORCE
 ifneq ($(CONFIG_GENERATE_ISO),y)

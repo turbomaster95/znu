@@ -3,6 +3,7 @@ set -e
 
 SRCTREE=$1
 IMG_NAME=$2
+XORRISO=$3
 
 if [ -z "$SRCTREE" ] || [ -z "$IMG_NAME" ]; then
     echo "Usage: $0 <srctree> <img_name>"
@@ -80,7 +81,7 @@ build_xorriso() {
     rm -f "$OUT_FILE"
     
     # Run xorriso cleanly without suppressing errors so you can see warnings
-    xorriso "${OPTS[@]}"
+    $XORRISO "${OPTS[@]}"
 
     # Run the structural post-install logic if BIOS execution layers exist
     if [ "$MODE" = "multi" ] || [ "$MODE" = "bios" ]; then

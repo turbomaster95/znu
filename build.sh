@@ -52,7 +52,7 @@ else
     export TOOLDIR="$TOP_DIR/tools/obj/tooldir"
 fi
 export DL_DIR="$TOP_DIR/tools/obj/downloads"
-export MFLAGS="INREPO=yes LZ4=znlz4 NASM=znnasm"
+export MFLAGS="INREPO=yes LZ4=znlz4 NASM=znnasm XORRISO=znxorriso"
 
 echo "===> build.sh command:    $0 $*"
 echo "===> build.sh started:    $(date)"
@@ -70,7 +70,9 @@ execute_tools() {
     if [ ! -x "$TOOLDIR/bin/zngmake" ]; then
         echo "===> No \$TOOLDIR/bin/zngmake, needs building."
         sh "$DIRTOOL/tool.sh"
+	return 0
     fi
+    sh "$DIRTOOL/tool.sh"
 }
 
 for op in $OPERATIONS; do

@@ -77,10 +77,19 @@ if [ -d "$TOOLS_DIR/gmake" ]; then
     ( . "$TOOLS_DIR/gmake/bld.sh" )
 fi
 
+if [ -d "$TOOLS_DIR/openssl" ]; then
+    echo "Processing Bootstrap: openssl"
+    ( export FETCH_ONLY=yes; . "$TOOLS_DIR/openssl/bld.sh" )
+    ( . "$TOOLS_DIR/openssl/bld.sh" )
+fi
+
 if [ -d "$TOOLS_DIR/axel" ]; then
     echo "Processing Bootstrap: axel"
     ( export FETCH_ONLY=yes; . "$TOOLS_DIR/axel/bld.sh" )
-    ( . "$TOOLS_DIR/axel/bld.sh" )
+    ( 
+        export PKG_CONFIG_PATH="$TOOLDIR/lib/pkgconfig:$TOOLDIR/lib64/pkgconfig"
+        . "$TOOLS_DIR/axel/bld.sh" 
+    )
 fi
 
 echo "===> Now building tools..."
@@ -88,7 +97,7 @@ export FETCH_ONLY=yes
 
 for _t in $ALL_TOOLS; do
     # Skip infrastructure pieces we just finished building
-    [ "$_t" = "gmake" ] || [ "$_t" = "axel" ] && continue
+    [ "$_t" = "gmake" ] || [ "$_t" = "openssl" ] || [ "$_t" = "axel" ] && continue
 
     _script="$TOOLS_DIR/$_t/bld.sh"
     if [ -f "$_script" ]; then
@@ -107,7 +116,7 @@ wait
 unset FETCH_ONLY
 
 # Seed our list tracking complete binaries with what we bootstrapped
-BUILT_LIST="gmake axel"
+BUILT_LIST="gmake openssl axel"
 
 # Isolate remainder targets
 REMAINING_TOOLS=""

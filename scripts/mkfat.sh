@@ -4,6 +4,7 @@
 set -e
 
 SRCTREE="$1"
+MCOPY=$2
 
 # 1. Create the blank 100 MiB disk image inside the SRCTREE directory
 dd if=/dev/zero of="${SRCTREE}/fat32.img" bs=1M count=100
@@ -28,7 +29,7 @@ dd if=/dev/zero of=partition.fat bs=512 count=202752
 mkfs.vfat -F 32 partition.fat
 
 # 5. Copy the hello binary from the workspace path into the FAT32 filesystem
-mcopy -i partition.fat "${SRCTREE}/configs/sysroot/bin/hello" ::hello
+$MCOPY -i partition.fat "${SRCTREE}/configs/sysroot/bin/hello" ::hello
 
 # 6. Flash the partition back into the main disk image at the 1 MiB offset
 dd if=partition.fat of="${SRCTREE}/fat32.img" bs=512 seek=2048 conv=notrunc

@@ -11,8 +11,10 @@ if [ ! -f "$TOOLDIR/bin/znxorriso" ]; then
     tar -zxf "xorriso-1.5.6.tar.gz"
     cd xorriso-1.5.6
 
-    touch xorriso/*.info
     sed -i 's/wait3(NULL,WNOHANG,NULL)/waitpid(-1,NULL,WNOHANG)/g' xorriso/parse_exec.c
+    sed -i '1s/^/#include <sys\/types.h>\n/' libisofs/rockridge.h
+
+    touch xorriso/*.info
 
     ./configure $ZCONFLAGS \
         --disable-nls \
