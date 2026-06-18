@@ -203,6 +203,8 @@ MCOPY		= mcopy
 MFORMAT		= mformat
 MMD		= mmd
 CPIO		= cpio
+BISON		= bison
+FLEX		= flex
 
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
@@ -245,6 +247,7 @@ export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE AS LD CC
 export CPP AR NM STRIP OBJCOPY OBJDUMP
 
 export NASM LZ4 XORRISO MCOPY MFORMAT MMD CPIO
+export BISON FLEX
 
 export MAKE AWK GENKSYMS INSTALLKERNEL PERL UTS_MACHINE
 export HOSTCXX HOSTCXXFLAGS

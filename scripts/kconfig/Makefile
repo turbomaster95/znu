@@ -339,7 +339,7 @@ $(obj)/gconf.glade.h: $(obj)/gconf.glade
 # The following requires flex/bison/gperf
 # By default we use the _shipped versions, uncomment the following line if
 # you are modifying the flex/bison src.
-# LKC_GENPARSER := 1
+LKC_GENPARSER := 1
 
 ifdef LKC_GENPARSER
 
@@ -348,11 +348,11 @@ $(obj)/lex.zconf.c: $(src)/zconf.l
 $(obj)/zconf.hash.c: $(src)/zconf.gperf
 
 %.tab.c: %.y
-	bison -l -b $* -p $(notdir $*) $<
+	$(BISON) -l -b $* -p $(notdir $*) $<
 	cp $@ $@_shipped
 
 lex.%.c: %.l
-	flex -L -P$(notdir $*) -o$@ $<
+	$(FLEX) -L -P$(notdir $*) -o$@ $<
 	cp $@ $@_shipped
 
 %.hash.c: %.gperf
