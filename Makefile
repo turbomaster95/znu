@@ -259,7 +259,6 @@ kernelversion:
 kernelrelease:
 	@echo $(KERNELRELEASE)
 
-
 # ===========================================================================
 # Rules shared between *config targets and build targets
 

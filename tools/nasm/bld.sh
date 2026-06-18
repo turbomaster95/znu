@@ -8,7 +8,7 @@ if [ ! -f "$TOOLDIR/bin/znnasm" ]; then
     [ ! -d "nasm-2.16.03" ] && tar -xf nasm-2.16.03.tar.xz
     
     cd nasm-2.16.03
-    ./configure --prefix="$TOOLDIR"
+    ./configure --prefix="$TOOLDIR" $ZCONFLAGS
     zngmake -j"$JOBS" && zngmake install
     mv "$TOOLDIR/bin/nasm" "$TOOLDIR/bin/znnasm"
     mv "$TOOLDIR/bin/ndisasm" "$TOOLDIR/bin/znndisasm"

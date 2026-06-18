@@ -3,15 +3,15 @@ set -e
 if [ ! -f "$TOOLDIR/bin/znaxel" ]; then
   if [ "$FETCH_ONLY" = "yes" ]; then
     # Using a stable release tarball from GitHub
-    download_src "https://github.com/axel-download-accelerator/axel/releases/download/v2.17.14/axel-2.17.14.tar.xz"
+    download_src "https://github.com/axel-download-accelerator/axel/releases/download/v2.17.14/axel-2.17.14.tar.gz"
     exit 0
   fi
 
   cd "$DL_DIR"
-  [ ! -d "axel-2.17.14" ] && tar -xzf axel-2.17.14.tar.xz
+  [ ! -d "axel-2.17.14" ] && tar -xzf axel-2.17.14.tar.gz
 
   cd axel-2.17.14
-  ./configure --prefix="$TOOLDIR" --disable-nls
+  ./configure --prefix="$TOOLDIR" --disable-nls $ZCONFLAGS
 
   zngmake -j$(nproc)
   zngmake install

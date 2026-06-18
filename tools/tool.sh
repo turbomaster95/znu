@@ -2,8 +2,11 @@
 set -e
 
 TOOLS_DIR="$(cd "$(dirname "$0")" && pwd)"
+ZCONFLAGS="--prefix=$TOOLDIR --cache-file=$TOP_DIR/tools/obj/config.cache --disable-dependency-tracking"
 
 . "$TOOLS_DIR/zconf.sh"
+
+mkdir -p "$TOBJDIR/config.cache"
 
 # Helper: Download static web archives
 download_src() {
@@ -109,7 +112,7 @@ BUILT_LIST="gmake axel"
 # Isolate remainder targets
 REMAINING_TOOLS=""
 for _t in $ALL_TOOLS; do
-    [ "$_t" = "gmake" ] || [ "$_t" = "aria2" ] && continue
+    [ "$_t" = "gmake" ] || [ "$_t" = "axel" ] && continue
     REMAINING_TOOLS="$REMAINING_TOOLS $_t"
 done
 

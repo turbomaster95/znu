@@ -10,7 +10,9 @@ if [ ! -f "$TOOLDIR/bin/zngmake" ]; then
     
     cd make-4.4.1
     export CFLAGS="-std=gnu17 -O2"
-    ./configure --prefix="$TOOLDIR" --disable-dependency-tracking
+
+    ./configure --prefix="$TOOLDIR" $ZCONFLAGS
+
     sh ./build.sh
     cp ./make "$TOOLDIR/bin/zngmake"
 fi
