@@ -224,7 +224,7 @@ LINUXINCLUDE    := -Iinclude \
 KBUILD_CPPFLAGS := -D__KERNEL__ -include $(srctree)/include/prelude.h
 
 KBUILD_CFLAGS   := -Wall -Wno-unused-function -Wno-undef -Wno-array-compare -Wno-address-of-packed-member -Wno-infinite-recursion -Wno-unused-variable -Wno-format-truncation -Wno-misleading-indentation -Wno-undef -Wstrict-prototypes -Wno-trigraphs -mno-mmx -mno-sse -mno-sse2 \
-		   -fno-strict-aliasing -fno-common \
+		   -fno-strict-aliasing -fno-common -Wno-incompatible-pointer-types \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
 		   -fno-delete-null-pointer-checks -fno-sanitize=address \
