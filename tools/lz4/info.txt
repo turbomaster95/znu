@@ -1,0 +1,3 @@
+name = LZ4 Compression Tool
+finalname = znlz4
+depends = gmake

@@ -1,0 +1,3 @@
+name = AXEL
+finalname = znaxel
+depends = gmake

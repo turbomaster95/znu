@@ -1,0 +1,3 @@
+name = Netwide Assembler
+finalname = znnasm
+depends = gmake

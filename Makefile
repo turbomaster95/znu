@@ -160,8 +160,15 @@ endif
 # If the user is running make -s (silent mode), suppress echoing of
 # commands
 
-ifneq ($(findstring s,$(MAKEFLAGS)),)
-  quiet=silent_
+# Extract only the short options from MAKEFLAGS, ignoring variable assignments
+ifeq ($(filter 3.%,$(MAKE_VERSION)),)
+    short-opts := $(firstword -$(MAKEFLAGS))
+else
+    short-opts := $(filter-out --%,$(MAKEFLAGS))
+endif
+
+ifneq ($(findstring s,$(short-opts)),)
+    quiet=silent_
 endif
 
 export quiet Q KBUILD_VERBOSE
@@ -176,6 +183,7 @@ include $(srctree)/scripts/Kbuild.include
 KBUILD_CMDFLAGS := 
 
 # Make variables (CC, etc...)
+#INSTALLKERNEL   = installkernel
 
 AS		= $(CROSS_COMPILE)as
 LD		= $(CROSS_COMPILE)ld
@@ -187,14 +195,18 @@ STRIP		= $(CROSS_COMPILE)strip
 OBJCOPY		= $(CROSS_COMPILE)objcopy
 OBJDUMP		= $(CROSS_COMPILE)objdump
 AWK		= awk
-INSTALLKERNEL  := installkernel
 PERL		= perl
+NASM		= nasm
+LZ4		= lz4
 
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 CFLAGS_KERNEL	= -D__is_libk
 AFLAGS_KERNEL	=
 
+ifndef INREPO
+$(error Please build using build.sh!)
+endif
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
@@ -226,6 +238,7 @@ KERNELVERSION = $(VERSION)$(if $(PATCHLEVEL),.$(PATCHLEVEL)$(if $(SUBLEVEL),.$(S
 
 export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE AS LD CC
 export CPP AR NM STRIP OBJCOPY OBJDUMP
+export NASM LZ4
 export MAKE AWK GENKSYMS INSTALLKERNEL PERL UTS_MACHINE
 export HOSTCXX HOSTCXXFLAGS
 
@@ -405,7 +418,7 @@ quiet_cmd_build_limine = LIMINE  scripts/limine
       cmd_build_limine = $(srctree)/scripts/mklimine.sh $(srctree) "$(MAKEFLAGS)" > /dev/null 2>&1
 
 quiet_cmd_cpio_lz4 = MKCPIO  initramfs.cpio (lz4)
-      cmd_cpio_lz4 = (cd $(srctree)/configs/sysroot && find . -mindepth 1 -not -path '*/.*' | cpio -o -H newc | lz4 -12) > $(srctree)/configs/iso_root/boot/initramfs.cpio
+      cmd_cpio_lz4 = (cd $(srctree)/configs/sysroot && find . -mindepth 1 -not -path '*/.*' | cpio -o -H newc | $(LZ4) -12) > $(srctree)/configs/iso_root/boot/initramfs.cpio
 
 ISO_OUTPUTS :=
 
