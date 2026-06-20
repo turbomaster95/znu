@@ -9,6 +9,9 @@ if [ ! -f "$TOOLDIR/bin/zngmake" ]; then
     [ ! -d "make-4.4.1" ] && tar -xzf make-4.4.1.tar.gz
     
     cd make-4.4.1
+
+    patch -p1 < "$TOOLS_DIR/gmake/znu.patch"
+
     export CFLAGS="-std=gnu17 -O2"
 
     ./configure --prefix="$TOOLDIR" $ZCONFLAGS

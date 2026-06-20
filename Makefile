@@ -209,6 +209,11 @@ FLEX		= flex
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 CFLAGS_KERNEL	= -D__is_libk
+
+ifdef KRNLDBG
+CFLAGS_KERNEL   += -g -Og
+endif
+
 AFLAGS_KERNEL	=
 
 ifndef INREPO
