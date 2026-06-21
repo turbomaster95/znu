@@ -43,6 +43,6 @@ if [ "$NEED_BUILD" -eq 1 ]; then
         fi
     done
 
-    rm -f x86_64-elf-addr2line x86_64-elf-cxxfilt x86_64-elf-elfedit
+    rm -f x86_64-elf-addr2line x86_64-elf-cxxfilt x86_64-elf-elfedit x86_64-elf-c++filt
 fi
 
