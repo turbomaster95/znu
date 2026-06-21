@@ -1,0 +1,4 @@
+name = GNU Readline
+finalname = libreadline.a
+depends = gmake
+

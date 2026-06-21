@@ -8,12 +8,15 @@ if [ ! -f "$TOOLDIR/bin/znmformat" ] || [ ! -f "$TOOLDIR/bin/znmcopy" ] || [ ! -
     fi
 
     cd "$DL_DIR"
+    rm -rf mtools-4.0.49
     tar -zxf "mtools-4.0.49.tar.gz"
     cd mtools-4.0.49
 
-    ./configure $ZCONFLAGS \
-        --disable-nls \
-        --disable-iconv
+    patch -p1 -f < "$TOOLS_DIR/mtools/shim.patch"
+
+    sed -i 's/strtonum.o @FLOPPYD_IO_OBJ@ @XDF_IO_OBJ@/strtonum.o android_shim.o @FLOPPYD_IO_OBJ@ @XDF_IO_OBJ@/' Makefile.in
+
+    ./configure $ZCONFLAGS
 
     zngmake -j"$JOBS"
     zngmake install
@@ -23,4 +26,3 @@ if [ ! -f "$TOOLDIR/bin/znmformat" ] || [ ! -f "$TOOLDIR/bin/znmcopy" ] || [ ! -
         mv "$TOOLDIR/bin/$cmd" "$TOOLDIR/bin/zn$cmd"
     done
 fi
-

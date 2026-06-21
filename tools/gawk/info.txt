@@ -1,0 +1,4 @@
+name = GNU Awk
+finalname = zngawk
+depends = gmake, gmp, mpfr, readline
+

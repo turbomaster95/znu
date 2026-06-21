@@ -1,0 +1,4 @@
+name = GNU Binutils Core Utilities (x86_64-elf)
+finalname = znnm, znstrip, znobjcopy, znobjdump, znreadelf, znsize, znstrings, znar, znranlib
+depends = gmake
+

@@ -2,11 +2,9 @@
 set -e
 
 TOOLS_DIR="$(cd "$(dirname "$0")" && pwd)"
-ZCONFLAGS="--prefix=$TOOLDIR --cache-file=$TOP_DIR/tools/obj/config.cache --disable-dependency-tracking"
+ZCONFLAGS="--prefix=$TOOLDIR --disable-dependency-tracking --disable-nls"
 
 . "$TOOLS_DIR/zconf.sh"
-
-mkdir -p "$TOBJDIR/config.cache"
 
 # Helper: Download static web archives
 download_src() {

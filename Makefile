@@ -194,6 +194,10 @@ NM		= $(CROSS_COMPILE)nm
 STRIP		= $(CROSS_COMPILE)strip
 OBJCOPY		= $(CROSS_COMPILE)objcopy
 OBJDUMP		= $(CROSS_COMPILE)objdump
+
+# This is used for the generation of built-in.a
+COMPAR		= ar
+
 AWK		= awk
 PERL		= perl
 NASM		= nasm
@@ -252,7 +256,7 @@ export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE AS LD CC
 export CPP AR NM STRIP OBJCOPY OBJDUMP
 
 export NASM LZ4 XORRISO MCOPY MFORMAT MMD CPIO
-export BISON FLEX
+export BISON FLEX COMPAR
 
 export MAKE AWK GENKSYMS INSTALLKERNEL PERL UTS_MACHINE
 export HOSTCXX HOSTCXXFLAGS
@@ -423,13 +427,13 @@ quiet_cmd_$(TARGET) = KRNLD   $@
       -Wl,--start-group $(TARGET).a -Wl,--end-group -T $(srctree)/scripts/linker.ld
 
 quiet_cmd_syms = SYMS    $@
-      cmd_syms = $(srctree)/scripts/gensyms $(TARGET) $(srctree) $(OBJCOPY) $(TARGET)
+      cmd_syms = $(srctree)/scripts/gensyms $(TARGET) $(srctree) $(OBJCOPY) $(TARGET) $(AWK)
 
 quiet_cmd_strip = STRIP   $@ -> $(STARGET)
       cmd_strip = $(OBJCOPY) --strip-debug $(TARGET) $(STARGET)
 
 quiet_cmd_build_limine = LIMINE  scripts/limine
-      cmd_build_limine = $(srctree)/scripts/mklimine.sh $(srctree) "$(MAKEFLAGS)" > /dev/null 2>&1
+      cmd_build_limine = $(srctree)/scripts/mklimine.sh $(srctree) $(MFORMAT) $(MCOPY) # > /dev/null 2>&1
 
 quiet_cmd_cpio_lz4 = MKCPIO  initramfs.cpio (lz4)
       cmd_cpio_lz4 = (cd $(srctree)/configs/sysroot && find . -mindepth 1 -not -path '*/.*' | $(CPIO) --quiet -o -H newc | $(LZ4) -12) > $(srctree)/configs/iso_root/boot/initramfs.cpio

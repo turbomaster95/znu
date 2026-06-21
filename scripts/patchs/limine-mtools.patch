@@ -1,0 +1,25 @@
+diff --git a/GNUmakefile.in b/GNUmakefile.in
+index cdc6e5c5..bf1121a4 100644
+--- a/GNUmakefile.in
++++ b/GNUmakefile.in
+@@ -62,6 +62,9 @@ CFLAGS := @CFLAGS@
+ LDFLAGS := @LDFLAGS@
+ LIBS := @LIBS@
+ 
++MFORMAT ?= mformat
++MCOPY ?= mcopy
++
+ CC_FOR_TARGET := @CC_FOR_TARGET@
+ export CC_FOR_TARGET
+ LD_FOR_TARGET := @LD_FOR_TARGET@
+@@ -218,8 +221,8 @@ ifneq ($(BUILD_UEFI_CD),no)
+ 		find "$$LIMINE_UEFI_CD_TMP" -exec touch -t $(SOURCE_DATE_EPOCH_TOUCH) '{}' + && \
+ 		LIMINE_UEFI_CD_SIZE="$$(du -sk "$$LIMINE_UEFI_CD_TMP" | $(AWK) '{ print $$1 }')" && \
+ 		LIMINE_UEFI_CD_SECTORS="$$(( (($$LIMINE_UEFI_CD_SIZE + 1023) / 1024 + 1) * 2048 ))" && \
+-		mformat -C -i '$(call SHESCAPE,$(BINDIR))/limine-uefi-cd.bin' -T "$$LIMINE_UEFI_CD_SECTORS" -N 12345678 :: && \
+-		mcopy -D o -s -m -i '$(call SHESCAPE,$(BINDIR))/limine-uefi-cd.bin' "$$LIMINE_UEFI_CD_TMP"/EFI :: && \
++		$(MFORMAT) -C -i '$(call SHESCAPE,$(BINDIR))/limine-uefi-cd.bin' -T "$$LIMINE_UEFI_CD_SECTORS" -N 12345678 :: && \
++		$(MCOPY) -D o -s -m -i '$(call SHESCAPE,$(BINDIR))/limine-uefi-cd.bin' "$$LIMINE_UEFI_CD_TMP"/EFI :: && \
+ 		rm -rf "$$LIMINE_UEFI_CD_TMP"
+ endif
+ 

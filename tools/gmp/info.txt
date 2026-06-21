@@ -1,0 +1,4 @@
+name = GNU GMP
+finalname = libgmp.a
+depends = gmake, m4
+

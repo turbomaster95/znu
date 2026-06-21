@@ -41,11 +41,12 @@ pushd "$LIMINE_DIR" > /dev/null
     # Check for Makefile to avoid redundant config
     if [ ! -f "Makefile" ]; then
         ./bootstrap
+	patch -p1 < "$SRCTREE/scripts/patchs/limine-mtools.patch"
         ./configure --enable-bios --enable-bios-cd --enable-uefi-x86-64 --enable-uefi-cd CC="gcc"
     fi
 
     # Build and only show errors
-    make -j$(nproc 2>/dev/null || echo 1)
+    make MFORMAT=$2 MCOPY=$3 -j$(nproc 2>/dev/null || echo 1)
 popd > /dev/null
 
 echo "Limine build complete."

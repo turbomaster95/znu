@@ -1,0 +1,84 @@
+diff --git a/privileges.c b/privileges.c
+index a1b2c3d..e4f5g6h 100644
+--- a/privileges.c
++++ b/privileges.c
+@@ -20,7 +20,7 @@
+ 
+ int noPrivileges=0;
+ 
+-#ifdef OS_mingw32msvc
++#if defined(OS_mingw32msvc) || defined(__ANDROID__)
+ void reclaim_privs(void)
+ {
+ }
+diff --git a/android_shim.c b/android_shim.c
+new file mode 100644
+index 0000000..z9y8x7w
+--- /dev/null
++++ b/android_shim.c
+@@ -0,0 +1,65 @@
++#include <stddef.h>
++#include <stdint.h>
++
++// Iconv Shim for Android and other slim linux distros
++
++typedef void* iconv_t;
++
++// Detect if mtools is asking for wide-character (UTF-32/UCS-4/WCHAR_T) conversions
++static int is_wide(const char *str) {
++    if (!str) return 0;
++    for (int i = 0; str[i] != '\0'; i++) {
++        char c = str[i];
++        if (c >= 'A' && c <= 'Z') c = c + ('a' - 'A'); // Lowercase conversion
++        if (c == 'w' && (str[i+1] == 'c' || str[i+1] == 'C')) return 1; // "wchar"
++        if (c == 'u' && (str[i+1] == 'c' || str[i+1] == 'C' || str[i+1] == 't' || str[i+1] == 'T')) return 1; // "ucs" or "utf-32"
++    }
++    return 0;
++}
++
++iconv_t iconv_open(const char *tocode, const char *fromcode) {
++    if (is_wide(fromcode)) return (iconv_t)2; // Mode 2: WCHAR -> BYTE
++    if (is_wide(tocode))   return (iconv_t)3; // Mode 3: BYTE -> WCHAR
++    return (iconv_t)1;                        // Mode 1: BYTE -> BYTE
++}
++
++int iconv_close(iconv_t cd) { return 0; }
++
++size_t iconv(iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft) {
++    if (!inbuf || !*inbuf || !outbuf || !*outbuf) return 0;
++
++    uintptr_t mode = (uintptr_t)cd;
++    char *in = *inbuf;
++    char *out = *outbuf;
++    size_t in_len = *inbytesleft;
++    size_t out_len = *outbytesleft;
++
++    if (mode == 2) {
++        // WCHAR (4 bytes) to BYTE (1 byte) -> Strip trailing zeroes for ASCII
++        while (in_len >= 4 && out_len >= 1) {
++            *out = *in;
++            out++; out_len--;
++            in += 4; in_len -= 4;
++        }
++    } else if (mode == 3) {
++        // BYTE (1 byte) to WCHAR (4 bytes) -> Pad out layout with zeroes
++        while (in_len >= 1 && out_len >= 4) {
++            out[0] = *in;
++            out[1] = 0; out[2] = 0; out[3] = 0;
++            out += 4; out_len -= 4;
++            in++; in_len--;
++        }
++    } else {
++        // Standard BYTE to BYTE (1:1 raw copy for standard pathnames)
++        size_t len = (in_len < out_len) ? in_len : out_len;
++        for (size_t i = 0; i < len; i++) out[i] = in[i];
++        in += len; out += len;
++        in_len -= len; out_len -= len;
++    }
++
++    *inbuf = in;
++    *outbuf = out;
++    *inbytesleft = in_len;
++    *outbytesleft = out_len;
++    return 0;
++}

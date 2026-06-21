@@ -11,7 +11,9 @@ if [ ! -f "$TOOLDIR/bin/znbison" ]; then
     tar -zxf "bison-3.8.2.tar.gz"
     cd bison-3.8.2
 
-    ./configure $ZCONFLAGS --prefix="$TOOLDIR"
+    ./configure $ZCONFLAGS --prefix="$TOOLDIR" \
+              ac_cv_func_ffsl=yes ac_cv_func_ffsll=yes
+
     zngmake -j"$JOBS"
     zngmake install
 

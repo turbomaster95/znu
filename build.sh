@@ -13,7 +13,7 @@ show_help() {
     cat << EOF
 build.sh: Missing operation to perform.
 
-Usage: build.sh [-hu] [-j njob] [-T tools] operation [...]
+Usage: build.sh [-hu] [-j njob] [-T tools] operation [MAKE_ARGS...]
 
 Build operations (all imply "tools"):
     build               Run tools baseline and compile kernel.
@@ -40,8 +40,22 @@ while getopts "a:hj:m:N:T:u" opt; do
 done
 shift $((OPTIND - 1))
 
-OPERATIONS="$*"
-if [ "$OPERATIONS" = "help" ] || [ -z "$OPERATIONS" ]; then
+OPERATIONS=""
+MAKE_ARGS=""
+
+for arg in "$@"; do
+    case "$arg" in
+        build|kernel|tools|clean)
+            OPERATIONS="$OPERATIONS $arg"
+            ;;
+        *)
+            # Anything else (like V=1, -k, etc.) gets forwarded to make
+            MAKE_ARGS="$MAKE_ARGS $arg"
+            ;;
+    esac
+done
+
+if [ -z "$OPERATIONS" ]; then
     show_help
     exit 1
 fi
@@ -52,7 +66,7 @@ else
     export TOOLDIR="$TOP_DIR/tools/obj/tooldir"
 fi
 export DL_DIR="$TOP_DIR/tools/obj/downloads"
-export MFLAGS="LZ4=znlz4 NASM=znnasm XORRISO=znxorriso MCOPY=znmcopy MFORMAT=znmformat MMD=znmmd CPIO=zncpio FLEX=znflex BISON=znbison M4=znm4"
+export MFLAGS="LZ4=znlz4 NASM=znnasm XORRISO=znxorriso MCOPY=znmcopy MFORMAT=znmformat MMD=znmmd CPIO=zncpio FLEX=znflex BISON=znbison M4=znm4 AWK=zngawk COMPAR=znar"
 
 echo "===> build.sh command:    $0 $*"
 echo "===> build.sh started:    $(date)"
@@ -70,7 +84,7 @@ execute_tools() {
     if [ ! -x "$TOOLDIR/bin/zngmake" ]; then
         echo "===> No \$TOOLDIR/bin/zngmake, needs building."
         sh "$DIRTOOL/tool.sh"
-	return 0
+        return 0
     fi
     sh "$DIRTOOL/tool.sh"
 }
@@ -79,7 +93,7 @@ for op in $OPERATIONS; do
     case "$op" in
         clean)
             if [ -x "$TOOLDIR/bin/zngmake" ]; then
-                zngmake $MFLAGS clean
+                zngmake $MFLAGS $MAKE_ARGS clean
             else
                 rm -rf "$TOP_DIR/tools/obj"
             fi
@@ -89,17 +103,14 @@ for op in $OPERATIONS; do
             ;;
         kernel)
             execute_tools
-            zngmake $MFLAGS -j"$JOBS"
+            zngmake $MFLAGS $MAKE_ARGS -j"$JOBS"
             ;;
         build)
             execute_tools
-            zngmake $MFLAGS -j"$JOBS"
-            ;;
-        *)
-            echo "Unknown operation: $op" >&2
-            exit 1
+            zngmake $MFLAGS $MAKE_ARGS -j"$JOBS"
             ;;
     esac
 done
 
 echo "===> build.sh ended:      $(date)"
+

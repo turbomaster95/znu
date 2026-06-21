@@ -1,0 +1,4 @@
+name = GNU MPFR
+finalname = libmpfr.a
+depends = gmake, gmp
+

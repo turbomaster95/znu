@@ -4,3 +4,10 @@
 
 PATH="$TOOLDIR/bin:$PATH"
 export PATH
+
+# Does some ccache stuff
+
+if command -v ccache >/dev/null 2>&1; then
+    export CC="ccache gcc"
+    export CXX="ccache g++"
+fi

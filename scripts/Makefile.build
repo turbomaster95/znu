@@ -261,8 +261,8 @@ quiet_cmd_link_o_target = AR      $@
 # If it's completely empty, create an empty standard archive so the build loop doesn't break.
 cmd_link_o_target = rm -f $@; \
                     $(if $(strip $(filter-out %.ko, $(obj-y))), \
-                      $(AR) rcsT $@ $(filter-out %.ko, $(filter $(obj-y), $^)), \
-                      $(AR) rcs $@)
+                      $(COMPAR) rcsT $@ $(filter-out %.ko, $(filter $(obj-y), $^)), \
+                      $(COMPAR) rcs $@)
 
 $(builtin-target): $(filter-out %.ko, $(obj-y)) FORCE
 	$(call if_changed,link_o_target)
@@ -275,7 +275,7 @@ endif # builtin-target
 #
 ifdef lib-target
 quiet_cmd_link_l_target = LAR     $@
-cmd_link_l_target = rm -f $@; $(AR) rcs$(KBUILD_ARFLAGS) $@ $(lib-y)
+cmd_link_l_target = rm -f $@; $(COMPAR) rcs$(KBUILD_ARFLAGS) $@ $(lib-y)
 
 $(lib-target): $(lib-y) FORCE
 	$(call if_changed,link_l_target)

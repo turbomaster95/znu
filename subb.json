@@ -8,17 +8,17 @@
         "user/dash": {
             "url": "https://git.kernel.org/pub/scm/utils/dash/dash.git",
             "branch": "master",
-            "hash": "38158adce43467969be49f1cc375cd74806d0b31"
+            "hash": "552c2b2f679d191a9de93cebcfb36581a2a87a4c"
         },
         "scripts/limine": {
             "url": "https://github.com/limine-bootloader/limine",
             "branch": "v12.x",
-            "hash": "8c8a688776735b2b2d12683a032e442583d361db"
+            "hash": "bdf4c7756ad37b3f2b6f85b452c01d4cc7c67fef"
         },
         "lib/uacpi": {
             "url": "https://github.com/uACPI/uACPI",
             "branch": "master",
-            "hash": "71f981d4ee36bf3ae85976409734000578b5249c"
+            "hash": "d1a3de6be156edcd603ea76f6bf2f5598c48c8e7"
         },
         "lib/ulibc/third-party/zline": {
             "url": "https://github.com/turbomaster95/zline",
