@@ -1,15 +1,15 @@
-name: Generate Languages used 
+name: Generate Languages used
 
 on:
   push:
-    branches: [testing, uacpi]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   update-stats:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  
+      contents: write
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
