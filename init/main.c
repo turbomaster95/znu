@@ -2,7 +2,6 @@
 #include <string.h>
 #include <stdbool.h>
 #include <syscall.h>
-
 #include <termios.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -225,7 +224,7 @@ void cmd_ls(const char *line) {
         return;
     }
 
-    znu_dirent_t dents[16];
+    znu_dirent_t dents[256];
 
     int bytes_read =
         sys_getdents(fd, dents, sizeof(dents));
@@ -242,6 +241,8 @@ void cmd_ls(const char *line) {
                     "\033[1;34m%s\033[0m (dir)\n",
                     dents[i].name
                 );
+            } else if (dents[i].type == 4) {
+     	        printf("\033[1;36m%s\033[0m (symlink)\n", dents[i].name);
             } else {
                 printf(
                     "\033[1;32m%s\033[0m [%d bytes]\n",

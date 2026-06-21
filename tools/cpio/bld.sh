@@ -13,7 +13,7 @@ if [ ! -f "$TOOLDIR/bin/zncpio" ]; then
 
     patch -p1 < "$TOOLS_DIR/cpio/gcc15.patch"
 
-    ./configure $ZCONFLAGS \
+    ./configure $ZCONFLAGS --prefix="$TOOLDIR" \
 		--enable-largefile \
 		--disable-mt \
 		--disable-rpath \

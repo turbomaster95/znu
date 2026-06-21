@@ -490,6 +490,67 @@ static void init_fpu(process_t *proc)
     memcpy(proc->sse_state, fxbuf, 512);
 }
 
+/* * Populates a process structure with ELF data. 
+ * Expects: proc->kstack_top to be initialized.
+ * Returns: 0 on success, -1 on error.
+ */
+int process_populate_from_elf(process_t *proc, uint8_t *elf_data, char **argv, char **envp) 
+{
+    const Elf64_Ehdr *hdr = (const Elf64_Ehdr *)elf_data;
+    if (elf_validate(hdr) < 0) return -1;
+
+    proc->pml4 = vmm_create_user_pml4();
+    
+    process_t staging;
+    memset(&staging, 0, sizeof(staging));
+    staging.pml4 = proc->pml4;
+
+    uintptr_t load_base, max_vaddr, tls_base;
+    int stack_exec;
+
+    if (elf_load_segments(&staging, elf_data, hdr, &load_base, &max_vaddr, &tls_base, &stack_exec) < 0) {
+        return -1;
+    }
+
+    uintptr_t stack_top = alloc_user_stack(proc->pml4, stack_exec);
+    if (!stack_top) return -1;
+
+    int argc = 0; if (argv) while (argv[argc]) argc++;
+    int envc = 0; if (envp) while (envp[envc]) envc++;
+
+    const char *execfn = (argc > 0) ? argv[0] : NULL;
+    
+    staging.tls_base = tls_base;
+    uintptr_t new_rsp = elf_build_stack(&staging, stack_top, argv, argc, envp, envc, 
+                                        hdr, load_base, tls_base, tls_base, execfn);
+    
+    if (!new_rsp) return -1;
+
+    proc->entry = hdr->e_entry;
+    proc->stack_top = new_rsp;
+    proc->brk_start = (max_vaddr + 0xFFFULL) & ~0xFFFULL;
+    proc->brk = proc->brk_start;
+    proc->tls_base = tls_base;
+
+    registers_t *stable_regs = (registers_t *)(proc->kstack_top - sizeof(registers_t));
+    memset(stable_regs, 0, sizeof(registers_t));
+    
+    stable_regs->rip = proc->entry;
+    stable_regs->rsp = proc->stack_top;
+    stable_regs->cs = 0x23;
+    stable_regs->ss = 0x1B;
+    stable_regs->ds = 0x1B;
+    stable_regs->es = 0x1B;
+    stable_regs->rflags = 0x202; // IF=1
+
+    proc->saved_user_context = *stable_regs;
+    proc->context_ptr = &proc->saved_user_context;
+
+    init_fpu(proc);
+
+    return 0;
+}
+
 uint64_t next_pid = 1;
 
 process_t *create_process_from_elf(uint8_t *elf_data, char **argv, char **envp)
@@ -557,23 +618,11 @@ process_t *create_process_from_elf(uint8_t *elf_data, char **argv, char **envp)
     return proc;
 }
 
-int replace_process_with_elf(process_t *proc, uint8_t *elf_data,
-                              char **argv, char **envp, registers_t *regs)
+int replace_process_with_elf(process_t *proc, uint8_t *elf_data, char **argv, char **envp, registers_t *regs)
 {
-
-    const Elf64_Ehdr *hdr = (const Elf64_Ehdr *)elf_data;
-    if (elf_validate(hdr) < 0)
-        return -1;
-
-    /* Count user-pointer arrays before touching any page tables. */
     int argc = 0; if (argv) while (argv[argc]) argc++;
     int envc = 0; if (envp) while (envp[envc]) envc++;
 
-    /*
-     * Deep-copy argv[] and envp[] strings onto the kernel heap NOW.
-     * After vmm_switch() the old user mappings are gone; any deferred
-     * access to the original user pointers would triple-fault.
-     */
     char **kargv = kmalloc(sizeof(char *) * (argc + 1));
     if (!kargv) return -1;
     memset(kargv, 0, sizeof(char *) * (argc + 1));
@@ -581,149 +630,58 @@ int replace_process_with_elf(process_t *proc, uint8_t *elf_data,
     for (int i = 0; i < argc; i++) {
         size_t len = strlen(argv[i]) + 1;
         kargv[i] = kmalloc(len);
-        if (!kargv[i]) goto fail_before_pml4;
+        if (!kargv[i]) goto fail_args;
         memcpy(kargv[i], argv[i], len);
     }
 
     char **kenvp = kmalloc(sizeof(char *) * (envc + 1));
-    if (!kenvp) goto fail_before_pml4;
+    if (!kenvp) goto fail_args;
     memset(kenvp, 0, sizeof(char *) * (envc + 1));
 
     for (int i = 0; i < envc; i++) {
         size_t len = strlen(envp[i]) + 1;
         kenvp[i] = kmalloc(len);
-        if (!kenvp[i]) goto fail_before_pml4;
+        if (!kenvp[i]) goto fail_args;
         memcpy(kenvp[i], envp[i], len);
     }
 
-    uint64_t *new_pml4 = vmm_create_user_pml4();
-    if (!new_pml4) goto fail_before_pml4;
+    uint64_t *old_pml4 = proc->pml4;
 
-    /*
-     * Use a lightweight scratch process shell so that elf_load_segments()
-     * and elf_build_stack() write into new_pml4 rather than proc->pml4.
-     * Only pml4, tls_base, and tls_size are used by those helpers.
-     */
-    process_t staging;
-    memset(&staging, 0, sizeof(staging));
-    staging.pml4 = new_pml4;
+    if (process_populate_from_elf(proc, elf_data, kargv, kenvp) < 0)
+        goto fail_populate;
 
-    uintptr_t load_base = 0, max_vaddr = 0, tls_base = 0;
-    int stack_exec = 0;
-
-    if (elf_load_segments(&staging, elf_data, hdr,
-                          &load_base, &max_vaddr,
-                          &tls_base, &stack_exec) < 0) {
-        debugln("[elf] execve: segment loading failed — aborting, old AS intact");
-        goto fail_after_pml4;
-    }
-
-    uintptr_t new_stack_top = alloc_user_stack(new_pml4, stack_exec);
-    if (!new_stack_top) {
-        debugln("[elf] execve: stack allocation failed — aborting, old AS intact");
-        goto fail_after_pml4;
-    }
-
-    /*
-     * elf_build_stack writes strings and pointer arrays into new_pml4 via
-     * HHDM.  It returns the final RSP value (points to argc on the stack).
-     * A return value of 0 indicates a vmm_virt_to_phys miss on a stack page
-     * — treat it as a fatal staging error.
-     */
-    staging.tls_base = tls_base;
-    const char *execfn = (argc > 0) ? kargv[0] : NULL;
-    uintptr_t new_rsp  = elf_build_stack(&staging, new_stack_top,
-                                         kargv, argc, kenvp, envc,
-                                         hdr, load_base, tls_base,
-                                         tls_base, execfn);
-    if (!new_rsp) {
-        debugln("[elf] execve: stack build failed — aborting, old AS intact");
-        goto fail_after_pml4;
-    }
-
-    uint64_t *old_pml4 = proc->pml4;   /* (a) cache before overwriting */
-
-    /* (b) Update proc metadata — no page table access yet */
-    proc->pml4      = new_pml4;
-    proc->entry     = hdr->e_entry;
-    proc->stack_top = new_rsp;
-    proc->brk_start = (max_vaddr + 0xFFFULL) & ~0xFFFULL;
-    proc->brk       = proc->brk_start;
-    proc->tls_base  = tls_base;
-
-    /* Close non-stdio file descriptors (exec semantics).
-     * Done before vmm_switch because vfs_close may need the old AS. */
     for (int i = 3; i < MAX_FILES; i++) {
         if (proc->files[i]) {
-            /* vfs_close(proc->files[i]); */
+            vfse_close(i);
             proc->files[i] = NULL;
         }
     }
 
-    /* (c) Commit: switch CR3 — from this point the new address space is live */
     vmm_switch(proc->pml4);
-
-    /* (d) Free old address space — safe now that CR3 no longer references it */
     vmm_free_user_pages(old_pml4);
-    /* old_pml4 itself is a kernel-heap or palloc'd page; free the PML4 frame */
     pfree((void *)VIRT_TO_PHYS((uintptr_t)old_pml4));
 
     int cpu = get_cpu_id();
-
-    /*
-     * TSS.RSP0: used by the CPU on privilege transitions triggered by
-     * hardware interrupts while the process is in user mode.  Must point
-     * to the top of the current process's kernel stack.
-     */
     tss_per_cpu[cpu].rsp0 = proc->kstack_top;
 
     extern cpu_context_t cpu_contexts[MAX_CPUS];
     cpu_contexts[cpu].kernel_stack = proc->kstack_top;
 
-    memset(regs, 0, sizeof(registers_t));
-    regs->rip    = proc->entry;
-    regs->rsp    = proc->stack_top;
-    regs->cs     = 0x23;    /* ring-3 code segment */
-    regs->ss     = 0x1B;    /* ring-3 data segment */
-    regs->ds     = 0x1B;
-    regs->es     = 0x1B;
-    regs->rflags = 0x202;   /* IF=1, everything else clean */
-    /* All GPRs already zeroed by memset above */
-
-    proc->context_ptr = regs;
-
-    /* Write %fs base for TLS.  The context switcher must also do this on
-     * every task-switch-in: wrmsrl(MSR_FS_BASED, current_process->tls_base) */
-    if (tls_base)
-        wrmsrl(MSR_FS_BASED, tls_base);
+    if (proc->tls_base)
+        wrmsrl(MSR_FS_BASED, proc->tls_base);
     else
         wrmsrl(MSR_FS_BASED, 0);
 
-    /* Reset FPU/SSE state to a clean MXCSR=0x1F80 baseline */
-    init_fpu(proc);
-
-    /* Free kernel-heap staging copies */
     for (int i = 0; i < argc; i++) kfree(kargv[i]);
     kfree(kargv);
     for (int i = 0; i < envc; i++) kfree(kenvp[i]);
     kfree(kenvp);
 
-    debugln("[elf] execve: committed pid=%llu entry=%lx rsp=%lx tls=%lx",
-            (unsigned long long)proc->pid,
-            (unsigned long)proc->entry,
-            (unsigned long)proc->stack_top,
-            (unsigned long)tls_base);
-
     return 0;
 
-fail_after_pml4:
-    /* Staged new PML4 is partially built — tear it down cleanly */
-    vmm_free_user_pages(new_pml4);
-    pfree((void *)VIRT_TO_PHYS((uintptr_t)new_pml4));
-    /* fall through */
-
-fail_before_pml4:
-    /* Free any argv/envp strings that were successfully copied */
+fail_populate:
+    proc->pml4 = old_pml4;
+fail_args:
     if (kargv) {
         for (int i = 0; i < argc; i++) if (kargv[i]) kfree(kargv[i]);
         kfree(kargv);

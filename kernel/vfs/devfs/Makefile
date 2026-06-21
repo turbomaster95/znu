@@ -6,3 +6,4 @@ $(obj)/devfs.c: $(DEVICES)
 
 clean-files += devfs.c
 obj-y += devfs.o
+obj-y += evdev/

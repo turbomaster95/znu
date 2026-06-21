@@ -16,7 +16,7 @@ if [ ! -f "$TOOLDIR/bin/znxorriso" ]; then
 
     touch xorriso/*.info
 
-    ./configure $ZCONFLAGS \
+    ./configure --prefix="$TOOLDIR" $ZCONFLAGS \
         --disable-nls \
         --disable-libacl \
         --disable-xattr

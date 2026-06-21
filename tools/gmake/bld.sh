@@ -10,7 +10,7 @@ if [ ! -f "$TOOLDIR/bin/zngmake" ]; then
     
     cd make-4.4.1
 
-    patch -p1 < "$TOOLS_DIR/gmake/znu.patch"
+    patch -p1 -f < "$TOOLS_DIR/gmake/znu.patch"
 
     export CFLAGS="-std=gnu17 -O2"
 

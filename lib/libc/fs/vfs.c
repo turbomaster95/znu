@@ -8,6 +8,7 @@
 #include <fat32.h>
 #include <vfs.h>
 #include <errno.h>
+#include <input.h>
 
 vfs_node_t* root_node = NULL;
 
@@ -46,9 +47,25 @@ int mem_vfs_write(vfs_node_t* node, const void* buf, size_t size, size_t offset)
     return (int)size;
 }
 
+vfs_ops_t mem_ops;
+
+struct vfs_node* mem_vfs_create(struct vfs_node* parent, const char* name, int type) {
+    if (!parent || parent->type != VFS_DIRECTORY) return NULL;
+
+    vfs_node_t* new_node = vfs_create_node(name, type);
+    if (!new_node) return NULL;
+
+    new_node->ops = &mem_ops;
+
+    vfs_add_child(parent, new_node);
+
+    return new_node;
+}
+
 vfs_ops_t mem_ops = {
     .read      = mem_vfs_read,
     .write     = mem_vfs_write,
+    .create    = mem_vfs_create,
     .readdir   = NULL,        /* getdents walks children directly for memfs */
     .find_node = NULL,
     .ioctl     = mem_vfs_ioctl
@@ -204,6 +221,8 @@ int vfs_ioctl(vfs_node_t* node, unsigned long request, void* argp) {
 void init_vfs(void) {
     root_node = vfs_create_node("/", VFS_DIRECTORY);
     devfs_init();
+    evdev_init();
+    keyboard_init_evdev();
 }
 
 bool vfs_mount(const char* device, const char* fs_type, const char* path) {

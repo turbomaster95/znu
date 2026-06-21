@@ -17,6 +17,7 @@ typedef struct vfs_ops {
     int (*read)(struct vfs_node* node, void* buf, size_t size, size_t offset);
     int (*write)(struct vfs_node* node, const void* buf, size_t size, size_t offset);
     int (*readdir)(vfs_node_t* node, uint32_t index, void* buf, size_t count);
+    struct vfs_node* (*create)(struct vfs_node* parent, const char* name, int type);
     struct vfs_node* (*find_node)(struct vfs_node* parent, const char* name);
     int (*ioctl)(struct vfs_node* node, unsigned long request, void* argp);
 } vfs_ops_t;
@@ -33,6 +34,8 @@ struct vfs_node {
     vfs_ops_t* ops;          // Pointer to the driver functions
     int is_mountpoint;       // 1 if this node redirects to a disk driver
     void* internal_data;     // Stores filesystem-specific data (like FIL*)
+
+    char* link_target;
 
     struct vfs_node* parent;
     struct vfs_node* children;

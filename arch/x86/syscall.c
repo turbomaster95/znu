@@ -7,6 +7,7 @@
 #include <vfs.h>
 #include <vfse.h>
 #include <page.h>
+#include <kernel.h>
 #include <stdio.h>
 #include <errno.h>
 #include <kernel/display.h>
@@ -166,6 +167,22 @@ int sys_open(const char* path, int flags) {
     vfse_resolve_path(kpath, abspath, sizeof(abspath));
     
     vfs_node_t* node = vfs_path_to_node(abspath);
+    if (!node && (flags & O_CREAT)) {
+        char* last_slash = strrchr(abspath, '/');
+        if (!last_slash) return -ENOENT; // Should not happen with absolute paths
+        
+        char filename[128];
+        strncpy(filename, last_slash + 1, 127);
+        *last_slash = '\0'; // abspath is now the parent directory path
+        
+        vfs_node_t* parent = vfs_path_to_node(strlen(abspath) == 0 ? "/" : abspath);
+        
+        if (parent && parent->ops->create) {
+            node = parent->ops->create(parent, filename, VFS_FILE);
+        } else {
+            return -EROFS; // Error: Read-only file system
+        }
+    }
     if (!node) return -ENOENT; // File not found
 
     if ((flags & O_DIRECTORY) && node->type != VFS_DIRECTORY) return -ENOTDIR;
@@ -518,14 +535,50 @@ long sys_execve(const char* path, char** argv, char** envp, registers_t* regs) {
     
     debugln("[sys] PID %d EXECVE: %s", current_process->pid, kpath);
 
-    vfs_node_t* node = vfs_path_to_node(kpath);
+    char abspath[4096];
+    vfse_resolve_path(kpath, abspath, sizeof(abspath));
+
+    vfs_node_t* node = vfs_path_to_node(abspath);
     if (!node || node->type != VFS_FILE) {
-        debugerr("[sys] EXECVE failed: %s not found", kpath);
-        return -1;
+        return -1; // -ENOENT
     }
 
+    uint8_t* elf_buffer = kmalloc(node->size);
+    if (!elf_buffer) {
+      debugerr("NO MEMORY TO ALLOCATE ELF BUFFER???");
+      debugln("Now panicing because what to do else if no memory?");
+      panic("No memory left!");
+      return -ENOMEM;
+    }
+
+    int bytes_read = vfs_read(node, elf_buffer, node->size, 0);
+    if (bytes_read != (int)node->size) {
+        kfree(elf_buffer);
+        return -EIO;
+    }
     extern int replace_process_with_elf(process_t* proc, uint8_t* elf_data, char** argv, char** envp, registers_t* regs);
-    return replace_process_with_elf(current_process, (uint8_t*)node->data, argv, envp, regs);
+    int result = replace_process_with_elf(current_process, elf_buffer, argv, envp, regs);
+
+    if (result < 0) {
+        kfree(elf_buffer);
+        return result;
+    }
+    vmm_switch(current_process->pml4);
+
+    debugln("[exec] Jumping to RIP=0x%x, RSP=0x%x", 
+         current_process->entry, 
+         current_process->stack_top);
+
+    if (current_process->entry < 0x1000) {
+      debugerr("[exec] CRITICAL: Entry point is NULL or invalid!");
+      return -1; 
+    }
+
+    // Jump into the new process entry point
+    jump_to_usermode(current_process->entry, current_process->stack_top);
+
+    // should NEVER reach here!
+    return 0;
 }
 
 long sys_ioctl(int fd, unsigned long request, void* argp) {

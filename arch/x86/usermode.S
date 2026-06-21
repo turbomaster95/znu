@@ -17,7 +17,7 @@ jump_to_usermode:
     ; interrupts are re-enabled when we land in Ring 3.
     pushfq
     pop rax
-    or rax, 0x3000      ; Sets IOPL bit
+    ; or rax, 0x3000      ; Sets IOPL bit
     or rax, 0x200       ; Set IF bit
     push rax            ; RFLAGS
 
@@ -34,7 +34,9 @@ jump_to_usermode:
     mov es, ax
     mov fs, ax
     ; GS is handled by swapgs in syscalls, but let's set it to user base now
-    ; mov gs, ax ; Not safe to do directly in 64-bit usually, Limine handles it
+
+    mov rdi, rdx   ; argc
+    mov rsi, rcx   ; argv
 
     ; 4. Clean up general purpose registers
     ; This prevents the user process from "peeking" at kernel data left in registers
@@ -43,8 +45,8 @@ jump_to_usermode:
     xor rcx, rcx
     xor rdx, rdx
     xor rbp, rbp
-    xor rsi, rsi
-    xor rdi, rdi
+    ; xor rsi, rsi
+    ; xor rdi, rdi
     xor r8,  rax
     xor r9,  rax
     xor r10, rax

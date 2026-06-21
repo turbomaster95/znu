@@ -15,4 +15,9 @@ struct tm {
     int tm_isdst;
 };
 
+struct timeval {
+    long tv_sec;
+    long tv_usec;
+};
+
 #endif

@@ -27,3 +27,12 @@ obj-y += x86.o
 obj-y += nx.o
 obj-y += panic.o
 obj-y += simd.o
+obj-y += refreshe.o
+
+# Define the target for the embedded ELF
+$(obj)/refreshe.o: $(src)/refresh.asm
+	$(Q)$(NASM) -f elf64 $(src)/refresh.asm -o $(obj)/refresh_raw.o
+	$(Q)$(LD) -Ttext 0x0 $(obj)/refresh_raw.o -o $(obj)/refresh.elf	
+	$(Q)$(OBJCOPY) -I binary -O elf64-x86-64 -B i386:x86-64 \
+		--rename-section .data=.dummybin \
+		$(obj)/refresh.elf $@

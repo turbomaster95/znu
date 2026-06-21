@@ -2,7 +2,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <devfs.h>
+#include <vfs.h>
 #include <kernel/tty.h>
+#include <input.h>
 
 #define KB_BUF_SIZE 256
 
@@ -15,6 +17,12 @@ static volatile size_t kb_tail = 0;
 static uint8_t shift_pressed = 0;
 static uint8_t ctrl_pressed = 0;
 static uint8_t extended = 0;
+
+static vfs_node_t* kbd_event_node = NULL;
+
+void keyboard_init_evdev(void) {
+    kbd_event_node = vfs_path_to_node("/dev/input/event1");
+}
 
 static const char ascii[128] = {
     [0x01] = 27,
@@ -53,6 +61,23 @@ static const char ascii_shifted[128] = {
 };
 
 void keyboard_handle_scancode(uint8_t scancode) {
+    struct input_event ev;
+    ev.type = EV_KEY;
+    ev.code = (scancode & 0x7F); // Use raw scancode as keycode for now
+    ev.value = (scancode & 0x80) ? 0 : 1;
+
+    if (kbd_event_node) {
+        evdev_push_event(kbd_event_node, ev);
+    }
+    
+    struct input_event sync;
+    sync.type = EV_SYN;
+    sync.code = SYN_REPORT;
+    sync.value = 0;
+
+    if (kbd_event_node) {
+        evdev_push_event(kbd_event_node, sync);
+    }
 
     // SHIFT PRESSED
     if (scancode == 0x2A || scancode == 0x36) {

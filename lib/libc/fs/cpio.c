@@ -1,4 +1,5 @@
 #include <vfs.h>
+#include <vfse.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -59,11 +60,27 @@ void cpio_parse(void *addr) {
         else { path_buf[0] = '/'; strncpy(path_buf + 1, src, 254); }
         path_buf[255] = '\0';
 
-        if (file_type == 0x8000 || file_type == 0xA000) { // Regular file or Symlink
+	if (file_type == 0x8000) { // Regular file
             vfs_register_file(path_buf, (uintptr_t)data, filesize);
             vfs_node_t* node = vfs_path_to_node(path_buf);
             if (node) {
-                node->type = (file_type == 0xA000) ? VFS_SYMLINK : VFS_FILE;
+                node->type = VFS_FILE;
+                node->mode = mode & 0xFFF;
+                node->uid = uid;
+                node->gid = gid;
+            }
+        } else if (file_type == 0xA000) { // Symlink
+            char target_path[256];
+            size_t len = (filesize > 255) ? 255 : filesize;
+            
+            memcpy(target_path, data, len);
+            target_path[len] = '\0';
+
+            vfse_symlink(target_path, path_buf);
+
+            vfs_node_t* node = vfs_path_to_node(path_buf);
+            if (node) {
+                node->type = VFS_SYMLINK;
                 node->mode = mode & 0xFFF;
                 node->uid = uid;
                 node->gid = gid;

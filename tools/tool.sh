@@ -2,9 +2,12 @@
 set -e
 
 TOOLS_DIR="$(cd "$(dirname "$0")" && pwd)"
-ZCONFLAGS="--prefix=$TOOLDIR --disable-dependency-tracking --disable-nls"
+ZCONFLAGS="--disable-dependency-tracking --disable-nls"
 
 . "$TOOLS_DIR/zconf.sh"
+
+export MULTICALLBIN="$TOOLS_DIR/obj/mulcal"
+mkdir -p "$MULTICALLBIN"
 
 # Helper: Download static web archives
 download_src() {

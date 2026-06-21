@@ -33,7 +33,13 @@ bool parse_tag(const char *line, const char *tag, char *output) {
     snprintf(prefix, sizeof(prefix), "// %s:", tag);
     char *loc = strstr(line, prefix);
     if (loc) {
-        strcpy(output, loc + strlen(prefix));
+        // Pointer to the start of the value
+        char *value_start = loc + strlen(prefix);
+        // Skip leading whitespace/tabs
+        while (*value_start == ' ' || *value_start == '\t') {
+            value_start++;
+        }
+        strcpy(output, value_start);
         trim(output);
         return true;
     }
@@ -115,7 +121,7 @@ int main(int argc, char *argv[]) {
     fprintf(out, "#include <string.h>\n");
     fprintf(out, "#include <stdlib.h>\n");
     fprintf(out, "#include <devfs.h>\n\n");
-    fprintf(out, "static vfs_node_t* dev_root = NULL;\n\n");
+    fprintf(out, "vfs_node_t* dev_root = NULL;\n\n");
 
     fprintf(out, "// --- Device Module Implementations ---\n");
     for (int i = 0; i < device_count; i++) {

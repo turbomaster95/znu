@@ -412,8 +412,33 @@ int vfse_unlink(const char* path) {
 }
 
 int vfse_symlink(const char* target, const char* linkpath) {
-    (void)target; (void)linkpath;
-    return -1;
+    if (!target || !linkpath) return -1;
+
+    char abspath[4096];
+    if (!vfse_resolve_path(linkpath, abspath, sizeof(abspath))) return -1;
+
+    char parent_path[4096];
+    char* last_slash = strrchr(abspath, '/');
+    if (!last_slash) return -1;
+    
+    size_t parent_len = last_slash - abspath;
+    if (parent_len == 0) parent_len = 1;
+    
+    strncpy(parent_path, abspath, parent_len);
+    parent_path[parent_len] = '\0';
+    
+    vfs_node_t* parent = vfs_path_to_node(parent_path);
+    if (!parent || parent->type != VFS_DIRECTORY) return -1;
+
+    vfs_node_t* node = vfs_create_node(last_slash + 1, VFS_SYMLINK);
+    if (!node) return -1;
+
+    vfs_add_child(parent, node);
+
+    node->type = VFS_SYMLINK;
+    node->link_target = strdup(target); 
+
+    return 0;
 }
 
 ssize_t vfse_readlink(const char* path, char* buf, size_t bufsize) {

@@ -5,7 +5,7 @@
    /* Initialize the special variables.  */
    define_variable_cname (".VARIABLES", "", o_default, 0)->special = 1;
 +  /* Initialize the INREPO variable for Znu */
-+  define_variable_cname ("INREPO", "yes", o_default, 0);
++  define_variable_cname ("INREPO", "yes", o_override, 0);
    /* define_variable_cname (".TARGETS", "", o_default, 0)->special = 1; */
    define_variable_cname (".RECIPEPREFIX", "", o_default, 0)->special = 1;
    define_variable_cname (".SHELLFLAGS", "-c", o_default, 0);

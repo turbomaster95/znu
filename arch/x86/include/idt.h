@@ -31,8 +31,6 @@ typedef struct {
     uint64_t ss;     // Expected at [rsp+32]
 } __attribute__((packed)) registers_t;
 
-#define IPI_VECTOR_
-
 void idt_init(void);
 void idt_local_load(void);
 void idt_global_init(void);
