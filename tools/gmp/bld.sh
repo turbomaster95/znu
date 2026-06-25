@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-if [ ! -f "$TOOLDIR/lib/libgmp.a" ]; then
+if [ ! -f "$TOOLDIR/lib/libgmp.so" ]; then
     download_src "https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz"
     [ -z "$FETCH_ONLY" ] || return 0
 
@@ -15,10 +15,9 @@ if [ ! -f "$TOOLDIR/lib/libgmp.a" ]; then
     # M4 environment variable ensures it grabs the compiled m4 binary
     export M4="$TOOLDIR/bin/znm4"
 
-    ./configure --prefix="$TOOLDIR" \
+    ./configure $ZCONFLAGS \
                 --enable-static \
-                --disable-shared \
-                $ZCONFLAGS
+                --disable-shared
 
     zngmake -j"$JOBS"
     zngmake install

@@ -133,6 +133,8 @@ void earlykmain(void) {
 
     __stack_chk_guard = (uintptr_t)rand() << 32 | rand();
 
+    // debugln("Stack Check Guard is: %s", __stack_chk_guard);
+
     if (hhdm_request.response) {
         hhdm_offset = hhdm_request.response->offset;
     }

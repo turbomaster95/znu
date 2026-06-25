@@ -1,6 +1,8 @@
---- make-4.4.1-clean/src/main.c
-+++ make-4.4.1/src/main.c
-@@ -1430,6 +1430,8 @@
+diff --git a/src/main.c b/src/main.c
+index 8933bda..f4b67fa 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -1430,6 +1430,8 @@ main (int argc, char **argv, char **envp)
  
    /* Initialize the special variables.  */
    define_variable_cname (".VARIABLES", "", o_default, 0)->special = 1;
@@ -9,3 +11,28 @@
    /* define_variable_cname (".TARGETS", "", o_default, 0)->special = 1; */
    define_variable_cname (".RECIPEPREFIX", "", o_default, 0)->special = 1;
    define_variable_cname (".SHELLFLAGS", "-c", o_default, 0);
+
+diff --git a/src/read.c b/src/read.c
+index znuisgod..gogmake 100644
+--- a/src/read.c
++++ b/src/read.c
+@@ -232,15 +232,15 @@
+ #ifdef VMS
+         /* all lower case since readdir() (the vms version) 'lowercasifies' */
+         /* TODO: Above is not always true, this needs more work */
+-        { "makefile.vms", "gnumakefile", "makefile", 0 };
++        { "makefile.vms", "gnumakefile", "makefile", "znumakefile", 0 };
+ #else
+ #ifdef _AMIGA
+-        { "GNUmakefile", "Makefile", "SMakefile", 0 };
++        { "GNUmakefile", "Makefile", "SMakefile", "ZNUmakefile", 0 };
+ #else /* !Amiga && !VMS */
+ #ifdef WINDOWS32
+-        { "GNUmakefile", "makefile", "Makefile", "makefile.mak", 0 };
++        { "GNUmakefile", "makefile", "Makefile", "makefile.mak", "ZNUmakefile",  0 };
+ #else /* !Amiga && !VMS && !WINDOWS32 */
+-        { "GNUmakefile", "makefile", "Makefile", 0 };
++        { "GNUmakefile", "makefile", "Makefile", "ZNUmakefile", 0 };
+ #endif /* !Amiga && !VMS && !WINDOWS32 */
+ #endif /* AMIGA */
+ #endif /* VMS */

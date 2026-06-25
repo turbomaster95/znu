@@ -224,7 +224,7 @@ void cmd_ls(const char *line) {
         return;
     }
 
-    znu_dirent_t dents[256];
+    znu_dirent_t dents[128];
 
     int bytes_read =
         sys_getdents(fd, dents, sizeof(dents));

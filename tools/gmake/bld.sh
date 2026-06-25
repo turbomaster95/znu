@@ -6,6 +6,7 @@ if [ ! -f "$TOOLDIR/bin/zngmake" ]; then
     [ -z "$FETCH_ONLY" ] || return 0
     
     cd "$DL_DIR"
+    rm -rf make-4.4.1
     [ ! -d "make-4.4.1" ] && tar -xzf make-4.4.1.tar.gz
     
     cd make-4.4.1

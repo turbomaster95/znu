@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-if [ ! -f "$TOOLDIR/lib/libmpfr.a" ]; then
+if [ ! -f "$TOOLDIR/lib/libmpfr.la" ]; then
     download_src "https://ftp.gnu.org/gnu/mpfr/mpfr-4.2.1.tar.xz"
     [ -z "$FETCH_ONLY" ] || return 0
 
@@ -12,11 +12,10 @@ if [ ! -f "$TOOLDIR/lib/libmpfr.a" ]; then
 
     export CFLAGS="-O2 -fPIC"
 
-    ./configure --prefix="$TOOLDIR" \
+    ./configure $ZCONFLAGS \
                 --with-gmp="$TOOLDIR" \
                 --enable-static \
                 --disable-shared \
-                $ZCONFLAGS
 
     zngmake -j"$JOBS"
     zngmake install

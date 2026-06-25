@@ -211,7 +211,7 @@ void kmain(void) {
     if (!init_module) {
 	debugwarn("Init.ko initialization module not found!");
     } else {
-        load_kernel_module("Init", (uint8_t*)init_module->data, init_module->size, NULL);
+        load_kernel_module("ModInit", (uint8_t*)init_module->data, init_module->size, NULL);
     }
 
     if (init_proc) {

@@ -245,7 +245,7 @@ LDFLAGS += -z max-page-size=0x1000
 KBUILD_LDFLAGS += -mcmodel=large -z max-page-size=0x1000 -Wl,--no-relax -Wl,--emit-relocs
 
 KBUILD_AFLAGS_KERNEL :=
-KBUILD_CFLAGS_KERNEL := -fstack-protector-all -fno-delete-null-pointer-checks -fno-strict-aliasing -fno-omit-frame-pointer
+KBUILD_CFLAGS_KERNEL := -fno-stack-protector -fno-delete-null-pointer-checks -fno-strict-aliasing -fno-omit-frame-pointer
 KBUILD_AFLAGS   := -D__ASSEMBLY__ -Xpreprocessor -P
 
 # Read KERNELRELEASE from include/config/kernel.release (if it exists)
