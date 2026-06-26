@@ -11,7 +11,7 @@ if [ ! -f "$TOOLDIR/bin/zncpio" ]; then
     tar -zxf "cpio-2.15.tar.gz"
     cd cpio-2.15
 
-    patch -p1 < "$TOOLS_DIR/cpio/gcc15.patch"
+    znpatch -p1 < "$TOOLS_DIR/cpio/gcc15.patch"
 
     ./configure $ZCONFLAGS --prefix="$TOOLDIR" \
 		--enable-largefile \

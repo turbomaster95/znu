@@ -12,7 +12,7 @@ if [ ! -f "$TOOLDIR/bin/znmformat" ]; then
     tar -zxf "mtools-4.0.49.tar.gz"
     cd mtools-4.0.49
 
-    patch -p1 -f < "$TOOLS_DIR/mtools/shim.patch"
+    znpatch -p1 -f < "$TOOLS_DIR/mtools/shim.patch"
     sed -i 's/strtonum.o @FLOPPYD_IO_OBJ@ @XDF_IO_OBJ@/strtonum.o android_shim.o @FLOPPYD_IO_OBJ@ @XDF_IO_OBJ@/' Makefile.in
 
     ./configure --prefix="$MULTICALLBIN" $ZCONFLAGS
