@@ -10,7 +10,7 @@ if [ ! -f "$TOOLDIR/lib/libmpfr.la" ]; then
 
     cd mpfr-4.2.1
 
-    export CFLAGS="-O2 -fPIC"
+    export CFLAGS="$CFLAGS -fPIC"
 
     ./configure $ZCONFLAGS \
                 --with-gmp="$TOOLDIR" \

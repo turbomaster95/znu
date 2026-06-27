@@ -11,9 +11,9 @@ if [ ! -f "$TOOLDIR/bin/znm4" ]; then
     tar -zxf "m4-1.4.19.tar.gz"
     cd m4-1.4.19
 
-    ./configure $ZCONFLAGS --prefix="$TOOLDIR" CFLAGS="-Wno-attributes -std=gnu11"
+    ./configure $ZCONFLAGS --prefix="$TOOLDIR" CFLAGS="$CFLAGS -Wno-attributes -std=gnu11"
 
-    zngmake -j"$JOBS" CFLAGS="-Wno-attributes -std=gnu11 -Wno-int-conversion"
+    zngmake -j"$JOBS" CFLAGS="$CFLAGS -Wno-attributes -std=gnu11 -Wno-int-conversion"
     zngmake install
 
     mv "$TOOLDIR/bin/m4" "$TOOLDIR/bin/znm4"

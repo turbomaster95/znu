@@ -10,8 +10,8 @@ if [ ! -f "$TOOLDIR/bin/zngawk" ]; then
 
     cd gawk-5.3.0
 
-    export CFLAGS="-std=gnu17 -O2 -I$TOOLDIR/include"
-    export LDFLAGS="-L$TOOLDIR/lib"
+    export CFLAGS="$CFLAGS -std=gnu17 -I$TOOLDIR/include"
+    export LDFLAGS="$LDFLAGS -L$TOOLDIR/lib"
 
     ./configure --prefix="$TOOLDIR" \
                 --with-readline="$TOOLDIR" \

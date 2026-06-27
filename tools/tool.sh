@@ -2,9 +2,12 @@
 set -e
 
 TOOLS_DIR="$(cd "$(dirname "$0")" && pwd)"
-ZCONFLAGS="--disable-dependency-tracking --disable-nls"
+ZCONFLAGS="--disable-dependency-tracking --disable-nls --disable-shared"
 
 . "$TOOLS_DIR/zconf.sh"
+
+export CFLAGS="-static -O2"
+export LDFLAGS="-static"
 
 export MULTICALLBIN="$TOOLS_DIR/obj/mulcal"
 mkdir -p "$MULTICALLBIN"

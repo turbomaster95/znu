@@ -11,7 +11,7 @@ for tool in nm strip objcopy objdump readelf size strings ar ranlib; do
 done
 
 if [ "$NEED_BUILD" -eq 1 ]; then
-    download_src "https://ftp.gnu.org/gnu/binutils/binutils-2.42.tar.xz"
+    download_src "https://ftp.gnu.org/gnu/binutils/binutils-2.42.tar.gz"
     [ -z "$FETCH_ONLY" ] || return 0
 
     cd "$DL_DIR"
@@ -19,8 +19,8 @@ if [ "$NEED_BUILD" -eq 1 ]; then
 
     cd binutils-2.42
 
-    export CFLAGS="-O2 -I$TOOLDIR/include"
-    export LDFLAGS="-L$TOOLDIR/lib"
+    export CFLAGS="$CFLAGS -I$TOOLDIR/include"
+    export LDFLAGS="$LDFLAGS -L$TOOLDIR/lib"
 
     ./configure --prefix="$TOOLDIR" \
                 --target=x86_64-elf \

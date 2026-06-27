@@ -13,7 +13,7 @@ if [ ! -f "$TOOLDIR/bin/zngmake" ]; then
 
     patch -p1 -f < "$TOOLS_DIR/gmake/znu.patch"
 
-    export CFLAGS="-std=gnu17 -O2"
+    export CFLAGS="$CFLAGS -std=gnu17"
 
     ./configure --prefix="$TOOLDIR" $ZCONFLAGS
 

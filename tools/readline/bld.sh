@@ -10,7 +10,7 @@ if [ ! -f "$TOOLDIR/lib/libreadline.a" ]; then
 
     cd readline-8.2
 
-    export CFLAGS="-O2"
+    export CFLAGS="$CFLAGS"
 
     ./configure --prefix="$TOOLDIR" \
                 --enable-static \
