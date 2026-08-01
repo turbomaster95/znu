@@ -118,10 +118,16 @@ void kmain(void) {
 
 
     #ifdef CONFIG_E1000
+       extern pci_device_t *pci_dev;
        e1000_init();
+       if (!pci_dev) {
+           debugerr("[kernel] E1000 NIC not found or initialization failed!");
+       } else {
+           net_init();
+       }
+    #else
+       net_init();
     #endif
-
-    net_init();
 
     // sleep(1000);
     // net_test_suite();

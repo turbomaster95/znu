@@ -275,8 +275,8 @@ static uintptr_t elf_build_stack(process_t *proc,
 
     
     /* Count slots to be pushed: auxv + envp_ptrs + argv_ptrs + argc */
-    int num_entries = 17 + (u_execfn ? 1 : 0);
-    int n_auxv = num_entries * 2;
+    // int num_entries = 17 + (u_execfn ? 1 : 0);
+    int n_auxv = 14;
     int total_slots = n_auxv + (envc + 1) + (argc + 1) + 1;
     if (total_slots & 1) sp -= 8;  /* alignment pad */
     sp &= ~0xFULL;                 /* final 16-byte align */

@@ -5,16 +5,16 @@ global force_context_restore
 extern current_process
 
 force_context_restore:
-    mov rsp, rdi    
+    mov rsp, rdi
 
     mov rax, [current_process]
-    mov rdx, [rax + 48]       
-    mov [gs:0], rdx           
+    mov rdx, [rax + 48]
+    mov [gs:0], rdx
 
-    pop rax         
-    pop rax         
+    pop rax
+    pop rax
 
-    mov eax, 0x1B    ; Entry 3 (0x18) | RPL 3 (0x03) = 0x1B
+    mov eax, 0x1B
     mov ds, ax
     mov es, ax
 
@@ -32,10 +32,11 @@ force_context_restore:
     pop rbx
     pop rdx
     pop rcx
-    pop rax         
+    pop rax
 
     add rsp, 16
 
     swapgs
 
-    o64 sysret
+    iretq
+
