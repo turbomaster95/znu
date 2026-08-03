@@ -19,7 +19,7 @@
 #include <stdlib.h>
 
 static e1000_device dev;
-static pci_device_t *pci_dev = NULL;
+pci_device_t *pci_dev = NULL;
 static void *rx_buf_virt[NUM_RX_DESC];
 static void *tx_buf_virt[NUM_TX_DESC];
 bool msi_capable = false;
