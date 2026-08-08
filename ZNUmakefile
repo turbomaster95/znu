@@ -62,7 +62,7 @@ ifeq ("$(origin W)", "command line")
 endif
 
 # Cancel implicit rules on top Makefile
-$(CURDIR)/Makefile Makefile: ;
+$(CURDIR)/ZNUmakefile ZNUmakefile: ;
 
 ifneq ($(KBUILD_OUTPUT),)
 # Invoke a second make in the output directory, passing relevant variables
@@ -74,13 +74,13 @@ $(if $(KBUILD_OUTPUT),, \
 
 PHONY += $(MAKECMDGOALS) sub-make
 
-$(filter-out _all sub-make $(CURDIR)/Makefile, $(MAKECMDGOALS)) _all: sub-make
+$(filter-out _all sub-make $(CURDIR)/ZNUmakefile, $(MAKECMDGOALS)) _all: sub-make
 	$(Q)@:
 
 sub-make: FORCE
 	$(if $(KBUILD_VERBOSE:1=),@)$(MAKE) -C $(KBUILD_OUTPUT) \
 	KBUILD_SRC=$(CURDIR) \
-	-f $(CURDIR)/Makefile \
+	-f $(CURDIR)/ZNUmakefile \
 	$(filter-out _all sub-make,$(MAKECMDGOALS))
 
 # Leave processing to above invocation of make
@@ -185,15 +185,27 @@ KBUILD_CMDFLAGS :=
 # Make variables (CC, etc...)
 #INSTALLKERNEL   = installkernel
 
-AS		= $(CROSS_COMPILE)as
-LD		= $(CROSS_COMPILE)ld
-CC		= $(CROSS_COMPILE)gcc
-CPP		= $(CC) -E
-AR		= $(CROSS_COMPILE)ar
-NM		= $(CROSS_COMPILE)nm
-STRIP		= $(CROSS_COMPILE)strip
-OBJCOPY		= $(CROSS_COMPILE)objcopy
-OBJDUMP		= $(CROSS_COMPILE)objdump
+ifeq ($(CONFIG_CLANG), y)
+  AS      = $(CROSS_COMPILE)as
+  LD      = $(CROSS_COMPILE)ld
+  CC      = $(CROSS_COMPILE)gcc
+  CPP     = $(CC) -E
+  AR      = $(CROSS_COMPILE)ar
+  NM      = $(CROSS_COMPILE)nm
+  STRIP   = $(CROSS_COMPILE)strip
+  OBJCOPY = $(CROSS_COMPILE)objcopy
+  OBJDUMP = $(CROSS_COMPILE)objdump
+else
+  AS      = llvm-as
+  LD      = ld
+  CC      = clang
+  CPP     = $(CC) -E
+  AR      = llvm-ar
+  NM      = llvm-nm
+  STRIP   = llvm-strip
+  OBJCOPY = llvm-objcopy
+  OBJDUMP = llvm-objdump
+endif
 
 # This is used for the generation of built-in.a
 COMPAR		= ar
@@ -233,7 +245,7 @@ LINUXINCLUDE    := -Iinclude \
 KBUILD_CPPFLAGS := -D__KERNEL__ -include $(srctree)/include/prelude.h
 
 KBUILD_CFLAGS   := -Wall -Wno-unused-function -Wno-undef -Wno-array-compare -Wno-address-of-packed-member -Wno-infinite-recursion -Wno-unused-variable -Wno-format-truncation -Wno-misleading-indentation -Wno-undef -Wstrict-prototypes -Wno-trigraphs -mno-mmx -mno-sse -mno-sse2 \
-		   -fno-strict-aliasing -fno-common -Wno-incompatible-pointer-types \
+		   -fno-strict-aliasing -fno-common -Wno-incompatible-pointer-types -fno-pic -fno-PIC -fno-PIE -fno-pie \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
 		   -fno-delete-null-pointer-checks -fno-sanitize=address \
@@ -380,7 +392,7 @@ $(KCONFIG_CONFIG) include/config/auto.conf.cmd: ;
 # if auto.conf.cmd is missing then we are probably in a cleaned tree so
 # we execute the config step to be sure to catch updated Kconfig files
 include/config/%.conf: $(KCONFIG_CONFIG) include/config/auto.conf.cmd
-	$(Q)$(MAKE) -f $(srctree)/Makefile silentoldconfig
+	$(Q)$(MAKE) -f $(srctree)/ZNUmakefile silentoldconfig
 
 
 else
@@ -423,7 +435,7 @@ quiet_cmd_$(TARGET)_a = KRNLA   $@
       $($(TARGET)-libs) $($(TARGET)-objs) $(LEGAL_OBJS)
 
 quiet_cmd_$(TARGET) = KRNLD   $@
-      cmd_$(TARGET) = $(CC) $(LDFLAGS) $(KBUILD_LDFLAGS) -o $@ \
+      cmd_$(TARGET) = $(CC) $(LDFLAGS) -fno-pie -Wl,-no-pie $(KBUILD_LDFLAGS) -o $@ \
       -Wl,--start-group $(TARGET).a -Wl,--end-group -T $(srctree)/scripts/linker.ld
 
 quiet_cmd_syms = SYMS    $@

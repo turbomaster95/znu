@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-void* __emutls_get_address(void* obj) {
+__attribute__((weak)) void* __emutls_get_address(void* obj) {
     (void)obj;
     return (void*)0;
 }
@@ -43,6 +43,15 @@ struct ubsan_out_of_bounds_data {
 };
 
 struct ubsan_invalid_value_data {
+    struct ubsan_source_location location;
+    struct ubsan_type_descriptor *type;
+};
+
+struct ubsan_unreachable_data {
+    struct ubsan_source_location location;
+};
+
+struct ubsan_function_type_mismatch_data {
     struct ubsan_source_location location;
     struct ubsan_type_descriptor *type;
 };
@@ -117,4 +126,17 @@ void __ubsan_handle_divrem_overflow_abort(struct ubsan_overflow_data *data, uint
 void __ubsan_handle_load_invalid_value_abort(void *data, uintptr_t lhs, uintptr_t rhs) {
     ubsan_log_header("Invalid Load Value", &((struct ubsan_invalid_value_data *)data)->location);
     panic("[ubsan] Invalid Value Loaded");
+}
+
+void __ubsan_handle_builtin_unreachable(struct ubsan_unreachable_data *data) {
+    ubsan_log_header("Builtin Unreachable", &data->location);
+    debugln("  Code path marked as unreachable was executed\n");
+    panic("[ubsan] builtin unreachable");
+}
+
+void __ubsan_handle_function_type_mismatch_abort(struct ubsan_function_type_mismatch_data *data, uintptr_t fn_ptr) {
+    ubsan_log_header("Function Type Mismatch", &data->location);
+    debugln("  Expected Function Type: %s\n", data->type->type_name);
+    debugln("  Function Pointer: %p\n", fn_ptr);
+    panic("[ubsan] function type mismatch");
 }

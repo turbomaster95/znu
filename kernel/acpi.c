@@ -1,4 +1,3 @@
-// acpi.c - uACPI glue layer for x86_64 Higher Half Direct Map kernel
 #include <uacpi/kernel_api.h>
 #include <uacpi/uacpi.h>
 #include <uacpi/types.h>
@@ -188,12 +187,9 @@ void uacpi_kernel_pci_device_close(uacpi_handle handle) {
 }
 
 uacpi_u64 uacpi_kernel_get_nanoseconds_since_boot(void) {
-    uint64_t extra = __atomic_add_fetch(&sub_tick_inc, 100, __ATOMIC_RELAXED);
-    //debugln("getnanoseconds called");
-    //debugln("nanosnds + extra = %i", (uacpi_u64)timekeeper_timefromboot() + extra);
+    uint64_t extra = atomic_fetch_add(&sub_tick_inc, 100) + 100;
     return (uacpi_u64)timekeeper_timefromboot() + extra;
 }
-
 
 uacpi_handle uacpi_kernel_create_mutex(void) {
     mutex_t *mutex = kmalloc(sizeof(mutex_t));

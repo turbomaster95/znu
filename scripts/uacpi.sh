@@ -85,7 +85,7 @@ for f in $FILES; do
         -include "$SRCTREE/lib/libc/include/string.h" \
         -include "$SRCTREE/lib/libc/include/ctype.h" \
         -DUACPI_NATIVE_ALLOC_ZEROED -D__is_libk \
-        -ffreestanding -nostdinc -fno-stack-protector -mcmodel=kernel -mno-red-zone -mno-mmx -mno-sse -mno-sse2; then
+        -ffreestanding -nostdinc -fno-stack-protector -mcmodel=kernel -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -fno-pic -fno-PIC -fno-PIE -fno-pie; then
         NEW_FILES_COMPILED=true
     else
         echo "  ERROR: Failed to compile $f"

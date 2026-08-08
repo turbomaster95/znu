@@ -1,15 +1,20 @@
 mainmenu "Configuration"
 
+config CLANG
+	bool "Use Clang/LLVM to compile"
+	help
+	  Uses Clang/LLVM to compile the kernel
+
 config CROSS_COMPILE
-	string "Cross-compiler tool prefix"
+	string "GCC Cross-compiler tool prefix"
 	help
 	  Same as running 'make CROSS_COMPILE=prefix-' but stored for
 	  default make runs in this kernel build directory.  You don't
 	  need to set this unless you want the configured kernel build
 	  directory to select the cross-compiler automatically.
+	 depends on !CLANG
 
 source "kernel/Kconfig"
-
 
 menuconfig GENERATE_ISO
     bool "Generate a Limine iso with the kernel"
