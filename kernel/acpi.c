@@ -65,7 +65,7 @@ void *uacpi_kernel_map(uacpi_phys_addr physical, uacpi_size length) {
 //    debugln("[VMM] uACPI requesting map: Phys %p (len %d)", (void*)physical, length);
     (void)length;
 
-    return (void*)(physical + 0xffff800000000000);
+    return (void*)(physical + hhdm_offset);
 }
 
 void uacpi_kernel_unmap(void *ptr, uacpi_size length) {
@@ -76,7 +76,7 @@ void uacpi_kernel_unmap(void *ptr, uacpi_size length) {
 uacpi_status uacpi_kernel_raw_memory_read(uacpi_phys_addr address, uacpi_u8 byte_width, uacpi_u64 *out_value) {
 //    debugln("acpi raw mem read addr: %s", address);
 //    debugln("acpi raw mem read byte_width: %s", byte_width);
-    void* virt = (void*)((uintptr_t)address + 0xffff800000000000);
+    void* virt = (void*)((uintptr_t)address + hhdm_offset);
     
     if (byte_width == 1) *out_value = *(volatile uint8_t*)virt;
     else if (byte_width == 2) *out_value = *(volatile uint16_t*)virt;
@@ -390,10 +390,34 @@ void uacpi_kernel_log(uacpi_log_level lvl, const char *fmt, ...) {
     va_end(args);
 }
 
-uacpi_bool uacpi_kernel_wait_for_event(uacpi_handle event, uacpi_u16 timeout) {
-    (void)event; 
-    (void)timeout; 
-    return true; 
+uacpi_bool uacpi_kernel_wait_for_event(uacpi_handle handle, uacpi_u16 timeout) {
+    if (!handle)
+        return false;
+
+    uacpi_event_t *event = (uacpi_event_t *)handle;
+
+    if (timeout == 0xFFFF) {
+        semaphore_wait(&event->sem);
+        return true;
+    }
+
+    if (timeout == 0) {
+        return semaphore_try_wait(&event->sem);
+    }
+
+    uint64_t start_ms = timekeeper_timefromboot() / 1000000;
+    while (1) {
+        if (semaphore_try_wait(&event->sem))
+            return true;
+
+        uint64_t elapsed_ms = (timekeeper_timefromboot() / 1000000) - start_ms;
+        if (elapsed_ms >= timeout)
+            break;
+
+        uacpi_kernel_stall(10);
+    }
+
+    return semaphore_try_wait(&event->sem);
 }
 
 uacpi_interrupt_state uacpi_kernel_disable_interrupts(void) {
@@ -482,12 +506,7 @@ void kernel_reboot(void) {
     debugln("Falling back to PS/2 controller reset...");
 
     outb(0x64, 0xFE);
-
-    debugln("Falling back to Triple Fault...");
-    uint16_t idt_limit = 0;
-    __asm__ volatile("lidt (%0)" : : "r"(&idt_limit));
-    __asm__ volatile("int $3");
-
+	
     // Ultimate Halt
     hcf();
 }
