@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
-#include <syscall.h>
 #include <termios.h>
 #include <unistd.h>
 #include <stdlib.h>

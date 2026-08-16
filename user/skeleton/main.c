@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <syscall.h>
 
 int main() {
     printf("This is a skeleton program!\n");

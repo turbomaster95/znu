@@ -185,7 +185,7 @@ KBUILD_CMDFLAGS :=
 # Make variables (CC, etc...)
 #INSTALLKERNEL   = installkernel
 
-ifeq ($(CONFIG_CLANG), y)
+ifneq ($(CONFIG_CLANG), y)
   AS      = $(CROSS_COMPILE)as
   LD      = $(CROSS_COMPILE)ld
   CC      = $(CROSS_COMPILE)gcc
@@ -198,7 +198,7 @@ ifeq ($(CONFIG_CLANG), y)
 else
   AS      = llvm-as
   LD      = ld
-  CC      = clang
+  CC      = clang --target=x86_64-elf
   CPP     = $(CC) -E
   AR      = llvm-ar
   NM      = llvm-nm
