@@ -1,12 +1,15 @@
 config BGA
-	bool "Enable BGA (Bochs Graphic Adapter) Support"
-	default y
+	tristate "Enable BGA (Bochs Graphic Adapter) Support"
 	help
 	  Enables the Bochs Graphic Adapter to be used instead of the normal, fixed-size limine framebuffer.
 
 config E1000
-	bool "Enable Intel PRO/1000 Network Driver"
-	default y
+	tristate "Enable Intel PRO/1000 Network Driver"
 	help
 	  Enables the support for the Intel E1000 Network Adapter.
+
+config AHCI
+	tristate "Enable AHCI Driver"
+	help
+	  Enables the support for AHCI Drives.
 

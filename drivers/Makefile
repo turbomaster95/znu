@@ -4,5 +4,7 @@ KBUILD_CPPFLAGS += -I$(srctree)/include -I$(srctree)/lib/libc/include -I$(srctre
 
 obj-y += fb/
 obj-y += net/
-obj-y += tests/
+obj-y += hw/
+obj-y += block/
+obj-y += misc/
 

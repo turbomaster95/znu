@@ -10,7 +10,6 @@ export KBUILD_LDFLAGS
 obj-y := early.o
 obj-y += main.o
 obj-y += ubsan.o
-obj-y += gui.o
 obj-y += acpi.o
 obj-y += keyboard.o
 obj-y += sched.o
@@ -33,4 +32,5 @@ obj-y += signal.o
 CFLAGS_diskio.o += -I$(srctree)/lib/fatfs/source
 obj-y += diskio.o
 obj-y += tests.o
+obj-y += initcall.o
 

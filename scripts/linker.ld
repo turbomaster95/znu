@@ -64,19 +64,40 @@ SECTIONS
     /* Move completely clear of the .bss tracking frame */
     . = ALIGN(CONSTANT(MAXPAGESIZE));
     
-    /* * FIXED: Explicitly allocate space inside the curly braces 
-     * and force SHT_PROGBITS so it takes real space in the file map.
-     */
     .ksyms : {
         __ksyms_start = .;
         *(.ksyms)
         QUAD(0); /* Forces the section type to initialized PROGBITS data */
         . = ALIGN(0x1000);
-        . += 0x20000; /* Allocate your full symbol table tracking buffer window */
+        . += 0x20000;
         __ksyms_end = .;
     } :data
 
-    /* Discard .note.* and .eh_frame* safely without stepping on .note.znu */
+    . = ALIGN(CONSTANT(MAXPAGESIZE));
+
+    .initcalls : ALIGN(8) {
+	__initcall_start = .;
+
+	__initcall0_start = .;
+        KEEP(*(.initcall0.init))
+        __initcall1_start = .;
+        KEEP(*(.initcall1.init))
+        __initcall2_start = .;
+        KEEP(*(.initcall2.init))
+        __initcall3_start = .;
+        KEEP(*(.initcall3.init))
+        __initcall4_start = .;
+        KEEP(*(.initcall4.init))
+        __initcall5_start = .;
+        KEEP(*(.initcall5.init))
+        __initcall6_start = .;
+        KEEP(*(.initcall6.init))
+        __initcall7_start = .;
+        KEEP(*(.initcall7.init))
+
+	__initcall_end = .;
+    }
+
     /DISCARD/ : {
         *(.eh_frame*)
         *(.note.gnu*)

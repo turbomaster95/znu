@@ -198,10 +198,6 @@ void earlykmain(void) {
     debugln("[kernel] Welcome to znu!");
     debugln("[tty] \033[1mGot a \033[1;31mC\033[1;33mO\033[1;32mL\033[1;34mO\033[1;35mR\033[0;1m Display?\033[0m");
 
-    #ifdef CONFIG_EG_GUI
-     draw_kernel_gui();
-    #endif
-
     uint16_t cs_reg;
     __asm__ volatile("mov %%cs, %0" : "=r"(cs_reg));
     debugln("[kernel] Current CS: 0x%x", cs_reg);

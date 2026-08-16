@@ -197,6 +197,9 @@ static int process_relocations(module_t *mod, const Elf64_Ehdr *hdr, uint16_t *s
                 }
             } else if (sym->st_shndx == SHN_ABS) {
                 symval = sym->st_value;
+            } else if (sym->st_shndx == SHN_COMMON) {
+	        debugln("[mod] Common symbol '%s' not supported in dynamic loader", symname);
+	        return -1;
             } else if (sym->st_shndx < hdr->e_shnum) {
                 size_t soff = 0;
                 for (size_t j = 0; j < nalloc; j++) {
@@ -506,10 +509,10 @@ static void find_module_hooks(module_t *mod, const Elf64_Ehdr *hdr, uint16_t *se
         const char *name = mod->strtab + s->st_name;
         uint64_t addr = (uint64_t)mod->base + sec_base + s->st_value;
 
-        if (strcmp(name, "module_init") == 0) {
+        if (strcmp(name, "init_module") == 0 || strcmp(name, "module_init") == 0) {
             mod->init_fn = (void *)addr;
             debugln("[mod] module_init @ %p", (void*)addr);
-        } else if (strcmp(name, "module_exit") == 0) {
+        } else if (strcmp(name, "cleanup_module") == 0 || strcmp(name, "module_exit") == 0) {
             mod->exit_fn = (void *)addr;
             debugln("[mod] module_exit @ %p", (void*)addr);
         }

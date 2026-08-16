@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <page.h>
 #include <kernel/display.h>
+#include <kernel/module.h>
+#include <kernel/initcall.h>
+#include <kernel/kapi.h>
+#include <bga.h>
 
 #define BGA_PORT_INDEX          0x01CE
 #define BGA_PORT_VALUE          0x01CF
@@ -148,3 +152,21 @@ void totally_normal_test(void) {
         }
     }
 }
+
+
+MODULE_NAME("bga");
+MODULE_DESCRIPTION("Bochs Graphic Adapter Driver");
+MODULE_AUTHOR("Deva Midhun <turbomaster95>");
+MODULE_LICENSE("Nicence 1.1");
+
+int bga_module_init(void) {
+    bga_init();
+    return 0;
+}
+
+void __exit bga_module_exit(void) {
+    debugln("[bga] Driver unloaded");
+}
+
+module_init(bga_module_init);
+module_exit(bga_module_exit);

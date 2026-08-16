@@ -8,6 +8,7 @@
 #include <kernel/display.h>
 #include <kernel/tty.h>
 #include <kernel/module.h>
+#include <kernel/initcall.h>
 #include <idt.h>
 #include <lapic.h>
 #include <symbols.h>
@@ -22,8 +23,6 @@
 #include <vfs.h>
 #include <vfse.h>
 #include <x86.h>
-#include <pci.h>
-#include <ahci.h>
 #include <fat32.h>
 #include <disk.h>
 #include <cpuid.h>
@@ -99,23 +98,10 @@ void kmain(void) {
     status = uacpi_namespace_initialize();
     debugln("[SUCCESS] uACPI is live.");
 
-    pci_init();
-    debugln("[pci] Init done!");
+    do_initcalls();
 
-    ahci_init();
-    debugln("[ahci] Init done!");
-    
-    disk_init();
-
-    init_vfs();
-    debugln("[vfs] Initialized VFS");
-
-    vfse_init();
-    debugln("[vfse] Initialized VFSe");
-
-    tty_init();
-    debugln("[tty] Initialized tty");
-
+    //  extern void terminal_teardown(void);
+    //  terminal_teardown();
 
     #ifdef CONFIG_E1000
        extern pci_device_t *pci_dev;
@@ -136,6 +122,17 @@ void kmain(void) {
 
     sleep(1000);
     test_smp_workers(2);
+
+    disk_init();
+
+    init_vfs();
+    debugln("[vfs] Initialized VFS");
+
+    vfse_init();
+    debugln("[vfse] Initialized VFSe");
+
+    tty_init();
+    debugln("[tty] Initialized tty");
 
     enable_syscalls();
     syscall_init();
@@ -175,11 +172,7 @@ void kmain(void) {
     debugln("[smap] Reenabled SMAP");
 
     #ifdef CONFIG_BGA
-      extern void terminal_teardown(void);
-      terminal_teardown();
-      extern void bga_init(void);
-      bga_init();
-    #endif 
+    #endif
 
     debugln("\033[1;34m  ______             \033[0m");
     debugln("\033[1;34m |___  /             \033[0m");

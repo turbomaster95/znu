@@ -4,6 +4,7 @@
 #include <ahci.h>
 #include <string.h>
 #include <stdlib.h>
+#include <page.h>
 
 typedef struct {
     BYTE pd;    
@@ -67,7 +68,7 @@ DRESULT disk_read (
         return RES_ERROR;
     }
 
-    uint8_t* bounce_buf = (uint8_t*)phys_to_virt((uintptr_t)dma_phys);
+    uint8_t* bounce_buf = (uint8_t*)PHYS_TO_VIRT((uintptr_t)dma_phys);
 
     for (UINT i = 0; i < count; i++) {
         if (!disk_read_sector(d, sector + i, bounce_buf)) {
@@ -107,7 +108,7 @@ DRESULT disk_write (
 
     void* dma_phys = palloc_zero();
     if (!dma_phys) return RES_ERROR;
-    uint8_t* bounce_buf = (uint8_t*)phys_to_virt((uintptr_t)dma_phys);
+    uint8_t* bounce_buf = (uint8_t*)PHYS_TO_VIRT((uintptr_t)dma_phys);
 
     for (UINT i = 0; i < count; i++) {
         /* Copy data out from FatFs BSS into the DMA-safe frame */

@@ -49,11 +49,3 @@ menu "Device Drivers"
 source "drivers/Kconfig"
 
 endmenu
-
-config EG_GUI
-	bool "Show example gui"
-	default n
-	select BGA
-	help
-	  Shows an example gui from kernel mode (DEPRECATED)
-

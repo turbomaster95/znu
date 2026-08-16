@@ -1,0 +1,169 @@
+#include <pci.h>
+#include <kernel/initcall.h>
+#include <stdlib.h>
+#include <string.h>
+
+pci_device_t pci_devices[PCI_MAX_DEVICES];
+int pci_device_count = 0;
+static struct pci_ops* g_ops = NULL;
+
+static const pci_class_name_t pci_class_names[] = {
+    {0x01, 0x01, 0x00, "IDE Controller"},
+    {0x01, 0x06, 0x01, "SATA AHCI Controller"},
+    {0x02, 0x00, 0x00, "Ethernet Controller"},
+    {0x03, 0x00, 0x00, "VGA Compatible Controller"},
+    {0x06, 0x00, 0x00, "Host Bridge"},
+    {0x06, 0x01, 0x00, "ISA Bridge"},
+    {0x0C, 0x03, 0x20, "USB2 (EHCI) Controller"},
+    {0x0C, 0x03, 0x30, "USB3 (xHCI) Controller"},
+    {0x0C, 0x05, 0x00, "SMBus Controller"},
+    {0, 0, 0, NULL}
+};
+
+uint32_t pci_read_dword(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset) {
+    return g_ops->read(bus, slot, func, offset, 4);
+}
+
+uint16_t pci_read_word(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset) {
+    return g_ops->read(bus, slot, func, offset, 2);
+}
+
+uint8_t pci_read_byte(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset) {
+    return g_ops->read(bus, slot, func, offset, 1);
+}
+
+void pci_write_dword(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, uint32_t value) {
+    g_ops->write(bus, slot, func, offset, value, 4);
+}
+
+const char* pci_get_class_name(uint8_t class_code, uint8_t subclass, uint8_t prog_if) {
+    for (int i = 0; pci_class_names[i].name != NULL; i++) {
+        if (pci_class_names[i].class_code == class_code &&
+            pci_class_names[i].subclass == subclass) {
+            return pci_class_names[i].name;
+        }
+    }
+    return "Unknown Device";
+}
+
+const char* pci_get_vendor_name(uint16_t vendor_id) {
+    switch (vendor_id) {
+        case 0x8086: return "Intel Corp";
+        case 0x1234: return "Bochs/QEMU";
+        case 0x10EC: return "Realtek";
+        case 0x1AF4: return "VirtIO";
+        default:     return "Unknown Vendor";
+    }
+}
+
+static void pci_add_device(uint8_t bus, uint8_t slot, uint8_t func) {
+    if (pci_device_count >= PCI_MAX_DEVICES) return;
+
+    uint16_t vendor_id = pci_read_word(bus, slot, func, 0x00);
+    if (vendor_id == 0xFFFF) return;
+
+    pci_device_t* dev = &pci_devices[pci_device_count++];
+    memset(dev, 0, sizeof(pci_device_t));
+
+    dev->bus = bus;
+    dev->slot = slot;
+    dev->func = func;
+
+    dev->vendor_id   = vendor_id;
+    dev->device_id   = pci_read_word(bus, slot, func, 0x02);
+    dev->revision    = pci_read_byte(bus, slot, func, 0x08);
+    dev->prog_if     = pci_read_byte(bus, slot, func, 0x09);
+    dev->subclass    = pci_read_byte(bus, slot, func, 0x0A);
+    dev->class_code  = pci_read_byte(bus, slot, func, 0x0B);
+    dev->header_type = pci_read_byte(bus, slot, func, 0x0E);
+
+    for (int i = 0; i < 6; i++) {
+        dev->bar[i] = pci_read_dword(bus, slot, func, 0x10 + (i * 4));
+    }
+
+    dev->present = true;
+
+    debugln("PCI %02X:%02X.%u class=%02X subclass=%02X progif=%02X vendor=%04X device=%04X [%s %s]",
+            bus, slot, func, dev->class_code, dev->subclass, dev->prog_if,
+            dev->vendor_id, dev->device_id,
+            pci_get_vendor_name(dev->vendor_id),
+            pci_get_class_name(dev->class_code, dev->subclass, dev->prog_if));
+}
+
+static void pci_scan_device(uint8_t bus, uint8_t slot) {
+    uint16_t vendor = pci_read_word(bus, slot, 0, 0x00);
+    if (vendor == 0xFFFF) return;
+
+    pci_add_device(bus, slot, 0);
+
+    uint8_t header_type = pci_read_byte(bus, slot, 0, 0x0E);
+    if (header_type & 0x80) {
+        for (uint8_t func = 1; func < 8; func++) {
+            if (pci_read_word(bus, slot, func, 0x00) != 0xFFFF) {
+                pci_add_device(bus, slot, func);
+            }
+        }
+    }
+}
+
+void pci_init(void) {
+    g_ops = arch_pci_get_ops();
+    pci_device_count = 0;
+
+    debugln("[pci] scanning bus...");
+    for (uint16_t bus = 0; bus < 256; bus++) {
+        for (uint8_t slot = 0; slot < 32; slot++) {
+            pci_scan_device((uint8_t)bus, slot);
+        }
+    }
+    debugln("[pci] found %d devices", pci_device_count);
+}
+
+pci_device_t* pci_find_class(uint8_t class_code, uint8_t subclass, uint8_t prog_if) {
+    for (int i = 0; i < pci_device_count; i++) {
+        pci_device_t* dev = &pci_devices[i];
+        if (dev->class_code == class_code && dev->subclass == subclass && dev->prog_if == prog_if) {
+            return dev;
+        }
+    }
+    return NULL;
+}
+
+pci_device_t* pci_find_device(uint16_t vendor_id, uint16_t device_id) {
+    for (int i = 0; i < pci_device_count; i++) {
+        if (pci_devices[i].vendor_id == vendor_id && pci_devices[i].device_id == device_id) {
+            return &pci_devices[i];
+        }
+    }
+    return NULL;
+}
+
+pci_device_t* pci_find_device_by_class(uint8_t class_code, uint8_t subclass) {
+    for (int i = 0; i < pci_device_count; i++) {
+        if (pci_devices[i].class_code == class_code && pci_devices[i].subclass == subclass) {
+            return &pci_devices[i];
+        }
+    }
+    return NULL;
+}
+
+void pci_enable_busmaster(pci_device_t* dev) {
+    uint16_t cmd = pci_read_word(dev->bus, dev->slot, dev->func, 0x04);
+    cmd |= (1 << 2);
+    uint32_t val = pci_read_dword(dev->bus, dev->slot, dev->func, 0x04);
+    val = (val & 0xFFFF0000) | cmd;
+    pci_write_dword(dev->bus, dev->slot, dev->func, 0x04, val);
+}
+
+void pci_enable_memory_space(pci_device_t* dev) {
+    uint32_t cmd = pci_read_dword(dev->bus, dev->slot, dev->func, 0x04);
+    cmd |= (1 << 1);
+    pci_write_dword(dev->bus, dev->slot, dev->func, 0x04, cmd);
+}
+
+static int pci_subsys_init(void) {
+    pci_init();
+    return 0;
+}
+
+subsys_initcall(pci_subsys_init);

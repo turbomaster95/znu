@@ -1,1 +1,1 @@
-obj-y += bga.o
+obj-$(CONFIG_BGA) += bga.o

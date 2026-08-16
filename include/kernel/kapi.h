@@ -6,9 +6,11 @@
 #include <stdbool.h>
 #include <sync.h>
 
+extern uintptr_t hhdm_offset;
+
 extern void debugln(const char *fmt, ...);
 extern void kprintf(const char *fmt, ...);
-extern void panic(const char *fmt, ...);
+extern void panic(const char *reason);
 
 extern void *kmalloc(size_t size);
 extern void kfree(void *ptr);

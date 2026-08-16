@@ -136,12 +136,17 @@ void      mod_put(module_t *mod);
 
 #define MODULE_PARAM(var, type, desc) MODULE_PARAM_##type(var, desc)
 
-#define module_init(fn) \
-    int module_init(void) __attribute__((alias(#fn))); \
-    int fn(void)
+#ifndef module_init
+#ifndef MODULE
+    #include <kernel/initcall.h>
+#else
+    /* Dynamic Kernel Module (.ko) */
+    #define module_init(fn) \
+        int init_module(void) __attribute__((used, visibility("default"), alias(#fn)));
 
-#define module_exit(fn) \
-    void module_exit(void) __attribute__((alias(#fn))); \
-    void fn(void)
+    #define module_exit(fn) \
+        void cleanup_module(void) __attribute__((used, visibility("default"), alias(#fn)));
+#endif
+#endif
 
 #endif

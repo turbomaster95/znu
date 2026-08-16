@@ -20,14 +20,16 @@ lib-y := $(filter-out $(obj-y), $(sort $(lib-y)))
 
 # Handle objects in subdirs
 # ---------------------------------------------------------------------------
-# o if we encounter foo/ in $(obj-y), replace it by foo/built-in.a
-#   and add the directory to the list of dirs to descend into: $(subdir-y)
-# o if we encounter foo/ in $(obj-m), remove it from $(obj-m) 
-#   and add the directory to the list of dirs to descend into: $(subdir-m)
+# o Convert any .o file in obj-m to .ko and append to obj-y
+# o Replace foo/ in obj-y and obj-m with foo/built-in.a
+# o Add all subdirectories to subdir-y for recursive descent
 
-__subdir-y	:= $(patsubst %/,%,$(filter %/, $(obj-y)))
-subdir-y	+= $(__subdir-y)
-obj-y		:= $(patsubst %/, %/built-in.a, $(obj-y))
+obj-y        += $(patsubst %.o,%.ko,$(filter-out %/, $(obj-m)))
+
+__subdir-y    := $(patsubst %/,%,$(filter %/, $(obj-y) $(obj-m)))
+subdir-y     += $(__subdir-y)
+
+obj-y        := $(patsubst %/, %/built-in.a, $(obj-y))
 
 # Subdirectories we need to descend into
 
