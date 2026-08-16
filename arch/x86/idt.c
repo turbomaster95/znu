@@ -1,6 +1,5 @@
 #include <idt.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 #include <pi.h>
 #include <page.h>
@@ -174,7 +173,7 @@ registers_t* k_exception_handler(registers_t *regs) {
     return regs;
 }
 
-void idt_init() {
+void idt_init(void) {
     memset(idt, 0, sizeof(struct idt_entry) * 256);
 
     for (int i = 0; i < 256; i++) {

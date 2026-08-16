@@ -41,7 +41,7 @@ vfs_ops_t devfs_evdev_ops = {
     .find_node = NULL
 };
 
-void evdev_init() {
+void evdev_init(void) {
     ev_root = vfs_create_node("input", VFS_DIRECTORY);
     vfs_add_child(dev_root, ev_root);
     evdev_state_t* state = kmalloc(sizeof(evdev_state_t));

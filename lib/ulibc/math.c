@@ -1,13 +1,4 @@
-/*
- * math.c - Freestanding x87 FPU math library
- * 
- * Built for freestanding environments (kernels, baremetal, etc).
- * Uses raw x87 instructions with explicit stack management.
- * 
- * Compile with: -ffreestanding -nostdlib
- */
-
-#define FORCE_FP __attribute__((target("fpmath=387")))
+#define FORCE_FP
 
 /* -------------------------------------------------------------------------- */
 /* Forward declarations                                                       */

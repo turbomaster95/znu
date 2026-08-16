@@ -3,7 +3,7 @@
 
 #include <kernel/colors.h>
 
-void draw_kernel_gui() {
+void draw_kernel_gui(void) {
     draw_rect(0, 0, 1920, 1080, CAT_BASE);
 
     uint32_t win_x = 100, win_y = 100;

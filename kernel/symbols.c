@@ -69,7 +69,7 @@ void symbols_init(void) {
     
     uint64_t section_size = (uint64_t)(__ksyms_end - __ksyms_start);
     
-    if (section_size == 0 || __ksyms_start == __ksyms_end) {
+    if (section_size == 0 || (uintptr_t)__ksyms_start == (uintptr_t)__ksyms_end) {
         debugln("[sym] No .ksyms section");
         return;
     }

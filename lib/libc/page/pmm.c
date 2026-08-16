@@ -55,7 +55,7 @@ void init_pmm(struct limine_memmap_response* memmap) {
     }
 }
 
-void* palloc() {
+void* palloc(void) {
     if (!pmm_buddy) return NULL;
 
     // Request a 4096-byte slot block size
@@ -77,7 +77,7 @@ void* palloc_contig(size_t size) {
     return (void*)((uint64_t)allocated_virt - hhdm_offset);
 }
 
-void* palloc_zero() {
+void* palloc_zero(void) {
     void* phys_addr = palloc();
     if (!phys_addr) return NULL;
     
@@ -111,11 +111,11 @@ void debug_ram_map(struct limine_memmap_response* memmap) {
     }
 }
 
-uint64_t pmm_get_total_pages() {
+uint64_t pmm_get_total_pages(void) {
     return total_system_pages;
 }
 
-uint64_t pmm_get_free_pages() {
+uint64_t pmm_get_free_pages(void) {
     if (!pmm_buddy) return 0;
     
     // todo: use buddy_walk from the lib to get dynamic props

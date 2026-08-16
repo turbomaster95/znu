@@ -1,9 +1,8 @@
-#include <stdint.h>
 #include <stdlib.h>
 
 #define COM1 0x3F8
 
-void serial_init() {
+void serial_init(void) {
     outb(COM1 + 1, 0x00);    // Disable all interrupts
     outb(COM1 + 3, 0x80);    // Enable DLAB (set baud rate divisor)
     outb(COM1 + 0, 0x03);    // Set divisor to 3 (38400 baud)
@@ -13,11 +12,11 @@ void serial_init() {
     outb(COM1 + 4, 0x0B);    // IRQs enabled, RTS/DSR set
 }
 
-int serial_received() {
+int serial_received(void) {
     return inb(COM1 + 5) & 1;
 }
 
-char serial_read() {
+char serial_read(void) {
     while (serial_received() == 0);
     return inb(COM1);
 }
@@ -30,7 +29,7 @@ int serial_read_nonblock(char* buf, int count) {
     return i;
 }
 
-int is_transmit_empty() {
+int is_transmit_empty(void) {
     return inb(COM1 + 5) & 0x20;
 }
 

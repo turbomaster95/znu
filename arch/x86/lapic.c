@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <limine.h>
-#include <stdio.h>
 #include <pi.h>
 #include <tsc.h>
 #include <idt.h>
@@ -85,7 +84,7 @@ int get_cpu_id(void) {
     return (int)lapic_id;
 }
 
-PERFORM void calibrate_lapic_timer_no_irq() {
+PERFORM void calibrate_lapic_timer_no_irq(void) {
     debugln("[clapic] Calibrating LAPIC timer using TSC...");
 
     extern tsc_info_t tsc_data;
@@ -139,7 +138,7 @@ PERFORM void calibrate_lapic_timer_no_irq() {
             lapic_elapsed, MEASURE_MS, lapic_ticks_per_ms);
 }
 
-PERFORM void calibrate_lapic_timer() {
+PERFORM void calibrate_lapic_timer(void) {
     if (!lapic_base && !g_x2apic_mode) {
         debugerr("LAPIC not initialized, cannot calibrate timer.");
         return;
@@ -187,7 +186,7 @@ PERFORM void calibrate_lapic_timer() {
     lapic_write(LAPIC_REG_LVT_TIMER, 0x10000);
 }
 
-void lapic_eoi() {
+void lapic_eoi(void) {
     if (g_x2apic_mode) {
         __asm__ volatile("wrmsr" : : "a"(0), "d"(0), "c"(0x80B));
         return;
@@ -199,7 +198,7 @@ void lapic_eoi() {
 
 extern void lapic_timer_isr_wrapper(void);
 
-PERFORM void lapic_timer_isr() {
+PERFORM void lapic_timer_isr(void) {
     lapic_eoi();
 }
 
@@ -210,7 +209,7 @@ PERFORM void sleep(uint32_t ms) {
     }
 }
 
-void lapic_timer_test() {
+void lapic_timer_test(void) {
     lapic_write(LAPIC_REG_DIVIDE_CONF, 0x03); 
     lapic_write(LAPIC_REG_LVT_TIMER, LAPIC_TIMER_VECTOR | (1 << 17)); 
     lapic_write(LAPIC_REG_INITIAL_COUNT, 1000000); 

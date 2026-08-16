@@ -24,7 +24,7 @@ void lapic_timer_isr(void);
 void sleep(uint32_t ms);
 extern void lapic_timer_isr_wrapper(void);
 void lapic_broadcast_panic_nmi(void);
-void calibrate_lapic_timer_no_irq();
+void calibrate_lapic_timer_no_irq(void);
 void lapic_init_per_core(int cpu_id);
 int get_cpu_id(void);
 void lapic_send_ipi(uint8_t lapic_id, uint8_t vector);

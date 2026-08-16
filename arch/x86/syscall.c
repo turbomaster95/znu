@@ -45,7 +45,7 @@ static bool is_user_addr(void* ptr, size_t len) {
     return true;
 }
 
-void enable_syscalls() {
+void enable_syscalls(void) {
     uint32_t low, high;
     asm volatile("rdmsr" : "=a"(low), "=d"(high) : "c"(EFER_MSR));
 
@@ -68,7 +68,7 @@ void gs_init(uintptr_t kernel_stack_top) {
     debugln("[sys] GS Shadow initialized to %p", (void*)addr);
 }
 
-void syscall_init() {
+void syscall_init(void) {
     uint32_t lo, hi;
 
     uint32_t kernel_base = 0x08;
@@ -740,7 +740,7 @@ uint64_t syscall_handler(registers_t* regs) {
 
             regs->rax = (uint64_t)current_process->pid; 
 	    return (uint64_t)regs;
-	case 20:
+	case 20: {
             int fd = (int)arg1;
             const struct iovec* iov = (const struct iovec*)arg2;
             int iovcnt = (int)arg3;
@@ -762,6 +762,7 @@ uint64_t syscall_handler(registers_t* regs) {
                 regs->rax = (uint64_t)-1;
             }
             return (uint64_t)regs;
+	}
         case 57: // fork
             regs->rax = (uint64_t)sys_fork(regs);
             return (uint64_t)regs;

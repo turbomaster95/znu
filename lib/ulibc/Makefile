@@ -1,5 +1,5 @@
 KBUILD_CPPFLAGS := -I$(src)/include -I$(src)/third-party/zline/
-KBUILD_CFLAGS := -Wno-builtin-declaration-mismatch -msse -msse2 
+KBUILD_CFLAGS := -msse -msse2 -Wno-builtin -Wno-unknown-warning-option
 CFLAGS_KERNEL :=
 
 export KBUILD_CPPFLAGS KBUILD_CPPFLAGS

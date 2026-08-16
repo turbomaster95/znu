@@ -1,6 +1,5 @@
 #include <rtc.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stddef.h>
 #include <stdbool.h>
 #include <limine.h>
@@ -98,7 +97,7 @@ volatile uint64_t limine_requests_start_marker[] = LIMINE_REQUESTS_START_MARKER;
 __attribute__((used, section(".limine_requests_end")))
 volatile uint64_t limine_requests_end_marker[] = LIMINE_REQUESTS_END_MARKER;
 
-volatile void hcf(void) {
+_Noreturn void hcf(void) {
     for (;;) {
         asm ("hlt");
     }
@@ -116,8 +115,8 @@ struct limine_module_response *mod_res = NULL;
 
 volatile bool screen_lock = false; 
 
-void lock_screen() { screen_lock = true; }
-void unlock_screen() { screen_lock = false; }
+void lock_screen(void) { screen_lock = true; }
+void unlock_screen(void) { screen_lock = false; }
 
 void earlykmain(void) {
     if (LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision) == false) {
