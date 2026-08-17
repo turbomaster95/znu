@@ -164,7 +164,7 @@ int bga_module_init(void) {
     return 0;
 }
 
-void __exit bga_module_exit(void) {
+void bga_module_exit(void) {
     debugln("[bga] Driver unloaded");
 }
 
