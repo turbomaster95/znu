@@ -1,16 +1,19 @@
 #ifndef _PAGE_H
-#define _PAGE_H 1
+#define _PAGE_H
 
 #include <sys/cdefs.h>
 #include <stdint.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <limine.h>
+#include <mmu.h>
 
 extern uint64_t hhdm_offset;
 extern bool nx_supported;
 
+#ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
+#endif
 
 #define PTE_PRESENT    (1ULL << 0)  // Page is present in memory
 #define PTE_WRITABLE   (1ULL << 1)  // Page is writable
@@ -22,6 +25,8 @@ extern bool nx_supported;
 #define PTE_HUGE       (1ULL << 7)  // If set in PD/PDPT, points to 2MB/1GB page
 #define PTE_GLOBAL     (1ULL << 8)  // Page is global (ignored in TLB flushes)
 #define PTE_NX         (1ULL << 63)
+#define PTE_PCD        PTE_CACHE_DISABLE
+#define PTE_PS         PTE_HUGE
 
 #define PTE_READ_ONLY  (PTE_PRESENT)
 #define PTE_READ_WRITE (PTE_PRESENT | PTE_WRITABLE)
@@ -47,20 +52,20 @@ void* palloc_zero(void);
 void  pfree(void* phys_addr);
 void *krealloc(void *ptr, size_t new_size);
 void  init_slab(void);
-void  map_page(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t flags);
-void  map_page_huge(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t flags);
+void  map_page(pagetable_t pml4, uint64_t virt, uint64_t phys, uint64_t flags);
+void  map_page_huge(pagetable_t pml4, uint64_t virt, uint64_t phys, uint64_t flags);
 void unmap_page(uint64_t* pml4, uint64_t virt);
 void  debug_ram_map(struct limine_memmap_response* memmap);
 void* kmalloc(uint64_t size);
 void  kfree(void* ptr);
-void  vmm_switch(uint64_t* pml4_virt);
-void  vmm_map_region(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t size, uint64_t flags);
 void  init_vmm(struct limine_memmap_response* memmap);
 void* heap_extend(uint64_t pages);
-uint64_t* vmm_get_kernel_pml4(void);
-uintptr_t vmm_virt_to_phys(uint64_t* pml4, uintptr_t virt);
-void vmm_free_user_pages(uint64_t *pml4);
 void *kzalloc(size_t size);
+void        vmm_switch(pagetable_t table);
+void        vmm_map_region(pagetable_t table, uintptr_t virt, uintptr_t phys, size_t size, uint64_t flags);
+pagetable_t vmm_get_kernel_pml4(void);
+uintptr_t   vmm_virt_to_phys(pagetable_t table, uintptr_t virt);
+void        vmm_free_user_pages(pagetable_t table);
 
 #endif
 #endif

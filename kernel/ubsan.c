@@ -42,6 +42,12 @@ struct ubsan_out_of_bounds_data {
     struct ubsan_type_descriptor *index_type;
 };
 
+struct ubsan_float_cast_overflow_data {
+    struct ubsan_source_location location;
+    struct ubsan_type_descriptor *from_type;
+    struct ubsan_type_descriptor *to_type;
+};
+
 struct ubsan_invalid_value_data {
     struct ubsan_source_location location;
     struct ubsan_type_descriptor *type;
@@ -60,6 +66,20 @@ static void ubsan_log_header(const char *err, struct ubsan_source_location *loc)
     debugln("\n[UBSAN FATAL ERROR]\n");
     debugln("  Condition: %s\n", err);
     debugln("  Location : %s:%d:%d\n", loc->filename, loc->line, loc->column);
+}
+
+void __ubsan_handle_float_cast_overflow_abort(struct ubsan_float_cast_overflow_data *data, uintptr_t from) {
+    (void)from;
+    ubsan_log_header("Float Cast Overflow", &data->location);
+    if (data->from_type && data->to_type) {
+        debugln("  From Type: %s\n", data->from_type->type_name);
+        debugln("  To Type  : %s\n", data->to_type->type_name);
+    }
+    panic("[ubsan] float cast overflow");
+}
+
+void __ubsan_handle_float_cast_overflow(struct ubsan_float_cast_overflow_data *data, uintptr_t from) {
+    __ubsan_handle_float_cast_overflow_abort(data, from);
 }
 
 void __ubsan_handle_type_mismatch_v1_abort(struct ubsan_type_mismatch_data *data, uintptr_t ptr) {

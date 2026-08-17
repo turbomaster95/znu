@@ -10,6 +10,7 @@
 #include <lapic.h>
 #include <pi.h>
 #include <page.h>
+#include <mmu.h>
 #include <uacpi/uacpi.h>
 #include <timekeeper.h>
 #include <elf.h>
@@ -109,7 +110,7 @@ void force_sync(void* addr) {
     (void)dummy;
 }
 
-uint64_t* kernel_pml4;
+pagetable_t kernel_pml4;
 struct limine_rsdp_response *rsdp_response = NULL;
 struct limine_module_response *mod_res = NULL;
 
@@ -226,7 +227,7 @@ void earlykmain(void) {
     debugln("[kernel] RSDP Address: %p", rsdp_request.response->address);
 
     debugln("[kernel] About to map page");
-    debugln("[kernel_debug] PML4[511] is: %p", kernel_pml4[511]);
+    debugln("[kernel_debug] PML4[511] is: %p", ((uint64_t*)kernel_pml4)[511]);
     map_page(kernel_pml4, 0xffff8000fee00000, 0xfee00000, PTE_WRITABLE | PTE_CACHE_DISABLE);
     debugln("[SUCCESS] Mapped page!");
 

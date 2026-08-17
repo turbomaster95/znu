@@ -4,6 +4,7 @@
 #include <lapic.h>
 #include <stdlib.h>
 #include <page.h>
+#include <mmu.h>
 #include <limine.h>
 #include <gdt.h>
 #include <idt.h>
@@ -12,7 +13,7 @@
 extern volatile struct limine_mp_request mp_request;
 extern void debug_write(const char* data);
 extern bool vmm_ready;
-extern uint64_t* vmm_get_kernel_pml4(void);
+extern pagetable_t vmm_get_kernel_pml4(void);
 
 uint64_t* kernel_pml4_phys = NULL;
 

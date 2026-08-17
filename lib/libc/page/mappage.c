@@ -1,82 +1,28 @@
 #include <page.h>
+#include <mmu.h>
 #include <stdint.h>
-#include <stdlib.h>
+#include <stdbool.h>
 
-extern uint64_t hhdm_offset;
-extern bool nx_supported;
+void map_page(pagetable_t pml4, uint64_t virt, uint64_t phys, uint64_t flags) {
+    uint64_t mmu_flags = 0;
 
-void map_page(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t flags) {
-    uint64_t pml4_idx = PML4_IDX(virt);
-    uint64_t pdp_idx  = PDP_IDX(virt);
-    uint64_t pd_idx   = PD_IDX(virt);
-    uint64_t pt_idx   = PT_IDX(virt);
+    if (flags & MMU_MAP_READ)  mmu_flags |= MMU_MAP_READ;
+    if (flags & MMU_MAP_WRITE) mmu_flags |= MMU_MAP_WRITE;
+    if (flags & MMU_MAP_EXEC)  mmu_flags |= MMU_MAP_EXEC;
+    if (flags & MMU_MAP_USER)  mmu_flags |= MMU_MAP_USER;
+    if (flags & MMU_MAP_NOCACHE) mmu_flags |= MMU_MAP_NOCACHE;
 
-    // 1. PML4 -> PDP
-    if (!(pml4[pml4_idx] & PTE_PRESENT)) {
-       pml4[pml4_idx] = (uint64_t)palloc_zero() | PTE_PRESENT | PTE_WRITABLE | (flags & PTE_USER);
-    } else {
-       pml4[pml4_idx] |= (flags & PTE_USER); // Upgrade permission if mapping a user page
-    }
-    uint64_t* pdp = (uint64_t*)((pml4[pml4_idx] & ~0xFFF) + hhdm_offset);
-
-    // 2. PDP -> PD
-    if (!(pdp[pdp_idx] & PTE_PRESENT)) {
-        pdp[pdp_idx] = (uint64_t)palloc_zero() | PTE_PRESENT | PTE_WRITABLE | (flags & PTE_USER);
-    } else {
-        pdp[pdp_idx] |= (flags & PTE_USER);
-    }
-    uint64_t* pd = (uint64_t*)((pdp[pdp_idx] & ~0xFFF) + hhdm_offset);
-
-    // 3. PD -> PT
-    if (!(pd[pd_idx] & PTE_PRESENT)) {
-        pd[pd_idx] = (uint64_t)palloc_zero() | PTE_PRESENT | PTE_WRITABLE | (flags & PTE_USER);
-    } else {
-        pd[pd_idx] |= (flags & PTE_USER);
-    }
-    uint64_t* pt = (uint64_t*)((pd[pd_idx] & ~0xFFF) + hhdm_offset);
-
-    // 4. PT -> Physical Page
-    uint64_t final_flags = flags;
-    if (nx_supported) {
-        final_flags &= ~PTE_NX;
-    }
-
-    pt[pt_idx] = (phys & ~0xFFF) | final_flags | PTE_PRESENT;
-
-    __asm__ volatile("invlpg (%0)" : : "r"(virt) : "memory");
+    arch_mmu_map_page(pml4, (uintptr_t)virt, (uintptr_t)phys, mmu_flags);
 }
 
-void map_page_huge(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t flags) {
-    uint64_t pml4_idx = PML4_IDX(virt);
-    uint64_t pdp_idx  = PDP_IDX(virt);
-    uint64_t pd_idx   = PD_IDX(virt);
+void map_page_huge(pagetable_t pml4, uint64_t virt, uint64_t phys, uint64_t flags) {
+    uint64_t mmu_flags = MMU_MAP_HUGE;
 
-    // PML4 -> PDP
-    if (!(pml4[pml4_idx] & PTE_PRESENT)) {
-       pml4[pml4_idx] = (uint64_t)palloc_zero() | PTE_PRESENT | PTE_WRITABLE | (flags & PTE_USER);
-    } else {
-       pml4[pml4_idx] |= (flags & PTE_USER);
-    }
-    uint64_t* pdp = (uint64_t*)((pml4[pml4_idx] & ~0xFFF) + hhdm_offset);
+    if (flags & MMU_MAP_READ)  mmu_flags |= MMU_MAP_READ;
+    if (flags & MMU_MAP_WRITE) mmu_flags |= MMU_MAP_WRITE;
+    if (flags & MMU_MAP_EXEC)  mmu_flags |= MMU_MAP_EXEC;
+    if (flags & MMU_MAP_USER)  mmu_flags |= MMU_MAP_USER;
+    if (flags & MMU_MAP_NOCACHE) mmu_flags |= MMU_MAP_NOCACHE;
 
-    // PDP -> PD
-    if (!(pdp[pdp_idx] & PTE_PRESENT)) {
-        pdp[pdp_idx] = (uint64_t)palloc_zero() | PTE_PRESENT | PTE_WRITABLE | (flags & PTE_USER);
-    } else {
-        pdp[pdp_idx] |= (flags & PTE_USER);
-    }
-    uint64_t* pd = (uint64_t*)((pdp[pdp_idx] & ~0xFFF) + hhdm_offset);
-
-    // Configure flags
-    uint64_t final_flags = flags;
-    if (nx_supported) {
-        final_flags &= ~PTE_NX;
-    }
-
-    // PD -> 2MB Physical Frame
-    // We clear the lower 21 bits (~0x1FFFFF) for 2MB alignment.
-    // (1ULL << 7) is the Page Size (PS) bit that turns this into a huge leaf node.
-    pd[pd_idx] = (phys & ~0x1FFFFF) | final_flags | PTE_PRESENT | (1ULL << 7);
-
-    __asm__ volatile("invlpg (%0)" : : "r"(virt) : "memory");
+    arch_mmu_map_page(pml4, (uintptr_t)virt, (uintptr_t)phys, mmu_flags);
 }

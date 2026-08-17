@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-extern uint64_t* kernel_pml4;
+extern pagetable_t kernel_pml4;
 extern uint64_t get_timer_ticks(void);
 extern void force_context_restore(registers_t* regs) __attribute__((noreturn));
 

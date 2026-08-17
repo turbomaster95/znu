@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <page.h>
+#include <mmu.h>
 #include <proc.h>
 #include <kernel/tty.h>
 #include <fcntl.h>
@@ -10,11 +11,8 @@
 #include <syscall.h>
 
 extern void     jump_to_usermode(uintptr_t entry, uintptr_t stack);
-extern uint64_t *kernel_pml4;
+extern pagetable_t kernel_pml4;
 extern uint64_t  hhdm_offset;
-extern uintptr_t vmm_virt_to_phys(uint64_t *pml4, uintptr_t virt);
-extern void      vmm_free_user_pages(uint64_t *pml4);
-extern void      vmm_switch(uint64_t *pml4);
 extern int       get_cpu_id(void);
 
 #define MSR_FS_BASED   0xC0000100UL
@@ -38,13 +36,13 @@ static uint64_t elf_flags_to_pte(uint32_t pflags, int user)
     return pte;
 }
 
-static inline void hhdm_write64(uint64_t *pml4, uintptr_t uva, uint64_t val)
+static inline void hhdm_write64(pagetable_t pml4, uintptr_t uva, uint64_t val)
 {
     uintptr_t phys = vmm_virt_to_phys(pml4, uva);
     *(uint64_t *)(phys + hhdm_offset) = val;
 }
 
-static void hhdm_copy_to_user(uint64_t *pml4, uintptr_t uva,
+static void hhdm_copy_to_user(pagetable_t pml4, uintptr_t uva,
                                const void *src, size_t len)
 {
     const uint8_t *s = src;
@@ -61,7 +59,7 @@ static void hhdm_copy_to_user(uint64_t *pml4, uintptr_t uva,
 }
 
 /* Allocate and map a contiguous range of user virtual pages. */
-static void map_user_range(uint64_t *pml4, uintptr_t start, uintptr_t end,
+static void map_user_range(pagetable_t pml4, uintptr_t start, uintptr_t end,
                             uint64_t pte_flags)
 {
     uintptr_t page = start & ~0xFFFULL;
@@ -75,7 +73,7 @@ static void map_user_range(uint64_t *pml4, uintptr_t start, uintptr_t end,
 }
 
 /* Remap an already-mapped range to new flags (for RELRO). */
-static void remap_user_range(uint64_t *pml4, uintptr_t start, uintptr_t end,
+static void remap_user_range(pagetable_t pml4, uintptr_t start, uintptr_t end,
                               uint64_t pte_flags)
 {
     uintptr_t page = start & ~0xFFFULL;
@@ -206,7 +204,7 @@ typedef struct {
 # define AT_SYSINFO_EHDR 33
 #endif
 
-static uintptr_t push_random_bytes(uint64_t *pml4, uintptr_t *sp)
+static uintptr_t push_random_bytes(pagetable_t pml4, uintptr_t *sp)
 {
     static uint64_t seed = 0xDEADBEEFCAFEBABEULL;
     seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17;
@@ -229,7 +227,7 @@ static uintptr_t elf_build_stack(process_t *proc,
                                   uintptr_t tls_base,
                                   const char *execfn)
 {
-    uint64_t *pml4  = proc->pml4;
+    pagetable_t pml4  = proc->pml4;
     uintptr_t sp    = stack_top;
 
 
@@ -273,7 +271,6 @@ static uintptr_t elf_build_stack(process_t *proc,
     /* AT_RANDOM 16-byte blob */
     uintptr_t u_random = push_random_bytes(pml4, &sp);
 
-    
     /* Count slots to be pushed: auxv + envp_ptrs + argv_ptrs + argc */
     // int num_entries = 17 + (u_execfn ? 1 : 0);
     int n_auxv = 14;
@@ -318,13 +315,21 @@ static uintptr_t elf_build_stack(process_t *proc,
     return sp;
 }
 
-uint64_t *vmm_create_user_pml4(void)
+pagetable_t vmm_create_user_pml4(void)
 {
-    uint64_t *pml4 = (uint64_t *)PHYS_TO_VIRT(palloc_zero());
-    /* Copy higher-half kernel entries */
-    for (int i = 256; i < 512; i++)
-        pml4[i] = kernel_pml4[i];
-    return pml4;
+    uintptr_t phys_pml4 = (uintptr_t)palloc_zero();
+    if (!phys_pml4) return 0;
+
+    uint64_t *dst_pml4 = (uint64_t *)PHYS_TO_VIRT(phys_pml4);
+
+    uint64_t *src_pml4 = (uint64_t *)kernel_pml4;
+
+    /* Copy higher-half kernel entries (256..511) */
+    for (int i = 256; i < 512; i++) {
+        dst_pml4[i] = src_pml4[i];
+    }
+
+    return (pagetable_t)phys_pml4;
 }
 
 static int elf_validate(const Elf64_Ehdr *hdr)
@@ -448,7 +453,7 @@ static int elf_load_segments(process_t *proc,
 #define USER_STACK_BASE  0x00007ffff0000000ULL
 #define STACK_PAGES      16          /* 64 KiB */
 
-static uintptr_t alloc_user_stack(uint64_t *pml4, int stack_exec)
+static uintptr_t alloc_user_stack(pagetable_t pml4, int stack_exec)
 {
     uint64_t pte = PTE_PRESENT | PTE_WRITABLE | PTE_USER;
 
@@ -646,7 +651,7 @@ int replace_process_with_elf(process_t *proc, uint8_t *elf_data, char **argv, ch
         memcpy(kenvp[i], envp[i], len);
     }
 
-    uint64_t *old_pml4 = proc->pml4;
+    pagetable_t old_pml4 = proc->pml4;
 
     if (process_populate_from_elf(proc, elf_data, kargv, kenvp) < 0)
         goto fail_populate;

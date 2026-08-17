@@ -7,6 +7,7 @@
 #include <idt.h>
 #include <vfs.h>
 #include <vfse.h>
+#include <mmu.h>
 
 #define SIGINT   2
 #define SIGKILL  9
@@ -36,7 +37,7 @@ typedef struct process {
     uint64_t pid;
     uint64_t parent_pid;
     int exit_code;
-    uint64_t* pml4;      // Private address space
+    pagetable_t pml4;      // Private address space
     uintptr_t entry;     // ELF Entry point
     uintptr_t stack_top; // User stack
     uintptr_t kstack_top; // Kernel stack top

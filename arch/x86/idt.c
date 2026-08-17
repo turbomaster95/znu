@@ -3,6 +3,7 @@
 #include <string.h>
 #include <pi.h>
 #include <page.h>
+#include <mmu.h>
 #include <lapic.h>
 #include <timekeeper.h>
 #include <proc.h>
@@ -73,7 +74,7 @@ registers_t* k_exception_handler(registers_t *regs) {
 
             if (is_user && is_stack_range && current_process) {
                 extern void* palloc_zero(void);
-                extern void map_page(uint64_t* pml4, uintptr_t virt, uint64_t phys, uint64_t flags);
+                extern void map_page(pagetable_t pml4, uintptr_t virt, uint64_t phys, uint64_t flags);
                 
                 uintptr_t page_addr = cr2 & ~0xFFFULL;
                 

@@ -28,6 +28,7 @@ obj-y += nx.o
 obj-y += panic.o
 obj-y += simd.o
 obj-y += refreshe.o
+obj-y += mmu.o
 
 # Define the target for the embedded ELF
 $(obj)/refreshe.o: $(src)/refresh.asm

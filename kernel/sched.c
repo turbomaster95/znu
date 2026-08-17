@@ -12,7 +12,7 @@
 extern void force_context_restore(registers_t* regs) __attribute__((noreturn));
 extern uint64_t next_pid;
 typedef struct vfs_file vfs_file_t; // Forward declare if not already fully visible
-extern uint64_t* vmm_clone_pml4(uint64_t* src_pml4);
+extern pagetable_t vmm_clone_pml4(pagetable_t src_pml4);
 extern vfs_file_t* dup_file(vfs_file_t* src_file);
 
 process_t* processes[MAX_PROCESSES];
@@ -23,7 +23,6 @@ process_t* current_process = NULL;
 process_t* init_process = NULL;
 process_t* idle_process = NULL;
 
-extern void vmm_switch(uint64_t* pml4);
 
 void sys_yield(void) {
     __asm__ volatile("int $0x30");
