@@ -54,6 +54,9 @@ extern "C" {
 #include <string.h>
 #include <errno.h>
 
+void* kmalloc(size_t size);
+void  kfree(void* ptr);
+
 #if EXT2_FLAT_INCLUDES
 #include "e2_types.h"
 #include "ext2_fs.h"
@@ -1503,7 +1506,7 @@ _INLINE_ errcode_t ext2fs_get_mem(unsigned long size, void *ptr)
 {
 	void *pp;
 
-	pp = malloc(size);
+	pp = kmalloc(size);
 	if (!pp)
 		return EXT2_ET_NO_MEMORY;
 	memcpy(ptr, &pp, sizeof (pp));
@@ -1514,7 +1517,7 @@ _INLINE_ errcode_t ext2fs_get_memzero(unsigned long size, void *ptr)
 {
 	void *pp;
 
-	pp = malloc(size);
+	pp = kmalloc(size);
 	if (!pp)
 		return EXT2_ET_NO_MEMORY;
 	memset(pp, 0, size);
@@ -1551,7 +1554,7 @@ _INLINE_ errcode_t ext2fs_free_mem(void *ptr)
 	void *p;
 
 	memcpy(&p, ptr, sizeof(p));
-	free(p);
+	kfree(p);
 	p = 0;
 	memcpy(ptr, &p, sizeof(p));
 	return 0;

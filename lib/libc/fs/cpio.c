@@ -18,7 +18,7 @@ struct cpio_header {
     char rdevminor[8];
     char namesize[8];
     char check[8];
-};
+} __attribute__((packed));
 
 static uint32_t hex8_to_u32(char *s) {
     uint32_t res = 0;
