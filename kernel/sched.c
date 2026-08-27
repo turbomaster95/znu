@@ -7,12 +7,10 @@
 #include <gdt.h>
 #include <lapic.h>
 
-#define MAX_PROCESSES 64
-
 extern void force_context_restore(registers_t* regs) __attribute__((noreturn));
 extern uint64_t next_pid;
-typedef struct vfs_file vfs_file_t; // Forward declare if not already fully visible
 extern uint64_t* vmm_clone_pml4(uint64_t* src_pml4);
+extern void vmm_switch(uint64_t* pml4);
 extern vfs_file_t* dup_file(vfs_file_t* src_file);
 
 process_t* processes[MAX_PROCESSES];
@@ -23,213 +21,526 @@ process_t* current_process = NULL;
 process_t* init_process = NULL;
 process_t* idle_process = NULL;
 
-extern void vmm_switch(uint64_t* pml4);
+static int rr_cursor = 0;
+
+static int process_table_find_free_slot(void) {
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        if (!processes[i])
+            return i;
+    }
+
+    return -1;
+}
+
+static int process_table_find(process_t* proc) {
+    if (!proc)
+        return -1;
+
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        if (processes[i] == proc)
+            return i;
+    }
+
+    return -1;
+}
+
+static process_t* find_process_by_pid(uint64_t pid) {
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        if (processes[i] && processes[i]->pid == pid)
+            return processes[i];
+    }
+
+    return NULL;
+}
+
+static void process_remove(process_t* proc) {
+    int index = process_table_find(proc);
+
+    if (index < 0)
+        return;
+
+    processes[index] = NULL;
+
+    if (process_count > 0)
+        process_count--;
+
+    if (current_process_index == index)
+        current_process_index = -1;
+}
+
+static void process_save_context(process_t* proc, registers_t* regs) {
+    if (!proc || !regs)
+        return;
+
+    memcpy(&proc->context, regs, sizeof(registers_t));
+    proc->context_ptr = &proc->context;
+}
+
+static bool process_is_runnable(process_t* proc) {
+    if (!proc || proc == idle_process)
+        return false;
+
+    return proc->state == TASK_READY ||
+           proc->state == TASK_RUNNING;
+}
+
+static void wake_sleeping_processes(void) {
+    uint64_t now = get_timer_ticks();
+
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        process_t* proc = processes[i];
+
+        if (!proc || proc->state != TASK_SLEEPING)
+            continue;
+
+        if (proc->sleep_deadline &&
+            now >= proc->sleep_deadline) {
+            proc->sleep_deadline = 0;
+            proc->state = TASK_READY;
+        }
+    }
+}
+
+static int find_highest_priority(void) {
+    int highest = -1;
+
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        process_t* proc = processes[i];
+
+        if (!process_is_runnable(proc))
+            continue;
+
+        if ((int)proc->priority > highest)
+            highest = (int)proc->priority;
+    }
+
+    return highest;
+}
+
+static int pick_next_process(void) {
+    int highest = find_highest_priority();
+
+    if (highest < 0)
+        return -1;
+
+    if (rr_cursor < 0 || rr_cursor >= MAX_PROCESSES)
+        rr_cursor = 0;
+
+    for (int n = 0; n < MAX_PROCESSES; n++) {
+        int index = (rr_cursor + n) % MAX_PROCESSES;
+        process_t* proc = processes[index];
+
+        if (!process_is_runnable(proc))
+            continue;
+
+        if ((int)proc->priority != highest)
+            continue;
+
+        return index;
+    }
+
+    return -1;
+}
+
+static void update_kernel_stack(process_t* proc) {
+    if (!proc)
+        return;
+
+    int cpu_id = get_cpu_id();
+
+    tss_per_cpu[cpu_id].rsp0 = proc->kstack_top;
+
+    extern cpu_context_t cpu_contexts[MAX_CPUS];
+    cpu_contexts[cpu_id].kernel_stack = proc->kstack_top;
+}
+
+static void process_close_files(process_t* proc) {
+    if (!proc)
+        return;
+
+    for (int i = 0; i < MAX_FILES; i++) {
+        if (!proc->files[i])
+            continue;
+
+        kfree(proc->files[i]);
+        proc->files[i] = NULL;
+    }
+}
+
+static void process_destroy(process_t* proc) {
+    if (!proc || proc == idle_process)
+        return;
+
+    process_close_files(proc);
+
+    if (proc->kstack_top) {
+        uintptr_t stack_base = proc->kstack_top - 32768;
+        kfree((void*)stack_base);
+        proc->kstack_top = 0;
+    }
+
+    if (proc->pml4 && !proc->is_kthread) {
+        vmm_free_user_pages(proc->pml4);
+        proc->pml4 = NULL;
+    }
+
+    kfree(proc);
+}
+
+static void adopt_children(process_t* proc) {
+    if (!proc || !init_process || proc == init_process)
+        return;
+
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        process_t* child = processes[i];
+
+        if (!child || child->parent_pid != proc->pid)
+            continue;
+
+        child->parent_pid = init_process->pid;
+
+        if (child->state == TASK_ZOMBIE &&
+            init_process->state == TASK_WAITING) {
+            init_process->state = TASK_READY;
+        }
+    }
+}
 
 void sys_yield(void) {
     __asm__ volatile("int $0x30");
 }
 
 void kernel_idle_loop(void) {
-    while (1) {
+    while (1)
         __asm__ volatile("sti; hlt");
-    }
 }
 
 void init_scheduler(void) {
-    for (int i = 0; i < MAX_PROCESSES; i++) {
-        processes[i] = NULL;
-    }
+    memset(processes, 0, sizeof(processes));
 
-    idle_process = kmalloc(sizeof(process_t));
-    memset(idle_process, 0, sizeof(process_t));
+    process_count = 0;
+    current_process_index = -1;
+    current_process = NULL;
+    init_process = NULL;
+    idle_process = NULL;
+    rr_cursor = 0;
+
+    idle_process = kzalloc(sizeof(process_t));
+
+    if (!idle_process)
+        panic("unable to allocate idle process");
 
     idle_process->pid = 0;
     idle_process->parent_pid = 0;
-    idle_process->state = TASK_READY;
+    idle_process->state = TASK_RUNNING;
     idle_process->priority = PRIO_IDLE;
-
-    void* kstack = kmalloc(32768);
-    idle_process->kstack_top = (uintptr_t)kstack + 32768;
-
+    idle_process->is_kthread = true;
     idle_process->pml4 = vmm_get_kernel_pml4();
 
-    idle_process->context_ptr = (registers_t*)(idle_process->kstack_top - sizeof(registers_t));
-    memset(idle_process->context_ptr, 0, sizeof(registers_t));
-    
-    idle_process->context_ptr->rip = (uintptr_t)kernel_idle_loop;
-    idle_process->context_ptr->cs = 0x08;
-    idle_process->context_ptr->ss = 0x10;
-    idle_process->context_ptr->rflags = 0x202; // Enabled interrupts
+    void* kstack = kmalloc(32768);
+
+    if (!kstack)
+        panic("unable to allocate idle process stack");
+
+    idle_process->kstack_top = (uintptr_t)kstack + 32768;
+
+    memset(&idle_process->context, 0, sizeof(registers_t));
+
+    idle_process->context.es = 0x10;
+    idle_process->context.ds = 0x10;
+    idle_process->context.rip = (uintptr_t)kernel_idle_loop;
+    idle_process->context.rsp = idle_process->kstack_top;
+    idle_process->context.cs = 0x08;
+    idle_process->context.ss = 0x10;
+    idle_process->context.rflags = 0x202;
+
+    idle_process->context_ptr = &idle_process->context;
+
+    __asm__ volatile("fninit");
+    __asm__ volatile("fxsave %0" : "=m"(idle_process->sse_state));
 }
 
-void add_process(process_t* proc) {
-    if (process_count < MAX_PROCESSES) {
-        processes[process_count++] = proc;
+int add_process(process_t* proc) {
+    if (!proc)
+        return -1;
+
+    if (process_table_find(proc) >= 0)
+        return 0;
+
+    int slot = process_table_find_free_slot();
+
+    if (slot < 0) {
+        debugerr("[sched] process table full");
+        return -1;
     }
+
+    processes[slot] = proc;
+    process_count++;
+
+    return 0;
 }
 
 registers_t* scheduler(registers_t* regs) {
-    if (process_count == 0) return regs;
+    process_t* old_process = current_process;
 
-    if (current_process != NULL && regs != NULL) {
-        current_process->context_ptr = regs;
-        if (current_process->state == TASK_RUNNING) {
-            current_process->state = TASK_READY;
-        }
+    if (old_process && regs)
+        process_save_context(old_process, regs);
+
+    wake_sleeping_processes();
+
+    if (old_process &&
+        old_process->state == TASK_RUNNING &&
+        regs) {
+        old_process->state = TASK_READY;
     }
 
-    int best_index = -1;
-    int highest_prio = -1;
+    int next_index = pick_next_process();
 
-    for (int i = 0; i < process_count; i++) {
-        if (!processes[i]) continue;
-
-        if (processes[i]->state == TASK_READY || processes[i]->state == TASK_RUNNING) {
-            if ((int)processes[i]->priority > highest_prio) {
-                highest_prio = (int)processes[i]->priority;
-                best_index = i;
-            }
-        }
-    }
-
-    if (best_index == -1) {
-        current_process = idle_process;
-        current_process->state = TASK_RUNNING;
-
-        int cpu_id = get_cpu_id();
-        tss_per_cpu[cpu_id].rsp0 = current_process->kstack_top;
-        extern cpu_context_t cpu_contexts[MAX_CPUS];
-        cpu_contexts[cpu_id].kernel_stack = current_process->kstack_top;
-
-        vmm_switch(current_process->pml4);
-        return current_process->context_ptr;
-    }
-
-    process_t* next_proc = processes[best_index];
-
-    if (next_proc != current_process || next_proc->state != TASK_RUNNING) {
-        if (current_process && current_process != idle_process) {
-            __asm__ volatile("fxsave %0" : "=m"(current_process->sse_state));
+    if (next_index < 0) {
+        if (old_process &&
+            process_is_runnable(old_process)) {
+            old_process->state = TASK_RUNNING;
+            return regs;
         }
 
-        if (current_process == NULL || next_proc->pml4 != current_process->pml4) {
-            vmm_switch(next_proc->pml4);
+        if (!old_process && regs)
+            return regs;
+
+        if (idle_process) {
+            current_process = idle_process;
+            current_process_index = -1;
+
+            update_kernel_stack(idle_process);
+
+            return idle_process->context_ptr;
         }
 
-        current_process_index = best_index;
-        current_process = next_proc;
-        current_process->state = TASK_RUNNING;
+        if (regs)
+            return regs;
 
-        __asm__ volatile("fxrstor %0" : : "m"(current_process->sse_state));
-
-        int cpu_id = get_cpu_id();
-        tss_per_cpu[cpu_id].rsp0 = current_process->kstack_top;
-        extern cpu_context_t cpu_contexts[MAX_CPUS];
-        cpu_contexts[cpu_id].kernel_stack = current_process->kstack_top;
-
-        return current_process->context_ptr;
+        panic("[sched] no context available");
     }
 
-    return regs;
+    process_t* next = processes[next_index];
+
+    if (!next) {
+        if (regs)
+            return regs;
+
+        if (idle_process)
+            return idle_process->context_ptr;
+
+        panic("[sched] selected process disappeared");
+    }
+
+    if (next == old_process) {
+        next->state = TASK_RUNNING;
+        current_process_index = next_index;
+        rr_cursor = (next_index + 1) % MAX_PROCESSES;
+        return regs;
+    }
+
+    if (old_process && old_process != idle_process) {
+        __asm__ volatile("fxsave %0" : "=m"(old_process->sse_state));
+    }
+
+    if (!old_process || old_process->pml4 != next->pml4)
+        vmm_switch(next->pml4);
+
+    current_process = next;
+    current_process_index = next_index;
+    next->state = TASK_RUNNING;
+    rr_cursor = (next_index + 1) % MAX_PROCESSES;
+
+    update_kernel_stack(next);
+
+    __asm__ volatile("fxrstor %0" : : "m"(next->sse_state));
+
+    debugln("[sched] switch %llu -> %llu",
+            old_process ? old_process->pid : 0,
+            next->pid);
+
+    return &next->context;
 }
 
 int do_wait(int pid, int* status, bool* should_block) {
-    bool has_children = false;
+    if (!current_process || !should_block)
+        return -1;
+
     *should_block = false;
-    
-    for (int i = 0; i < process_count; i++) {
-        if (!processes[i]) continue;
-        
-        if (processes[i]->parent_pid == current_process->pid) {
-            if (pid == -1 || processes[i]->pid == (uint64_t)pid) {
-                has_children = true;
-                
-                if (processes[i]->state == TASK_ZOMBIE) {
-                    int code = processes[i]->exit_code;
-                    if (status) {
-                        *status = code;
-                    }
-                    
-                    int child_pid = (int)processes[i]->pid;
-                    
-                    kfree(processes[i]);
-                    processes[i] = NULL;
-                    
-                    return child_pid; // Successfully reaped
-                }
-            }
-        }
+
+    bool has_children = false;
+
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        process_t* child = processes[i];
+
+        if (!child)
+            continue;
+
+        if (child->parent_pid != current_process->pid)
+            continue;
+
+        if (pid != -1 && child->pid != (uint64_t)pid)
+            continue;
+
+        has_children = true;
+
+        if (child->state != TASK_ZOMBIE)
+            continue;
+
+        int child_pid = (int)child->pid;
+
+        if (status)
+            *status = child->exit_code;
+
+        process_remove(child);
+        process_destroy(child);
+
+        return child_pid;
     }
-    
-    if (!has_children) {
-        return -1; // No children to wait for
-    }
-    
+
+    if (!has_children)
+        return -1;
+
     current_process->state = TASK_WAITING;
     *should_block = true;
+
     return 0;
 }
 
 registers_t* do_exit(int code) {
-//    debugln("[proc] PID %d exiting with code %d", current_process->pid, code);
-    
-    current_process->state = TASK_ZOMBIE;
-    current_process->exit_code = code;
-    
-    for (int i = 0; i < process_count; i++) {
-        if (!processes[i]) continue;
-        if (processes[i]->pid == current_process->parent_pid) {
-            if (processes[i]->state == TASK_WAITING) {
-                processes[i]->state = TASK_READY;
-                //debugln("[proc] Woke up parent PID %d", processes[i]->pid);
-            }
-            break;
-        }
-    }
-    
-    registers_t* next_task_regs = scheduler(NULL);
+    if (!current_process || current_process == idle_process)
+        panic("invalid process exit");
 
-    //debugln("Attempting context switch: RIP=%p, RSP=%p, CS=%x", 
-    //    next_task_regs->rip, next_task_regs->rsp, next_task_regs->cs);
-    
-    force_context_restore(next_task_regs);
+    process_t* exiting = current_process;
+
+    exiting->exit_code = code;
+    exiting->state = TASK_ZOMBIE;
+
+    adopt_children(exiting);
+
+    process_t* parent =
+        find_process_by_pid(exiting->parent_pid);
+
+    if (parent && parent->state == TASK_WAITING)
+        parent->state = TASK_READY;
+
+    current_process = NULL;
+    current_process_index = -1;
+
+    registers_t* next = scheduler(NULL);
+
+    if (!next)
+        panic("no runnable process after exit");
+
+    force_context_restore(next);
 }
 
 process_t* clone_process(process_t* src, registers_t* regs) {
-    process_t* dst = kmalloc(sizeof(process_t));
-    if (!dst) {
-        debugerr("[clone_process] kmalloc failed!");
+    if (!src || !regs)
         return NULL;
-    }
-    
-    memset(dst, 0, sizeof(process_t));
+
+    if (src->state == TASK_ZOMBIE)
+        return NULL;
+
+    if (process_table_find_free_slot() < 0)
+        return NULL;
+
+    process_t* dst = kzalloc(sizeof(process_t));
+
+    if (!dst)
+        return NULL;
 
     dst->pid = next_pid++;
     dst->parent_pid = src->pid;
     dst->priority = src->priority;
     dst->state = TASK_READY;
+    dst->is_kthread = false;
+
+    dst->entry = src->entry;
+    dst->stack_top = src->stack_top;
+    dst->brk = src->brk;
+    dst->brk_start = src->brk_start;
+    dst->tls_base = src->tls_base;
+    dst->tls_size = src->tls_size;
+
+    dst->blocked_signals = src->blocked_signals;
+
+    memcpy(dst->signal_handlers,
+           src->signal_handlers,
+           sizeof(dst->signal_handlers));
+
+    memcpy(dst->name,
+           src->name,
+           sizeof(dst->name));
 
     dst->pml4 = vmm_clone_pml4(src->pml4);
-    if (!dst->pml4) { kfree(dst); return NULL; }
-    
-    for(int i = 0; i < MAX_FILES; i++) {
-        if(src->files[i]) {
-            dst->files[i] = dup_file(src->files[i]); 
-        }
+
+    if (!dst->pml4) {
+        kfree(dst);
+        return NULL;
     }
 
     void* kstack = kmalloc(32768);
-    dst->kstack_top = ((uintptr_t)kstack + 32768) & ~0xF;
 
-    dst->context_ptr = (registers_t*)(dst->kstack_top - sizeof(registers_t));
-    memcpy(dst->context_ptr, regs, sizeof(registers_t));
-    dst->context_ptr->rax = 0; 
-    dst->context_ptr->rip = regs->rip;
+    if (!kstack) {
+        vmm_free_user_pages(dst->pml4);
+        kfree(dst->pml4);
+        kfree(dst);
+        return NULL;
+    }
 
-    debugln("[clone] Source User RSP: %p", (void*)regs->rsp);
-    debugln("[clone] Target Kernel RSP (Context): %p", (void*)dst->context_ptr->rsp);
+    dst->kstack_top = (uintptr_t)kstack + 32768;
 
-    debugln("[clone] Child User RSP: %p", (void*)dst->context_ptr->rsp);
+    memcpy(&dst->context, regs, sizeof(registers_t));
+
+    dst->context.rax = 0;
+    dst->context_ptr = &dst->context;
+
+    memcpy(dst->sse_state,
+           src->sse_state,
+           sizeof(dst->sse_state));
+
+    for (int i = 0; i < MAX_FILES; i++) {
+        if (!src->files[i])
+            continue;
+
+        dst->files[i] = dup_file(src->files[i]);
+
+        if (!dst->files[i]) {
+            for (int j = 0; j < MAX_FILES; j++) {
+                if (dst->files[j]) {
+                    kfree(dst->files[j]);
+                    dst->files[j] = NULL;
+                }
+            }
+
+            kfree(kstack);
+            vmm_free_user_pages(dst->pml4);
+            kfree(dst->pml4);
+            kfree(dst);
+            return NULL;
+        }
+    }
+
+    if (add_process(dst) < 0) {
+        for (int i = 0; i < MAX_FILES; i++) {
+            if (dst->files[i]) {
+                kfree(dst->files[i]);
+                dst->files[i] = NULL;
+            }
+        }
+
+        kfree(kstack);
+        vmm_free_user_pages(dst->pml4);
+        kfree(dst->pml4);
+        kfree(dst);
+        return NULL;
+    }
+
+    debugln("[clone] parent=%llu child=%llu",
+            src->pid,
+            dst->pid);
 
     return dst;
 }

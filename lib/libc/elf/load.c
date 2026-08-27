@@ -464,21 +464,21 @@ static uintptr_t alloc_user_stack(uint64_t *pml4, int stack_exec)
     return USER_STACK_BASE + (uintptr_t)STACK_PAGES * 0x1000;
 }
 
-static void init_regs(process_t *proc, uintptr_t entry, uintptr_t stack_top)
-{
-    registers_t *regs = (registers_t *)(proc->kstack_top - sizeof(registers_t));
-    memset(regs, 0, sizeof(registers_t));
+static void init_regs(process_t *proc, uintptr_t entry, uintptr_t stack_top) {
+    memset(&proc->context, 0, sizeof(registers_t));
 
-    regs->rip    = entry;
-    regs->rsp    = stack_top;
-    regs->cs     = 0x23;   /* user code  (ring 3) */
-    regs->ss     = 0x1B;   /* user data  (ring 3) */
-    regs->ds     = 0x1B;
-    regs->es     = 0x1B;
-    regs->rflags = 0x202;  /* IF=1 */
-    regs->rax    = 0;
+    proc->context.es = 0x1B;
+    proc->context.ds = 0x1B;
+    proc->context.rip = entry;
+    proc->context.rsp = stack_top;
+    proc->context.cs = 0x23;
+    proc->context.ss = 0x1B;
+    proc->context.rflags = 0x202;
+    proc->context.rax = 0;
+    proc->context.int_no = 0;
+    proc->context.err_code = 0;
 
-    proc->context_ptr = regs;
+    proc->context_ptr = &proc->context;
 }
 
 static void init_fpu(process_t *proc)
@@ -491,7 +491,7 @@ static void init_fpu(process_t *proc)
     memcpy(proc->sse_state, fxbuf, 512);
 }
 
-/* * Populates a process structure with ELF data. 
+/* * Populates a process structure with ELF data.
  * Expects: proc->kstack_top to be initialized.
  * Returns: 0 on success, -1 on error.
  */
@@ -520,11 +520,11 @@ int process_populate_from_elf(process_t *proc, uint8_t *elf_data, char **argv, c
     int envc = 0; if (envp) while (envp[envc]) envc++;
 
     const char *execfn = (argc > 0) ? argv[0] : NULL;
-    
+
     staging.tls_base = tls_base;
-    uintptr_t new_rsp = elf_build_stack(&staging, stack_top, argv, argc, envp, envc, 
+    uintptr_t new_rsp = elf_build_stack(&staging, stack_top, argv, argc, envp, envc,
                                         hdr, load_base, tls_base, tls_base, execfn);
-    
+
     if (!new_rsp) return -1;
 
     proc->entry = hdr->e_entry;
@@ -533,19 +533,19 @@ int process_populate_from_elf(process_t *proc, uint8_t *elf_data, char **argv, c
     proc->brk = proc->brk_start;
     proc->tls_base = tls_base;
 
-    registers_t *stable_regs = (registers_t *)(proc->kstack_top - sizeof(registers_t));
-    memset(stable_regs, 0, sizeof(registers_t));
-    
-    stable_regs->rip = proc->entry;
-    stable_regs->rsp = proc->stack_top;
-    stable_regs->cs = 0x23;
-    stable_regs->ss = 0x1B;
-    stable_regs->ds = 0x1B;
-    stable_regs->es = 0x1B;
-    stable_regs->rflags = 0x202; // IF=1
+    memset(&proc->context, 0, sizeof(registers_t));
 
-    proc->saved_user_context = *stable_regs;
-    proc->context_ptr = &proc->saved_user_context;
+    proc->context.es = 0x1B;
+    proc->context.ds = 0x1B;
+    proc->context.rip = proc->entry;
+    proc->context.rsp = proc->stack_top;
+    proc->context.cs = 0x23;
+    proc->context.ss = 0x1B;
+    proc->context.rflags = 0x202;
+    proc->context.int_no = 0;
+    proc->context.err_code = 0;
+
+    proc->context_ptr = &proc->context;
 
     init_fpu(proc);
 
@@ -560,6 +560,8 @@ process_t *create_process_from_elf(uint8_t *elf_data, char **argv, char **envp)
     if (elf_validate(hdr) < 0) return NULL;
 
     process_t *proc = kmalloc(sizeof(process_t));
+    if (!proc) return NULL;
+
     memset(proc, 0, sizeof(process_t));
 
     proc->pid        = next_pid++;
@@ -570,6 +572,11 @@ process_t *create_process_from_elf(uint8_t *elf_data, char **argv, char **envp)
 
     /* Kernel stack */
     void *kstack       = kmalloc(32768);
+    if (!kstack) {
+       kfree(proc);
+       return NULL;
+    }
+
     proc->kstack_top   = ((uintptr_t)kstack + 32768) & ~0xFULL;
 
     if (proc->pid == 1) init_process = proc;

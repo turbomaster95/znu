@@ -68,19 +68,19 @@ registers_t* k_exception_handler(registers_t *regs) {
 
         if (int_no == 14) { // Page Fault
             bool is_user = (regs->err_code & 0x04) != 0;
-            
+
             bool is_stack_range = (cr2 >= 0x7ffff0000000ULL && cr2 < 0x800000000000ULL);
 
             if (is_user && is_stack_range && current_process) {
                 extern void* palloc_zero(void);
                 extern void map_page(uint64_t* pml4, uintptr_t virt, uint64_t phys, uint64_t flags);
-                
+
                 uintptr_t page_addr = cr2 & ~0xFFFULL;
-                
+
                 void* phys = palloc_zero();
                 if (phys) {
-                    map_page(current_process->pml4, page_addr, (uint64_t)phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);                    
-                    return regs; 
+                    map_page(current_process->pml4, page_addr, (uint64_t)phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+                    return regs;
                 }
             }
         }
@@ -92,10 +92,10 @@ registers_t* k_exception_handler(registers_t *regs) {
 
         if (int_no == 14) {
             debugln("Faulting Address: %p", (void*)cr2);
-            
+
             if (regs->rip >= 0xffff800000000000 && regs->rip < 0xffffffffffffffff) {
                 uint8_t *instruction = (uint8_t*)regs->rip;
-                debugln("Opcode at RIP: %02x %02x %02x %02x", 
+                debugln("Opcode at RIP: %02x %02x %02x %02x",
                         instruction[0], instruction[1], instruction[2], instruction[3]);
             } else {
                 debugln("RIP is invalid, cannot read opcode");
@@ -116,6 +116,8 @@ registers_t* k_exception_handler(registers_t *regs) {
 
         regs = scheduler(regs);
 
+	if (!regs) panic("[idt] scheduler returned NULL");
+
 	if (regs && (regs->cs & 0x3) == 3) {
             signal_check_and_deliver(regs);
         }
@@ -125,23 +127,23 @@ registers_t* k_exception_handler(registers_t *regs) {
         lapic_eoi();
     } else if (int_no == 0x30) {
         regs = scheduler(regs);
-        
+	if (!regs) panic("[idt] scheduler returned NULL");
+
         if (regs && (regs->cs & 0x3) == 3) {
             signal_check_and_deliver(regs);
         }
-        
+
         smp_flush_logs_to_screen();
     } else if (int_no == 33) {
 	    uint8_t status = inb(0x64);
 	    if (status & 1) {
 	            uint8_t scancode = inb(0x60);
-	            
 	            // Check for Ctrl+C scancodes before passing down
 	            // Left Ctrl press = 0x1D, 'C' press = 0x2E
 	            static bool ctrl_pressed = false;
 	            if (scancode == 0x1D) ctrl_pressed = true;
 	            else if (scancode == 0x9D) ctrl_pressed = false; // Release
-	            
+
 	            if (ctrl_pressed && scancode == 0x2E) {
 	                if (current_process && current_process->pid > 1) { // Don't kill init
 	                    extern void kernel_signal_raise(process_t* proc, int signum);
@@ -163,7 +165,7 @@ registers_t* k_exception_handler(registers_t *regs) {
             interrupt_handlers[int_no](regs);
         } else {
             if (int_no > 40) outb(0xA0, 0x20);
-            outb(0x20, 0x20); 
+            outb(0x20, 0x20);
         }
     } else {
         // We must issue an EOI to prevent the LAPIC from infinite-looping.
