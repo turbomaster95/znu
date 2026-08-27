@@ -13,3 +13,4 @@ subdir-y += shz
 subdir-y += fuzz
 subdir-y += ttytest
 subdir-y += evtest
+subdir-y += argt

@@ -6,4 +6,4 @@ _start:
     xor rdi, rdi    ; exit code 0
     syscall
 
-section .note.GNU-stack noalloc noexec nowrite progbits
+section .note.GNU-stack noexec alloc nobits
