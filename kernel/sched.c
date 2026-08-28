@@ -356,9 +356,9 @@ registers_t* scheduler(registers_t* regs) {
 
     __asm__ volatile("fxrstor %0" : : "m"(next->sse_state));
 
-    debugln("[sched] switch %llu -> %llu",
-            old_process ? old_process->pid : 0,
-            next->pid);
+    //debugln("[sched] switch %llu -> %llu",
+            // old_process ? old_process->pid : 0,
+       // next->pid);
 
     return &next->context;
 }
@@ -396,12 +396,19 @@ int do_wait(int pid, int* status, bool* should_block) {
         process_remove(child);
         process_destroy(child);
 
+        current_process->wait_reason = WAIT_NONE;
+        current_process->wait_channel = NULL;
+        current_process->wait_pid = -1;
+
         return child_pid;
     }
 
     if (!has_children)
         return -1;
 
+    current_process->wait_reason = WAIT_CHILD;
+    current_process->wait_channel = NULL;
+    current_process->wait_pid = pid;
     current_process->state = TASK_WAITING;
     *should_block = true;
 
@@ -422,9 +429,13 @@ registers_t* do_exit(int code) {
     process_t* parent =
         find_process_by_pid(exiting->parent_pid);
 
-    if (parent && parent->state == TASK_WAITING)
+    if (parent && parent->state == TASK_WAITING && parent->wait_reason == WAIT_CHILD) {
         parent->state = TASK_READY;
-
+        parent->wait_reason = WAIT_NONE;
+        parent->wait_channel = NULL;
+        parent->wait_pid = -1;
+    }
+    
     current_process = NULL;
     current_process_index = -1;
 

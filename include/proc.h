@@ -29,6 +29,12 @@ typedef enum {
     PRIO_HIGH
 } task_prio_t;
 
+typedef enum {
+    WAIT_NONE,
+    WAIT_CHILD,
+    WAIT_TTY
+} process_wait_reason_t;
+
 #define MAX_PROCESSES 64
 #define MAX_FILES 32
 #define KTHREAD_STACK_SIZE 16384
@@ -52,6 +58,10 @@ typedef struct process {
 
     task_state_t state;
     task_prio_t priority;
+
+    process_wait_reason_t wait_reason;
+    void *wait_channel;
+    int wait_pid;
 
     vfs_file_t* files[MAX_FILES];
     vfse_process_t* vfse;

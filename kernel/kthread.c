@@ -54,7 +54,16 @@ process_t* kthread_create(void (*fn)(void*), void* arg, const char* name)
     regs->es = 0x10;
     regs->rflags = 0x202; /* IF=1 */
 
-    t->context_ptr = regs;
+    memset(&t->context, 0, sizeof(registers_t));
+    t->context.rip = (uintptr_t)kthread_trampoline;
+    t->context.rsp = t->kstack_top;
+    t->context.cs = 0x08;
+    t->context.ss = 0x10;
+    t->context.ds = 0x10;
+    t->context.es = 0x10;
+    t->context.rflags = 0x202;
+    
+    t->context_ptr = &t->context;
 
     add_process(t);
 

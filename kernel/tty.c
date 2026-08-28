@@ -49,10 +49,27 @@ static inline char tty_buf_get(tty_t* tty) {
 }
 
 static void tty_wake_reader(tty_t* tty) {
-    if (tty->waiting_reader) {
-        tty->waiting_reader->state = TASK_READY;
-        tty->waiting_reader = NULL;
-    }
+    process_t* proc;
+
+    if (!tty || !tty->waiting_reader)
+        return;
+
+    proc = tty->waiting_reader;
+    tty->waiting_reader = NULL;
+
+    if (proc->state != TASK_WAITING)
+        return;
+
+    if (proc->wait_reason != WAIT_TTY)
+        return;
+
+    if (proc->wait_channel != tty)
+        return;
+
+    proc->wait_reason = WAIT_NONE;
+    proc->wait_channel = NULL;
+    proc->wait_pid = -1;
+    proc->state = TASK_READY;
 }
 
 size_t tty_read(tty_t* tty, char* buf, size_t count, bool nonblock) {
@@ -71,10 +88,11 @@ size_t tty_read(tty_t* tty, char* buf, size_t count, bool nonblock) {
     while (got < count) {
         while (tty_buf_empty(tty)) {
             debugln("[tty] empty pid=%llu nonblock=%d waiter=%p state=%d",
-	        current_process ? current_process->pid : 0,
-        	(int)nonblock,
-	        (void*)tty->waiting_reader,
-	        tty->waiting_reader ? tty->waiting_reader->state : -1);
+        	        current_process ? current_process->pid : 0,
+                	(int)nonblock,
+        	        (void*)tty->waiting_reader,
+        	        tty->waiting_reader ? tty->waiting_reader->state : -1);
+            
             if (nonblock) {
                 clac();
                 return got; 
@@ -84,19 +102,25 @@ size_t tty_read(tty_t* tty, char* buf, size_t count, bool nonblock) {
                 break;
 
             tty->waiting_reader = current_process;
+            current_process->wait_reason = WAIT_TTY;
+            current_process->wait_channel = tty;
+            current_process->wait_pid = -1;
             current_process->state = TASK_WAITING;
 
-	    debugln("[tty] blocking pid=%llu waiter=%p",
-        	current_process ? current_process->pid : 0,
-	        (void*)tty->waiting_reader);
+       	    debugln("[tty] blocking pid=%llu waiter=%p",
+                	current_process ? current_process->pid : 0,
+        	        (void*)tty->waiting_reader);
 
             asm volatile("sti");
             asm volatile("hlt");
             asm volatile("cli");
+            
+            if (current_process->state != TASK_READY) continue;
+
             debugln("[tty] woke pid=%llu current=%p waiter=%p",
-	        current_process ? current_process->pid : 0,
-        	(void*)current_process,
-	        (void*)tty->waiting_reader);
+	                current_process ? current_process->pid : 0,
+                	(void*)current_process,
+        	        (void*)tty->waiting_reader);
         }
 
         if (tty_buf_empty(tty))
