@@ -10,7 +10,7 @@ proc panicOverride(msg: string) {.noreturn, used.} =
 proc nimGetMem(size: int): pointer {.cdecl, used.} = malloc(cast[csize_t](size))
 proc nimFreeMem(p: pointer) {.cdecl, used.} = free(p)
 
-{.compile: "stubs.c".}
+import libb
 
 proc copyBytes(dest: pointer, src: pointer, n: uint) =
   let d = cast[ptr UncheckedArray[uint8]](dest)

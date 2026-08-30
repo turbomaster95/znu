@@ -27,5 +27,6 @@ proc exit(status: cint) {.exportc, asmNoStackFrame.} =
   .loop:
     cli
     hlt
+    pause
     jmp .loop
   """
