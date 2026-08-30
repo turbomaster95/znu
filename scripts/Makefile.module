@@ -1,0 +1,63 @@
+#
+# External module invocation:
+#
+#   make -C /path/to/kernel M=/path/to/module modules
+#
+# The external module directory must contain Kbuild or Makefile with obj-m.
+
+ifneq ($(strip $(M)),)
+
+# M is the external module source directory.
+KBUILD_EXTMOD := $(abspath $(M))
+export KBUILD_EXTMOD
+
+# External module output directory.
+#
+# MO can be supplied by the caller:
+#
+#   make M=/path/to/module MO=/path/to/output modules
+#
+# Otherwise generated files are placed in the module source directory,
+# matching normal kbuild behavior.
+KBUILD_EXTMOD_OUTPUT := $(abspath $(if $(MO),$(MO),$(KBUILD_EXTMOD)))
+
+export KBUILD_EXTMOD_OUTPUT
+
+# The directory passed to scripts/Makefile.build.
+module_obj := $(KBUILD_EXTMOD_OUTPUT)
+
+# Keep the module source directory available to recursive kbuild files.
+module_src := $(KBUILD_EXTMOD)
+
+# The module's Kbuild/Makefile is parsed by scripts/Makefile.build.
+#
+# obj points at the output directory.
+# src points at the external module source directory.
+#
+# Your fork may call these variables something else; these are the
+# conventional kbuild names.
+.PHONY: modules modules_prepare modules_install clean
+
+modules:
+	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.build \
+		obj=$(module_obj) \
+		src=$(module_src) \
+		need-builtin=1
+
+modules_prepare:
+	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.build \
+		obj=$(module_obj) \
+		src=$(module_src) \
+		need-builtin=1
+
+modules_install:
+	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modinst \
+		extmod=$(KBUILD_EXTMOD) \
+		extmod_prefix=$(KBUILD_EXTMOD_OUTPUT)
+
+clean:
+	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.clean \
+		obj=$(module_obj) \
+		src=$(module_src)
+
+endif

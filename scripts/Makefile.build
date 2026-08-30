@@ -221,13 +221,13 @@ targets += $(extra-y) $(MAKECMDGOALS) $(always)
 # This is a weird thing, but it stops make from deleting our .mod.o files
 .SECONDARY:
 
-quiet_cmd_ko_cc = KC $(quiet_modtag)  $@
+quiet_cmd_ko_cc = CC [M]  $@
       cmd_ko_cc = $(CC) $(c_flags) -DMODULE -mcmodel=large -mno-red-zone -c $< -o $@
 
 $(obj)/%.mod.o: $(src)/%.c FORCE
 	$(call if_changed,ko_cc)
 
-quiet_cmd_ko_link = KLD $(quiet_modtag) $@
+quiet_cmd_ko_link = LD [M]  $@
       cmd_ko_link = $(LD) $(ld_flags) -r $< -o $@
 
 $(obj)/%.ko: $(obj)/%.mod.o FORCE

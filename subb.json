@@ -13,12 +13,12 @@
         "scripts/limine": {
             "url": "https://github.com/limine-bootloader/limine",
             "branch": "v12.x",
-            "hash": "008fcfb782e4dddb290450f73502412909b10d63"
+            "hash": "8756dd5731a87d216b067aabd367e685ed778014"
         },
         "lib/uacpi": {
             "url": "https://github.com/uACPI/uACPI",
             "branch": "master",
-            "hash": "45f2505e7f8c38c0c4429a28234b00cd1f0ae300"
+            "hash": "2e7b6d535b87f968874720daf93c64cc78cf3e23"
         },
         "lib/ulibc/third-party/zline": {
             "url": "https://github.com/turbomaster95/zline",

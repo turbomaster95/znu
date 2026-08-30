@@ -13,7 +13,6 @@ REQUIRED_FILES=(
     "BOOTX64.EFI"
 )
 
-# 1. THE SHORT-CIRCUIT: Check if all required files exist
 ALL_PRESENT=true
 for file in "${REQUIRED_FILES[@]}"; do
     if [ ! -f "$BIN_DIR/$file" ]; then
@@ -27,7 +26,6 @@ if [ "$ALL_PRESENT" = true ]; then
     exit 0
 fi
 
-# 2. Submodule check (only if we are missing files)
 if [ ! -f "$LIMINE_DIR/bootstrap" ]; then
     echo "Limine source missing. Initializing submodule..."
     git submodule update --init --recursive
@@ -49,4 +47,5 @@ pushd "$LIMINE_DIR" > /dev/null
     make MFORMAT=$2 MCOPY=$3 -j$(nproc 2>/dev/null || echo 1)
 popd > /dev/null
 
+cp $BIN_DIR/limine-bios.sys $SRCTREE/configs/iso_root/boot/limine
 echo "Limine build complete."

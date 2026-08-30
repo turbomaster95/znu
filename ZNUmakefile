@@ -111,6 +111,8 @@ VPATH		:= $(srctree)
 
 export srctree objtree VPATH
 
+include $(srctree)/scripts/Makefile.module
+
 CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
 
 KCONFIG_CONFIG	?= .config
@@ -222,6 +224,9 @@ CPIO		= cpio
 BISON		= bison
 FLEX		= flex
 
+SRCARCH		= x86
+ARCH		= $(SRCARCH)
+
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 CFLAGS_KERNEL	= -D__is_libk
@@ -243,6 +248,7 @@ LINUXINCLUDE    := -Iinclude \
                    -include include/generated/autoconf.h
 
 KBUILD_CPPFLAGS := -D__KERNEL__ -include $(srctree)/include/prelude.h
+KBUILD_CPPFLAGS += -I$(srctree)/lib/libc/include -I$(srctree)/arch/$(ARCH)/include -I$(srctree)/drivers/include
 
 KBUILD_CFLAGS   := -Wall -Wno-unused-function -Wno-undef -Wno-array-compare -Wno-address-of-packed-member -Wno-infinite-recursion -Wno-unused-variable -Wno-format-truncation -Wno-misleading-indentation -Wno-undef -Wstrict-prototypes -Wno-trigraphs -mno-mmx -mno-sse -mno-sse2 \
 		   -fno-strict-aliasing -fno-common -Wno-incompatible-pointer-types -fno-pic -fno-PIC -fno-PIE -fno-pie \
@@ -473,8 +479,8 @@ quiet_cmd_mkiso = MKISO   $(STARGET) -> $(ISO_STR)
                   CONFIG_ISO_UEFI=$(CONFIG_ISO_UEFI) \
                   $(srctree)/scripts/mkiso.sh $(srctree) "Znu" $(XORRISO) > /dev/null 2>&1
 
-quiet_cmd_mkuki = MKUKI   uki/Znu.efi
-      cmd_mkuki = $(srctree)/scripts/mkuki.sh $(srctree) $(MFORMAT) $(MCOPY) $(MMD)
+quiet_cmd_mkyuki = MKYUKI yuki/Znu.efi
+      cmd_mkyuki = $(srctree)/scripts/mkyuki.sh $(srctree) $(MFORMAT) $(MCOPY) $(MMD)
 
 $(TARGET).a: scripts/embsym/embsym $($(TARGET)-all) FORCE
 	$(call if_changed,$(TARGET)_a)
@@ -489,7 +495,7 @@ ifeq ($(CONFIG_GENERATE_ISO),y)
 	$(call if_changed,mkiso)
 endif
 ifeq ($(CONFIG_MAKE_UKI),y)
-	$(call if_changed,mkuki)
+	$(call if_changed,mkyuki)
 endif
 	@touch $(TARGET_STAMP)
 
@@ -548,7 +554,7 @@ $($(TARGET)-dirs): scripts_basic
 
 # Directories & files removed with 'make clean'
 CLEAN_DIRS  += 
-CLEAN_FILES +=	$(TARGET) $(TARGET_STAMP) $(STARGET) System.map uki/Znu.efi uki/ramdisk.img Znu.bios.iso Znu.uefi.iso Znu.iso configs/iso_root/boot/initramfs.cpio configs/iso_root/boot/kernel.bin configs/sysroot/bin/* scripts/embsym/embsym
+CLEAN_FILES +=	$(TARGET) $(TARGET_STAMP) $(STARGET) System.map yuki/Znu.efi yuki/ramdisk.img Znu.bios.iso Znu.uefi.iso Znu.iso configs/iso_root/boot/initramfs.cpio configs/iso_root/boot/kernel.bin configs/sysroot/bin/* scripts/embsym/embsym
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include/generated lib/uacpi scripts/limine build/ $(CLEAN_DIRS) lib/uacpi/.uacpi_out lib/flanterm/.flt_out

@@ -42,7 +42,7 @@ config ISO_UEFI
 
 endif # GENERATE_ISO
 
-source "uki/Kconfig"
+source "yuki/Kconfig"
 
 menu "Device Drivers"
 
