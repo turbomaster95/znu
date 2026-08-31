@@ -101,12 +101,14 @@ static const struct zvm_ops nosry_vm_ops = {
     .cleanup = nosry_cleanup,
 };
 
-void init_nf_engine(void) {
+int init_nf_engine(void) {
     register_zfilter(&nosry_vm_ops);
+    return 0;
 }
 
-void exit_nf_engine(void) {
+int exit_nf_engine(void) {
     // nothing here atm
+    return 0;
 }
 
 module_init(init_nf_engine);
