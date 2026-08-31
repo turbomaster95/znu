@@ -676,6 +676,55 @@ struct iovec {
     size_t iov_len;     /* Number of bytes to transfer */
 };
 
+struct zfilt_result {
+    int status_code;
+    size_t processed_bytes;
+};
+
+#define ZFILT_MAX_BYTECODE_SIZE (1024 * 1024) // 1 mb
+
+long sys_zfilt(const void* code_ptr, size_t len, struct zfilt_result* res_ptr) {
+    if (!code_ptr || len == 0 || len > ZFILT_MAX_BYTECODE_SIZE) {
+        return -EINVAL;
+    }
+
+    if (!is_user_addr((void*)code_ptr, len)) {
+        return -EFAULT;
+    }
+
+    if (res_ptr && !is_user_addr((void*)res_ptr, sizeof(struct zfilt_result))) {
+        return -EFAULT;
+    }
+
+    uint8_t* kbuf = (uint8_t*)kmalloc(len);
+    if (!kbuf) {
+        return -ENOMEM;
+    }
+
+    stac();
+
+    memcpy(kbuf, code_ptr, len);
+
+    clac();
+
+    int ret = 0;
+    /* ret = execute_or_verify_bytecode(kbuf, len); */
+
+    if (res_ptr) {
+        struct zfilt_result kres;
+        kres.status_code = ret;
+        kres.processed_bytes = (ret == 0) ? len : 0;
+
+        stac();
+        memcpy(res_ptr, &kres, sizeof(struct zfilt_result));
+        clac();
+    }
+
+    kfree(kbuf);
+
+    return (long)ret;
+}
+
 uint64_t syscall_handler(registers_t* regs) {
     uint64_t num = regs->rax;
     uint64_t arg1 = regs->rdi;
@@ -883,6 +932,10 @@ uint64_t syscall_handler(registers_t* regs) {
             kernel_shutdown();
             regs->rax = 0;
             return (uint64_t)regs;
+
+	case 400: // sys_zfilt
+            regs->rax = (uint64_t)sys_zfilt((const void*)arg1, (size_t)arg2, (struct zfilt_result*)arg3);
+    	    return (uint64_t)regs;
 
         default:
 	    debugln("unsupported syscall: %i", num);

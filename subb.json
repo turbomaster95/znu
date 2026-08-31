@@ -34,6 +34,11 @@
             "url": "https://github.com/abbrev/fatfs",
             "branch": "master",
             "hash": "ab992fcf2926b8a1ee3f0a8f9cefb6584174100d"
+        },
+        "kernel/filters/external/nosry": {
+            "url": "https://github.com/turbomaster95/nosry",
+            "branch": "main",
+            "hash": "bbf2bc625be4b25a2e4bfef792267b27bdd33c87"
         }
     }
 }

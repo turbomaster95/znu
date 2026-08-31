@@ -21,7 +21,6 @@ obj-y += serial.o
 obj-y += image.o
 obj-y += stack_guard.o
 obj-y += tty.o
-obj-y += vfs/
 obj-y += disk.o
 obj-y += symbols.o
 obj-y += ksyms.o
@@ -34,3 +33,7 @@ obj-y += diskio.o
 obj-y += tests.o
 obj-y += initcall.o
 
+
+# Folders
+obj-y += vfs/
+obj-y += filters/
