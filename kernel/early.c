@@ -118,6 +118,14 @@ volatile bool screen_lock = false;
 void lock_screen(void) { screen_lock = true; }
 void unlock_screen(void) { screen_lock = false; }
 
+uint8_t* framebuffer_addr;
+size_t framebuffer_size;
+
+uint64_t framebuffer_width;
+uint64_t framebuffer_height;
+uint64_t framebuffer_pitch;
+uint16_t framebuffer_bpp;
+
 void earlykmain(void) {
     if (LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision) == false) {
         hcf();
@@ -169,6 +177,13 @@ void earlykmain(void) {
 
     // Fetch the first framebuffer.
     struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
+    framebuffer_addr = framebuffer->address;
+    framebuffer_size = (size_t)(framebuffer->pitch * framebuffer->height);
+    framebuffer_width = framebuffer->width;
+    framebuffer_height = framebuffer->height;
+    framebuffer_pitch = framebuffer->pitch;
+    framebuffer_bpp = framebuffer->bpp;
+
     pat_init();
 
     terminal_initialize();

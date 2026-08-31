@@ -9,7 +9,6 @@
 
 struct flanterm_context *ft_ctx = NULL;
 
-#if defined(__is_libk)
 extern volatile struct limine_framebuffer_request framebuffer_request;
 
 static uint32_t cursor_x = 0;
@@ -120,5 +119,3 @@ void terminal_teardown(void) {
 	flanterm_clear(ft_ctx, true);
 	ft_ctx = NULL;
 }
-
-#endif
