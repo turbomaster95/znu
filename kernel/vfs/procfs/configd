@@ -1,0 +1,19 @@
+#
+# Automatically generated make config: don't edit
+# Configuration
+#
+CONFIG_CLANG=y
+CONFIG_MODULES=y
+# CONFIG_KTEST is not set
+CONFIG_GENERATE_ISO=y
+# CONFIG_ISO_MULTI is not set
+CONFIG_ISO_BIOS=y
+# CONFIG_ISO_UEFI is not set
+# CONFIG_MAKE_UKI is not set
+
+#
+# Device Drivers
+#
+CONFIG_BGA=y
+# CONFIG_E1000 is not set
+CONFIG_AHCI=y

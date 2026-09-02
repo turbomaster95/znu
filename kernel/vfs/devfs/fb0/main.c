@@ -3,17 +3,6 @@
 // type: VFS_FILE
 // ops: devfs_fb0_ops
 
-// framebuffer_addr must be a kernel virtual address mapped to the
-// physical framebuffer memory.
-
-extern uint8_t* framebuffer_addr;
-extern size_t framebuffer_size;
-
-extern uint64_t framebuffer_width;
-extern uint64_t framebuffer_height;
-extern uint64_t framebuffer_pitch;
-extern uint16_t framebuffer_bpp;
-
 #define FB_IOCTL_GET_INFO  0x4600
 
 typedef struct framebuffer_info {

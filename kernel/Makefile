@@ -32,7 +32,18 @@ CFLAGS_diskio.o += -I$(srctree)/lib/fatfs/source
 obj-y += diskio.o
 obj-y += tests.o
 obj-y += initcall.o
+obj-y += config.o
 
+$(obj)/config.o: $(obj)/configd.gz
+
+targets += configd configd.gz
+$(obj)/configd.gz: $(obj)/configd FORCE
+	$(call if_changed,gzip)
+
+filechk_cat = cat $<
+
+$(obj)/configd: $(KCONFIG_CONFIG) FORCE
+	$(call filechk,cat)
 
 # Folders
 obj-y += vfs/

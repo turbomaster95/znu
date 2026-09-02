@@ -121,13 +121,12 @@ int main(int argc, char *argv[]) {
 
     // Dynamic handling: Custom root handlers for readdir to yield PIDs dynamically
     fprintf(out, "// Custom root filesystem overrides for /proc to intercept readdir\n");
-    fprintf(out, "static vfs_node_ops_t proc_root_ops;\n\n");
+    fprintf(out, "static vfs_ops_t proc_root_ops;\n\n");
 
     fprintf(out, "void procfs_init(void) {\n");
     fprintf(out, "    proc_root = vfs_create_node(\"proc\", VFS_DIRECTORY);\n");
     fprintf(out, "    if (!proc_root) return;\n");
     fprintf(out, "    \n");
-    fprintf(out, "    // Setup standard root operations, then hook our dynamic reader\n");
     fprintf(out, "    proc_root_ops = *proc_root->ops; \n");
     fprintf(out, "    proc_root_ops.readdir = procfs_root_readdir; \n");
     fprintf(out, "    proc_root->ops = &proc_root_ops;\n\n");

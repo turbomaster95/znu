@@ -24,4 +24,12 @@ static inline void clac(void) {
     } 
 }
 
+extern uint8_t* framebuffer_addr;
+extern size_t framebuffer_size;
+
+extern uint64_t framebuffer_width;
+extern uint64_t framebuffer_height;
+extern uint64_t framebuffer_pitch;
+extern uint16_t framebuffer_bpp;
+
 #endif
