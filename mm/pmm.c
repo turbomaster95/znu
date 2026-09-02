@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <limine.h>
 #define BUDDY_ALLOC_IMPLEMENTATION
-#include <buddy_alloc.h>
+#include <buddy.h>
 
 extern uint64_t hhdm_offset;
 extern void hcf(void);

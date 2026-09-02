@@ -1,5 +1,5 @@
 #ifndef _PAGE_H
-#define _PAGE_H 1
+#define _PAGE_H
 
 #include <sys/cdefs.h>
 #include <stdint.h>

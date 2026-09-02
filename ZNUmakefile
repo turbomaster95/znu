@@ -420,6 +420,7 @@ all: $(LEGAL_OBJ) $(TARGET)
 
 no-clean-files  := rump-a
 objs-y		:= kernel
+objs-y		+= mm
 objs-y		+= arch
 objs-y		+= drivers
 user-y		:= user
