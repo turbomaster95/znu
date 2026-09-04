@@ -79,23 +79,27 @@ size_t tty_read(tty_t* tty, char* buf, size_t count, bool nonblock) {
     stac();
     size_t got = 0;
 
+    #ifdef KRNLDBG
     debugln("[tty] read enter pid=%llu tty=%p count=%zu nonblock=%d",
         current_process ? current_process->pid : 0,
         (void*)tty,
         count,
         (int)nonblock);
-   
+
+    #endif
     while (got < count) {
         while (tty_buf_empty(tty)) {
+	    #ifdef KRNLDBG
             debugln("[tty] empty pid=%llu nonblock=%d waiter=%p state=%d",
         	        current_process ? current_process->pid : 0,
                 	(int)nonblock,
         	        (void*)tty->waiting_reader,
         	        tty->waiting_reader ? tty->waiting_reader->state : -1);
-            
+            #endif
+
             if (nonblock) {
                 clac();
-                return got; 
+                return got;
             }
 
             if (!current_process)
@@ -107,20 +111,23 @@ size_t tty_read(tty_t* tty, char* buf, size_t count, bool nonblock) {
             current_process->wait_pid = -1;
             current_process->state = TASK_WAITING;
 
+	    #ifdef KRNLDBG
        	    debugln("[tty] blocking pid=%llu waiter=%p",
                 	current_process ? current_process->pid : 0,
         	        (void*)tty->waiting_reader);
+	    #endif
 
             asm volatile("sti");
             asm volatile("hlt");
             asm volatile("cli");
-            
-            if (current_process->state != TASK_READY) continue;
 
+            if (current_process->state != TASK_READY) continue;
+	    #ifdef KRNLDBG
             debugln("[tty] woke pid=%llu current=%p waiter=%p",
 	                current_process ? current_process->pid : 0,
                 	(void*)current_process,
         	        (void*)tty->waiting_reader);
+	    #endif
         }
 
         if (tty_buf_empty(tty))

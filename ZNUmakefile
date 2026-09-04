@@ -233,6 +233,7 @@ CFLAGS_KERNEL	= -D__is_libk
 
 ifdef KRNLDBG
 CFLAGS_KERNEL   += -g -Og
+CFLAGS_KERNEL   += -DKRNLDBG
 endif
 
 AFLAGS_KERNEL	=

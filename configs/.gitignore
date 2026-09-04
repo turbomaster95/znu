@@ -1,1 +1,6 @@
+iso_root/boot/limine-bios.sys
+iso_root/boot/limine/limine-bios.sys
+iso_root/boot/kernel.bin
+sysroot/bin/*
+iso_root/EFI/BOOT/BOOTX64.EFI
 sysroot/lib/*.so

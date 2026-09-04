@@ -32,8 +32,6 @@
 modules.builtin
 *.elf
 *.bin
-configs/iso_root/boot/limine-bios.sys
-configs/iso_root/boot/limine/limine-bios.sys
 *.gz
 *.bz2
 *.lzma
@@ -83,9 +81,6 @@ GTAGS
 Znu.iso
 znu
 znus
-configs/iso_root/boot/kernel.bin
-configs/sysroot/bin/*
-configs/iso_root/EFI/BOOT/BOOTX64.EFI
 ninja.build
 lib/build-musl/
 lib/pbuild-musl/
