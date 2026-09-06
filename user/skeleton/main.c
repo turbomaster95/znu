@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-int main() {
+int main(void) {
     printf("This is a skeleton program!\n");
     printf("You can build upon this.\n");
     return 0;

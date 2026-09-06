@@ -6,7 +6,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-void daemonize() {
+void daemonize(void) {
     pid_t pid;
 
     pid = fork();
@@ -33,7 +33,7 @@ void daemonize() {
     if (fd > 2) close(fd);
 }
 
-int main() {
+int main(void) {
     daemonize();
     for (;;) {}
     return 0;

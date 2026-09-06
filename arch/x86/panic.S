@@ -10,3 +10,5 @@ nmi_panic_handler_stub:
 .halt_loop:
     hlt
     jmp .halt_loop
+
+section .note.GNU-stack noalloc noexec nowrite progbits

@@ -1,10 +1,8 @@
-# user/test_shell/Makefile
 extra-y += shell.elf
 obj-y := main.o
 
 KBUILD_CPPFLAGS += -I$(srctree)/lib/ulibc/include
 LINUXINCLUDE    :=
-KBUILD_CPPFLAGS += -Wno-builtin-declaration-mismatch
 
 ULIBC_LIB := $(srctree)/lib/ulibc/built-in.a
 

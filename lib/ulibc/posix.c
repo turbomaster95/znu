@@ -1,3 +1,5 @@
+struct timezone;
+
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdlib.h>

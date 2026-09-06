@@ -3,14 +3,14 @@
 
 // Simple Xorshift for random numbers without needing a libc rand()
 static uint64_t state = 0x1337BEEF;
-uint64_t xorshift64() {
+uint64_t xorshift64(void) {
     state ^= state << 13;
     state ^= state >> 7;
     state ^= state << 17;
     return state;
 }
 
-int main() {
+int main(void) {
     printf("[fuzz] Chaos Fuzzer...\n");
     printf("[fuzz] Warning: This will likely panic the kernel.\n");
 

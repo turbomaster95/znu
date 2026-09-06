@@ -10,7 +10,11 @@
 
 bool vmm_ready = false;
 extern spinlock_t terminal_print_lock;
+
+#ifdef CONFIG_SMP
 extern void smp_enqueue_log(const char* str);
+#endif
+
 extern bool using_bga;
 extern bool screen_lock;
 
@@ -104,7 +108,9 @@ static void do_safe_log(const char* prefix, const char* format, va_list args) {
         spinlock_irq_restore(&terminal_print_lock, flags);
     } else {
 	raw_write_string(log_buffer);
+	#ifdef CONFIG_SMP
         smp_enqueue_log(log_buffer);
+        #endif
     }
 }
 

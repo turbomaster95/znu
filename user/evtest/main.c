@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <input.h>
 
-int main() {
+int main(void) {
     int fd = open("/dev/input/event1", O_RDONLY);
     if (fd < 0) {
         perror("Failed to open device");

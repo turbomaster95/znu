@@ -1,7 +1,7 @@
 KBUILD_CPPFLAGS := -I$(srctree)/lib/ulibc/third-party/zline
 export KBUILD_CPPFLAGS
 
-#subdir-y += insmod 
+#subdir-y += insmod
 #subdir-y += dash
 #subdir-y += skeleton/
 

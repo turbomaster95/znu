@@ -22,7 +22,7 @@ static inline size_t sys_read(int fd, void* buf, size_t count) {
     return ret;
 }
 
-static inline size_t sys_reboot() {
+static inline size_t sys_reboot(void) {
     size_t ret;
     __asm__ volatile (
         "syscall"
@@ -33,7 +33,7 @@ static inline size_t sys_reboot() {
     return ret;
 }
 
-static inline size_t sys_shutdown() {
+static inline size_t sys_shutdown(void) {
     size_t ret;
     __asm__ volatile (
         "syscall"

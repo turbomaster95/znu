@@ -3,7 +3,7 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 
-int main() {
+int main(void) {
     struct termios t;
 
     ioctl(0, 0x5401, &t);

@@ -52,11 +52,11 @@ void kmain(void) {
     debugln("[lapic] LAPIC calibrated: %u ticks/ms", lapic_ticks_per_ms);
 
     __asm__ volatile("cli");
-    pit_init(1000); 
-    outb(0x21, 0xFD); 
+    pit_init(1000);
+    outb(0x21, 0xFD);
     __asm__ volatile("sti");
-    
-    debugln("[lapic] Starting LAPIC periodic timer..."); 
+
+    debugln("[lapic] Starting LAPIC periodic timer...");
     lapic_write(LAPIC_REG_DIVIDE_CONF, 0x3);
     lapic_write(LAPIC_REG_LVT_TIMER, LAPIC_TIMER_VECTOR | (1 << 17));
     lapic_write(LAPIC_REG_INITIAL_COUNT,lapic_ticks_per_ms);
@@ -76,7 +76,7 @@ void kmain(void) {
      } else {
          debugln("[ktest] sleep(2000) is accurate!");
      }
-    #endif 
+    #endif
 
     debugln("[kernel] Basic System Initialization done!");
     debugln("[kernel] Starting uACPI...");
@@ -118,10 +118,13 @@ void kmain(void) {
     // sleep(1000);
     // net_test_suite();
 
+    #ifdef CONFIG_SMP
     smp_init();
 
     sleep(1000);
     test_smp_workers(2);
+
+    #endif
 
     disk_init();
 

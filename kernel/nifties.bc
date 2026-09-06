@@ -15,12 +15,12 @@ define niftgen(hz) {
    print "/* Automatically generated from kernel/nifties.bc - DO NOT EDIT */\n"
    print "#ifndef GENERATED_NIFTIES_H\n"
    print "#define GENERATED_NIFTIES_H\n\n"
-   print "#define CONFIG_HZ                ", hz, "UL\n"
+   print "#define CONFIG_HZ             ", hz, "UL\n"
    
    scale = 0
-   print "#define TICK_NANO_INCREMENT     ", ns_per_tick / 1, "ULL\n\n"
-   print "#define MSEC_TO_NIFTIES_MUL      ", msec_mul / 1, "UL\n"
-   print "#define MSEC_TO_NIFTIES_SHR      ", shift, "\n\n"
+   print "#define TICK_NANO_INCREMENT   ", ns_per_tick / 1, "ULL\n\n"
+   print "#define MSEC_TO_NIFTIES_MUL   ", msec_mul / 1, "UL\n"
+   print "#define MSEC_TO_NIFTIES_SHR   ", shift, "\n\n"
    print "#endif /* GENERATED_NIFTIES_H */\n"
    halt
 }

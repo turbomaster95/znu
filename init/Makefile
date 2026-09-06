@@ -3,7 +3,6 @@ obj-y := main.o
 
 KBUILD_CPPFLAGS := -I$(srctree)/lib/ulibc/include -I$(srctree)/lib/ulibc/third-party/zline
 LINUXINCLUDE    :=
-KBUILD_CPPFLAGS += -Wno-builtin-declaration-mismatch
 
 ULIBC_LIB := $(srctree)/lib/ulibc/built-in.a
 always-y += init.elf

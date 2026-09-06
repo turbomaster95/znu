@@ -5,7 +5,7 @@ obj-y := main.o
 
 KBUILD_CPPFLAGS := -I$(srctree)/lib/build-musl/sysr/usr/include
 LINUXINCLUDE    :=
-KBUILD_CPPFLAGS += -Wno-undef -Wno-builtin-declaration-mismatch -Wa,--noexecstack
+KBUILD_CPPFLAGS += -Wno-undef -Wa,--noexecstack
 
 always-y += $(BINNAME).elf
 

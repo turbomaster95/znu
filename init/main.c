@@ -141,7 +141,7 @@ void try_spawn_program(const char *line) {
 }
 
 
-void run_config() {
+void run_config(void) {
     int fd = sys_open("/etc/zinit.conf", 0);
 
     if (fd < 0)
@@ -307,7 +307,7 @@ void cmd_cat(const char *path) {
     sys_close(fd);
 }
 
-void cmd_mem() {
+void cmd_mem(void) {
     struct sysinfo info;
 
     if (sys_sysinfo(&info) != 0) {
@@ -381,7 +381,7 @@ static void cmd_mount(int argc, char** argv) {
 }
 
 
-static void cmd_rand() {
+static void cmd_rand(void) {
     char session_token[33];
 
     if (generate_random_b64_string(session_token, 32) != 0) {
@@ -393,7 +393,7 @@ static void cmd_rand() {
 }
 
 
-int main() {
+int main(void) {
 
     printf("Hello!\n");
     printf("---------------------------------\n");

@@ -27,3 +27,4 @@ obj-y += x86.o
 obj-y += nx.o
 obj-y += panic.o
 obj-y += simd.o
+obj-y += cpu.o

@@ -4,7 +4,7 @@
 
 int main(int argc, char** argv) {
     char path[256];
-    
+
     // If no argument, list root. Otherwise list argv[1]
     if (argc < 2) {
         strcpy(path, "/");

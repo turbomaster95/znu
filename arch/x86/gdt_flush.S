@@ -13,3 +13,4 @@ gdt_reload_segments:
     push rdi
     retfq
 
+section .note.GNU-stack noalloc noexec nowrite progbits

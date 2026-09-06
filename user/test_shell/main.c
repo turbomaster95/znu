@@ -12,11 +12,11 @@
 
 struct termios orig_termios;
 
-void disableRawMode() {
+void disableRawMode(void) {
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
 }
 
-void enableRawMode() {
+void enableRawMode(void) {
     tcgetattr(STDIN_FILENO, &orig_termios);
     atexit(disableRawMode); // Ensure restore on crash/exit
 
@@ -41,7 +41,7 @@ void my_completion(const char *buf, zl_completions_t *lc) {
     }
 }
 
-int main() {
+int main(void) {
     printf("ZLINE 2.0 - Press Ctrl-C to exit, Ctrl-R to search\n");
 
     enableRawMode();

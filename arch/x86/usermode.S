@@ -40,3 +40,5 @@ jump_to_usermode:
 
     iretq
 
+
+section .note.GNU-stack noalloc noexec nowrite progbits

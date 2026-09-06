@@ -31,7 +31,11 @@ extern volatile bool lapic_timer_fired;
 extern bool krnl_init_done;
 extern bool vmm_ready;
 extern volatile bool screen_lock;
+
+#ifdef CONFIG_SMP
 extern void smp_flush_logs_to_screen(void);
+#endif
+
 extern void nmi_panic_handler_stub(void);
 extern void signal_check_and_deliver(registers_t* regs);
 
@@ -122,7 +126,10 @@ registers_t* k_exception_handler(registers_t *regs) {
             signal_check_and_deliver(regs);
         }
 
+	#ifdef CONFIG_SMP
 	smp_flush_logs_to_screen();
+	#endif
+
 	// entropy_garden();
         lapic_eoi();
     } else if (int_no == 0x30) {
@@ -133,7 +140,10 @@ registers_t* k_exception_handler(registers_t *regs) {
             signal_check_and_deliver(regs);
         }
 
+	#ifdef CONFIG_SMP
         smp_flush_logs_to_screen();
+        #endif
+
     } else if (int_no == 33) {
 	    uint8_t status = inb(0x64);
 	    if (status & 1) {

@@ -40,3 +40,5 @@ force_context_restore:
 
     iretq
 
+
+section .note.GNU-stack noalloc noexec nowrite progbits

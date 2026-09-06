@@ -409,17 +409,18 @@ endif # $(dot-config)
 
 LEGAL_OBJ := $(objtree)/scripts/temp/legal.o
 
-$(LEGAL_OBJ): $(srctree)/LICENSE $(srctree)/NOTICE $(srctree)/scripts/mklegal.sh FORCE
+$(LEGAL_OBJ): $(srctree)/LICENSE $(srctree)/NOTICE $(srctree)/scripts/mklegal.sh
 	$(Q)mkdir -p $(objtree)/scripts/temp
 	$(Q)bash $(srctree)/scripts/mklegal.sh $(srctree) $(LD)
+
+include Kbuild
 
 # The all: target is the default when no target is given on the
 # command line.
 # This allow a user to issue only 'make' to build a kernel including modules
 # Defaults to vmlinux, but the arch makefile usually adds further targets
-all: $(LEGAL_OBJ) $(TARGET)
+all: $(LEGAL_OBJ) $(need-gen-files) $(TARGET)
 
-no-clean-files  := rump-a
 objs-y		:= kernel
 objs-y		+= mm
 objs-y		+= arch
@@ -544,7 +545,7 @@ user: lib/ulibc
 lib: lib/ulibc
 
 PHONY += $($(TARGET)-dirs)
-$($(TARGET)-dirs): scripts_basic
+$($(TARGET)-dirs): scripts_basic $(need-gen-files)
 	$(Q)$(MAKE) $(build)=$@
 
 ###

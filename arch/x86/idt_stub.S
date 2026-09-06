@@ -137,3 +137,5 @@ isr_ptr_table:
     dq isr%+i       ; Array block of pointers mapped natively by idt_init()
     %assign i i+1
 %endrep
+
+section .note.GNU-stack noalloc noexec nowrite progbits

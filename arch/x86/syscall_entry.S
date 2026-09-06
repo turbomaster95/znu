@@ -105,3 +105,5 @@ syscall_entry:
     mov [gs:0], rsi            
 
     jmp .return_to_user
+
+section .note.GNU-stack noalloc noexec nowrite progbits
