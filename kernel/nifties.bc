@@ -1,0 +1,30 @@
+scale = 10
+
+define niftgen(hz) {
+   auto ns_per_tick, shift, msec_mul, ns_mul
+
+   ns_per_tick = 1000000000 / hz
+
+   /* nifties = (ms * MSEC_TO_NIFTIES_MUL) >> MSEC_TO_NIFTIES_SHR */
+   shift = 32
+   msec_mul = (hz * (2^shift)) / 1000
+
+   /* ns = (nifties * NIFTIES_TO_NS_MUL) >> NIFTIES_TO_NS_SHR */
+   ns_mul = (ns_per_tick * (2^shift))
+
+   print "/* Automatically generated from kernel/nifties.bc - DO NOT EDIT */\n"
+   print "#ifndef GENERATED_NIFTIES_H\n"
+   print "#define GENERATED_NIFTIES_H\n\n"
+   print "#define CONFIG_HZ                ", hz, "UL\n"
+   
+   scale = 0
+   print "#define TICK_NANO_INCREMENT     ", ns_per_tick / 1, "ULL\n\n"
+   print "#define MSEC_TO_NIFTIES_MUL      ", msec_mul / 1, "UL\n"
+   print "#define MSEC_TO_NIFTIES_SHR      ", shift, "\n\n"
+   print "#endif /* GENERATED_NIFTIES_H */\n"
+   halt
+}
+
+hz = read();
+niftgen(hz)
+
