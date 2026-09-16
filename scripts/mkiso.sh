@@ -85,7 +85,7 @@ build_xorriso() {
 
     # Run the structural post-install logic if BIOS execution layers exist
     if [ "$MODE" = "multi" ] || [ "$MODE" = "bios" ]; then
-        "$SRCTREE/scripts/limine/bin/limine" bios-install "$OUT_FILE"
+        "$SRCTREE/scripts/limine/bin/limine" bios-install "$OUT_FILE" --force
     fi
 
     echo "[+] ISO built successfully: $OUT_FILE"

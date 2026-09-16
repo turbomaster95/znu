@@ -13,12 +13,12 @@
         "scripts/limine": {
             "url": "https://github.com/limine-bootloader/limine",
             "branch": "v12.x",
-            "hash": "8756dd5731a87d216b067aabd367e685ed778014"
+            "hash": "34fe53c3d27d229ea25c28fc3e04db362543715b"
         },
         "lib/uacpi": {
             "url": "https://github.com/uACPI/uACPI",
             "branch": "master",
-            "hash": "2e7b6d535b87f968874720daf93c64cc78cf3e23"
+            "hash": "f5f6cc29f85dd5db0dd79c47700c8f3ebce18be4"
         },
         "lib/ulibc/third-party/zline": {
             "url": "https://github.com/turbomaster95/zline",
@@ -28,7 +28,7 @@
         "lib/musl": {
             "url": "git://git.musl-libc.org/musl",
             "branch": "master",
-            "hash": "f21a96538f78fa8e2040831b4209b35f2fb581da"
+            "hash": "5e9972eaef08ccf55dabe254ac829a30329793d3"
         },
         "lib/fatfs": {
             "url": "https://github.com/abbrev/fatfs",
@@ -38,7 +38,7 @@
         "kernel/filters/external/nosry": {
             "url": "https://github.com/turbomaster95/nosry",
             "branch": "main",
-            "hash": "bbf2bc625be4b25a2e4bfef792267b27bdd33c87"
+            "hash": "8e01115780e498b9feb67e03a93c72913a7665e3"
         }
     }
 }

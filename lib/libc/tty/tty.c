@@ -1,11 +1,13 @@
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 #include <limine.h>
 #include <string.h>
 #include <page.h>
 #include <kernel/display.h>
 #include <flanterm.h>
 #include <flanterm_backends/fb.h>
+#include <generated/kfont.h>
 
 struct flanterm_context *ft_ctx = NULL;
 
@@ -25,13 +27,12 @@ void flanterm_free(void* ptr, size_t size) {
 }
 
 void blit_window(int win_x, int win_y, int win_w, int win_h, uint32_t *win_buffer) {
-    struct limine_framebuffer *fb = framebuffer_request.response->framebuffers[0];
-    uint32_t *fb_ptr = fb->address;
+    uint32_t *fb_ptr = framebuffer_addr;
 
     for (int i = 0; i < win_h; i++) {
         // Calculate the start of the row in the window and on the screen
         void *src = &win_buffer[i * win_w];
-        void *dest = &fb_ptr[(win_y + i) * (fb->pitch / 4) + win_x];
+        void *dest = &fb_ptr[(win_y + i) * (framebuffer_pitch / 4) + win_x];
         
         // Copy one horizontal line of pixels
         memcpy(dest, src, win_w * 4);
@@ -50,20 +51,35 @@ void terminal_initialize_raw(
     uint8_t blue_mask_size,
     uint8_t blue_mask_shift
 ) {
-    ft_ctx = flanterm_fb_init(
+  ft_ctx = flanterm_fb_init(
         flanterm_malloc,
         flanterm_free,
         fb_address,
-        width,               // BGA Width (e.g., 1024)
-        height,              // BGA Height (e.g., 768)
-        pitch,               // BGA Pitch (usually width * 4)
-        red_mask_size,       
-        red_mask_shift, 
+        width,               // Width
+        height,              // Height
+        pitch,               // Pitch
+        red_mask_size,
+        red_mask_shift,
         green_mask_size,
         green_mask_shift,
-        blue_mask_size, 
+        blue_mask_size,
         blue_mask_shift,
-        NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, 0, 0, 0, 0, 0, true
+        NULL,                // canvas
+        NULL,                // ansi_colours
+        NULL,                // ansi_bright_colours
+        NULL,                // default_bg
+        NULL,                // default_fg
+        NULL,                // default_bg_bright
+        NULL,                // default_fg_bright
+        kfont,               // font
+        8,                   // font_width
+        16,                  // font_height
+        0,                   // font_spacing
+        2,                   // font_scale_x
+        2,                   // font_scale_y
+        0,                   // margin
+        0,                   // rotation (e.g. FLANTERM_FB_ROTATE_0)
+        true                 // autoflush
     );
 }
 

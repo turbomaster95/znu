@@ -28,10 +28,14 @@ void trim(char *str) {
 
 bool parse_tag(const char *line, const char *tag, char *output) {
     char prefix[128];
-    snprintf(prefix, sizeof(prefix), "// %s:", tag);
+    snprintf(prefix, sizeof(prefix), "%s:", tag);
     char *loc = strstr(line, prefix);
     if (loc) {
-        strcpy(output, loc + strlen(prefix));
+        char *val = loc + strlen(prefix);
+        while (*val == ' ' || *val == '\t') {
+            val++;
+        }
+        strcpy(output, val);
         trim(output);
         return true;
     }
@@ -51,7 +55,7 @@ void parse_file(const char *dir_name, const char *rel_path) {
     strcpy(node.include_path, rel_path);
 
     while (fgets(line, sizeof(line), file)) {
-        if (strstr(line, "//@proccom:node") || strstr(line, "// @proccom:node")) {
+        if (strstr(line, "//@procom:node") || strstr(line, "// @procom:node")) {
             is_proc_node = true;
         }
         if (is_proc_node) {
@@ -126,7 +130,7 @@ int main(int argc, char *argv[]) {
     fprintf(out, "    if (!proc_root) return;\n");
     fprintf(out, "    \n");
     fprintf(out, "    proc_root_ops = *proc_root->ops; \n");
-//    fprintf(out, "    proc_root_ops.readdir = procfs_root_readdir; \n");
+ //   fprintf(out, "    proc_root_ops.readdir = procfs_root_readdir; \n");
     fprintf(out, "    proc_root->ops = &proc_root_ops;\n\n");
     fprintf(out, "    vfs_add_child(root_node, proc_root);\n\n");
 
@@ -144,4 +148,3 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-

@@ -88,6 +88,13 @@ void bga_init(void) {
         bga_framebuffer[i] = 0x00000000; // Deep Black
     }
     debugln("bga fb: %lx", bga_framebuffer);
+
+    framebuffer_addr = (void*)bga_framebuffer;
+    framebuffer_width = width;
+    framebuffer_pitch = framebuffer_width * 4;
+    framebuffer_height = height;
+    framebuffer_size = (size_t)(framebuffer_pitch * framebuffer_height);
+    framebuffer_bpp = bpp;
     
     terminal_initialize_raw(
         (void*)bga_framebuffer, // Virtual address of the BGA LFB

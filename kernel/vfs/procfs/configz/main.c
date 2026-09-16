@@ -1,4 +1,4 @@
-// @proccom:device
+// @procom:device
 // name: config.gz
 // type: VFS_FILE
 // ops: procfs_config_ops
