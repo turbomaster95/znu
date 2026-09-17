@@ -7,7 +7,7 @@
 #include <tsc.h>
 #include <idt.h>
 #include <lapic.h>
-#include <prelude.h>
+#include <timekeeper.h>
 
 extern volatile uint64_t timer_ticks;
 extern volatile struct limine_hhdm_request hhdm_request;
@@ -203,8 +203,13 @@ PERFORM void lapic_timer_isr(void) {
 }
 
 PERFORM void sleep(uint32_t ms) {
-    uint64_t target = timer_ticks + (uint64_t)ms;
-    while (timer_ticks < target) {
+    uint64_t ticks = msecs_to_nifties((uint64_t)ms);
+    if (ticks == 0 && ms > 0) {
+        ticks = 1;
+    }
+
+    uint64_t target = nifties + ticks;
+    while (nifties < target) {
         __asm__ volatile("sti; hlt");
     }
 }

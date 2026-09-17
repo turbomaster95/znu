@@ -1,11 +1,11 @@
 #include <stdint.h>
 #include <timekeeper.h>
 #include <uacpi/types.h>
-#include <prelude.h>
 #include <rtc.h>
 #include <lapic.h>
 #include <tsc.h>
 #include <stdlib.h>
+#include <generated/nifties.h>
 
 extern uint32_t lapic_ticks_per_ms;
 extern tsc_info_t tsc_data;
@@ -46,7 +46,8 @@ void timekeeper_init(void) {
 }
 
 PERFORM void timekeeper_on_tick(void) {
-    system_nanoseconds += 1000000; // 1ms = 1,000,000ns
+    nifties++;
+    system_nanoseconds += TICK_NANO_INCREMENT;
 }
 
 PERFORM uint64_t timekeeper_timefromboot(void) {

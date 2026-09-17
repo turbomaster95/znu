@@ -13,6 +13,7 @@ obj-y += ubsan.o
 obj-y += acpi.o
 obj-y += keyboard.o
 obj-y += sched.o
+obj-y += nifties.o
 obj-y += kthread.o
 obj-y += metadata.o
 obj-y += lz4.o
@@ -35,4 +36,4 @@ obj-y += initcall.o
 
 # Folders
 obj-y += vfs/
-obj-y += filters/
+obj-$(CONFIG_ZFILTER) += filters/

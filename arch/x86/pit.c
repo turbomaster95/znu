@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
-#include <prelude.h>
+#include <timekeeper.h>
 
 volatile uint64_t timer_ticks = 0;
 
@@ -24,8 +24,13 @@ PERFORM uint16_t read_pit_count(void) {
 }
 
 PERFORM void msleep(uint32_t ms) {
-    uint64_t target = timer_ticks + ms;
-    while (timer_ticks < target) {
-        __asm__ volatile("hlt"); 
+    uint64_t ticks = msecs_to_nifties((uint64_t)ms);
+    if (ticks == 0 && ms > 0) {
+        ticks = 1;
+    }
+
+    uint64_t target = nifties + ticks;
+    while (nifties < target) {
+        __asm__ volatile("hlt");
     }
 }

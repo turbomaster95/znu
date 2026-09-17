@@ -14,6 +14,8 @@ config CROSS_COMPILE
 	  directory to select the cross-compiler automatically.
 	 depends on !CLANG
 
+source "kernel/filters/Kconfig"
+
 source "kernel/Kconfig"
 
 menuconfig GENERATE_ISO

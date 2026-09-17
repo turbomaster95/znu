@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <page.h>
 #include <devfs.h>
+#include <procfs.h>
 #include <fat32.h>
 #include <vfs.h>
 #include <errno.h>
@@ -221,6 +222,7 @@ int vfs_ioctl(vfs_node_t* node, unsigned long request, void* argp) {
 void init_vfs(void) {
     root_node = vfs_create_node("/", VFS_DIRECTORY);
     devfs_init();
+    procfs_init();
     evdev_init();
     keyboard_init_evdev();
 }

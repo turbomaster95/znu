@@ -28,7 +28,7 @@ void trim(char *str) {
 
 bool parse_tag(const char *line, const char *tag, char *output) {
     char prefix[128];
-    snprintf(prefix, sizeof(prefix), "%s:", tag);
+    snprintf(prefix, sizeof(prefix), "// %s:", tag);
     char *loc = strstr(line, prefix);
     if (loc) {
         char *val = loc + strlen(prefix);
@@ -135,11 +135,20 @@ int main(int argc, char *argv[]) {
     fprintf(out, "    vfs_add_child(root_node, proc_root);\n\n");
 
     for (int i = 0; i < node_count; i++) {
+    	char var_name[128];
+        strncpy(var_name, proc_nodes[i].name, sizeof(var_name) - 1);
+        var_name[sizeof(var_name) - 1] = '\0';
+        for (int j = 0; var_name[j]; j++) {
+          if (var_name[j] == '.' || var_name[j] == '-') {
+              var_name[j] = '_';
+          }
+        }
+
         fprintf(out, "    // Auto-registration for static entry: /proc/%s\n", proc_nodes[i].name);
-        fprintf(out, "    vfs_node_t* %s_node = vfs_create_node(\"%s\", %s);\n", proc_nodes[i].name, proc_nodes[i].name, proc_nodes[i].type);
-        fprintf(out, "    if (%s_node) {\n", proc_nodes[i].name);
-        fprintf(out, "        %s_node->ops = &%s;\n", proc_nodes[i].name, proc_nodes[i].ops);
-        fprintf(out, "        vfs_add_child(proc_root, %s_node);\n", proc_nodes[i].name);
+        fprintf(out, "    vfs_node_t* %s_node = vfs_create_node(\"%s\", %s);\n", var_name, proc_nodes[i].name, proc_nodes[i].type);
+        fprintf(out, "    if (%s_node) {\n", var_name);
+        fprintf(out, "        %s_node->ops = &%s;\n", var_name, proc_nodes[i].ops);
+        fprintf(out, "        vfs_add_child(proc_root, %s_node);\n", var_name);
         fprintf(out, "    }\n\n");
     }
 

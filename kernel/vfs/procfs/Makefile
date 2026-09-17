@@ -1,7 +1,7 @@
 NODES := $(wildcard $(src)/*/main.c)
 
-$(obj)/procfs.c: $(NODES)
-	@echo "  PROCGEN  $@"
+$(obj)/procfs.c: $(NODES) $(srctree)/scripts/basic/procom
+	@echo "  PROCGEN $@"
 	$(Q)$(srctree)/scripts/basic/procom $(srctree)/kernel/vfs/procfs $@
 
 clean-files += procfs.c

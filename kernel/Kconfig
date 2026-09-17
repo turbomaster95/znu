@@ -11,5 +11,3 @@ config KTEST
 	help
 	  Enable the KRT Framework, which runs tests on the features which are most likely to fail on runtime.
 	  For example, it runs tests on the timings, networking, etc.
-
-

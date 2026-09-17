@@ -48,8 +48,8 @@ build_xorriso() {
     if [ "$MODE" = "multi" ] || [ "$MODE" = "uefi" ]; then
         # Find BOOTX64.EFI from your limine build directory and stage it dynamically
         local EFI_SRC=""
-        if [ -f "$SRCTREE/scripts/limine/share/limine/BOOTX64.EFI" ]; then
-            EFI_SRC="$SRCTREE/scripts/limine/share/limine/BOOTX64.EFI"
+        if [ -f "$SRCTREE/scripts/limine/bin/BOOTX64.EFI" ]; then
+            EFI_SRC="$SRCTREE/scripts/limine/bin/BOOTX64.EFI"
         elif [ -f "$SRCTREE/scripts/limine/BOOTX64.EFI" ]; then
             EFI_SRC="$SRCTREE/scripts/limine/BOOTX64.EFI"
         fi

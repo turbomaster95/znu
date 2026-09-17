@@ -1,0 +1,11 @@
+menuconfig ZFILTER
+	bool "Enable Zfilter support"
+	default y
+
+if ZFILTER
+
+config ZFILTER_NOSRY
+	bool "Enable the Nosry VM for Zfilter"
+	default n
+
+endif # ZFILTER
