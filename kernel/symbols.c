@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <page.h>
 #include <stdio.h>
+#include <symbols.h>
 
 extern char __ksyms_start[];
 extern char __ksyms_end[];
@@ -15,7 +16,7 @@ typedef struct {
 } sym_t;
 
 static sym_t sym_table[MAX_SYMS];
-static uint32_t sym_count = 0;
+uint32_t ksym_count = 0;
 static bool sym_initialized = false;
 
 static uint64_t hex_to_u64(const char *s, int len) {
@@ -33,7 +34,7 @@ static uint64_t hex_to_u64(const char *s, int len) {
 static void parse_symbols(char *start, char *end) {
     char *p = start;
     
-    while (p < end && sym_count < MAX_SYMS) {
+    while (p < end && ksym_count < MAX_SYMS) {
         while (p < end && (*p == '\n' || *p == ' ' || *p == '\t' || *p == '\0')) p++;
         if (p >= end) break;
         
@@ -55,9 +56,9 @@ static void parse_symbols(char *start, char *end) {
         memcpy(name, name_start, name_len);
         name[name_len] = '\0';
         
-        sym_table[sym_count].addr = addr;
-        sym_table[sym_count].name = name;
-        sym_count++;
+        sym_table[ksym_count].addr = addr;
+        sym_table[ksym_count].name = name;
+        ksym_count++;
         
         if (p < end && (*p == '\n' || *p == '\0')) p++;
     }
@@ -91,11 +92,11 @@ void symbols_init(void) {
     }
     
     parse_symbols(__ksyms_start, __ksyms_end);
-    debugln("[sym] Loaded %u symbols", sym_count);
+    debugln("[sym] Loaded %u symbols", ksym_count);
 }
 
 const char *sym_lookup(uint64_t addr, uint64_t *offset_out) {
-    if (sym_count == 0) {
+    if (ksym_count == 0) {
         if (offset_out) *offset_out = 0;
         return "???";
     }
@@ -103,7 +104,7 @@ const char *sym_lookup(uint64_t addr, uint64_t *offset_out) {
     uint64_t best = 0;
     uint64_t best_dist = ~0ULL;
     
-    for (uint32_t i = 0; i < sym_count; i++) {
+    for (uint32_t i = 0; i < ksym_count; i++) {
         if (sym_table[i].addr <= addr) {
             uint64_t dist = addr - sym_table[i].addr;
             if (dist < best_dist) {
@@ -146,10 +147,55 @@ void print_stacktrace(uint64_t *rbp, uint64_t max) {
 }
 
 uint64_t sym_get_addr(const char* name) {
-    for (uint32_t i = 0; i < sym_count; i++) {
+    for (uint32_t i = 0; i < ksym_count; i++) {
         if (strcmp(sym_table[i].name, name) == 0) {
             return sym_table[i].addr;
         }
     }
     return 0;
+}
+
+uint32_t get_ksym_count(void) {
+    return ksym_count;
+}
+
+size_t kallsyms_dump_range(char *buf, size_t size, size_t offset) {
+    if (!buf || size == 0) return 0;
+
+    size_t current_byte = 0;
+    size_t written = 0;
+
+    for (uint32_t i = 0; i < ksym_count; i++) {
+        char line[256];
+        int len = snprintf(line, sizeof(line), "%016lx T %s\n", 
+                           sym_table[i].addr, sym_table[i].name);
+        if (len <= 0) continue;
+
+        if (current_byte + len > offset) {
+            size_t line_off = (offset > current_byte) ? (offset - current_byte) : 0;
+            size_t to_copy = len - line_off;
+
+            if (written + to_copy > size) {
+                to_copy = size - written;
+            }
+
+            memcpy(buf + written, line + line_off, to_copy);
+            written += to_copy;
+
+            if (written >= size) break;
+        }
+
+        current_byte += len;
+    }
+
+    return written;
+}
+
+size_t kallsyms_size_bytes(void) {
+    size_t total = 0;
+    for (uint32_t i = 0; i < ksym_count; i++) {
+        // Address (16) + space (1) + type (1) + space (1) + name + newline (1)
+        total += 19 + strlen(sym_table[i].name) + 1;
+    }
+    return total;
 }
