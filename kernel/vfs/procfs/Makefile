@@ -7,11 +7,9 @@ $(obj)/procfs.c: $(NODES) $(srctree)/scripts/basic/procom
 clean-files += procfs.c
 obj-y += procfs.o
 
-$(obj)/procfs.o: $(obj)/configd.gz
+$(obj)/procfs.o: $(obj)/configd
 
-targets += configd configd.gz
-$(obj)/configd.gz: $(obj)/configd FORCE
-	$(call if_changed,gzip)
+targets += configd
 
 export KCONFIG_CONFIG
 filechk_cat = cat $(KCONFIG_CONFIG)

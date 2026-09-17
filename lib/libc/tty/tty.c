@@ -75,8 +75,8 @@ void terminal_initialize_raw(
         8,                   // font_width
         16,                  // font_height
         0,                   // font_spacing
-        2,                   // font_scale_x
-        2,                   // font_scale_y
+        1,                   // font_scale_x
+        1,                   // font_scale_y
         0,                   // margin
         0,                   // rotation (e.g. FLANTERM_FB_ROTATE_0)
         true                 // autoflush

@@ -12,6 +12,7 @@ typedef struct {
     char name[64];
     char type[64];
     char ops[64];
+    char size[4096];
     char include_path[256];
 } ProcNode;
 
@@ -62,6 +63,7 @@ void parse_file(const char *dir_name, const char *rel_path) {
             parse_tag(line, "name", node.name);
             parse_tag(line, "type", node.type);
             parse_tag(line, "ops", node.ops);
+            parse_tag(line, "size", node.size);
         }
     }
     fclose(file);
@@ -130,7 +132,6 @@ int main(int argc, char *argv[]) {
     fprintf(out, "    if (!proc_root) return;\n");
     fprintf(out, "    \n");
     fprintf(out, "    proc_root_ops = *proc_root->ops; \n");
- //   fprintf(out, "    proc_root_ops.readdir = procfs_root_readdir; \n");
     fprintf(out, "    proc_root->ops = &proc_root_ops;\n\n");
     fprintf(out, "    vfs_add_child(root_node, proc_root);\n\n");
 
@@ -148,6 +149,7 @@ int main(int argc, char *argv[]) {
         fprintf(out, "    vfs_node_t* %s_node = vfs_create_node(\"%s\", %s);\n", var_name, proc_nodes[i].name, proc_nodes[i].type);
         fprintf(out, "    if (%s_node) {\n", var_name);
         fprintf(out, "        %s_node->ops = &%s;\n", var_name, proc_nodes[i].ops);
+        fprintf(out, "        %s_node->size = %s;\n", var_name, proc_nodes[i].size);
         fprintf(out, "        vfs_add_child(proc_root, %s_node);\n", var_name);
         fprintf(out, "    }\n\n");
     }

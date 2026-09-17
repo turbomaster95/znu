@@ -15,7 +15,7 @@ define filechk_genkfont
 	python3 $(srctree)/scripts/extpsf1.py $(srctree)/lib/libc/tty/ter-v16b.psf $(srctree)
 endef
 
-$(kfont-file): $(srctree)/lib/libc/tty/ter-v16b.psf FORCE
+$(kfont-file): $(srctree)/lib/libc/tty/ter-v16b.psf
 	$(call filechk,genkfont)
 
 
