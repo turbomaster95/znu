@@ -71,6 +71,7 @@ registers_t* k_exception_handler(registers_t *regs) {
         __asm__ volatile("mov %%cr2, %0" : "=r"(cr2));
 
         if (int_no == 14) { // Page Fault
+	    debugln("Page Fault");
             bool is_user = (regs->err_code & 0x04) != 0;
 
             bool is_stack_range = (cr2 >= 0x7ffff0000000ULL && cr2 < 0x800000000000ULL);
@@ -93,6 +94,7 @@ registers_t* k_exception_handler(registers_t *regs) {
         debugln("\n--- CRITICAL CPU EXCEPTION at CPU %d : %d ---", get_cpu_id(), (int)int_no);
         debugln("Error Code: 0x%x | RIP: %p | RSP: %p",
                 (unsigned)regs->err_code, (void*)regs->rip, (void*)regs->rsp);
+        debugln("RAX: %p", (void*)regs->rax);
 
         if (int_no == 14) {
             debugln("Faulting Address: %p", (void*)cr2);

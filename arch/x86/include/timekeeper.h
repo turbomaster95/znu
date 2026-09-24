@@ -5,8 +5,6 @@
 #include <uacpi/uacpi.h>
 #include <generated/nifties.h>
 
-extern volatile uint64_t nifties;
-
 void timekeeper_on_tick(void);
 void timekeeper_init(void);
 uacpi_u64 uacpi_kernel_get_nanoseconds_since_boot(void);

@@ -2,7 +2,7 @@ nifties-file := include/generated/nifties.h
 need-gen-files := $(nifties-file)
 
 define filechk_genifties
-	echo 100 | bc -q $(srctree)/kernel/nifties.bc
+	echo 1000 | bc -q $(srctree)/kernel/nifties.bc
 endef
 
 $(nifties-file): $(srctree)/kernel/nifties.bc FORCE

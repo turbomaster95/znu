@@ -31,6 +31,7 @@
 #include <sync.h>
 #include <net.h>
 #include <e1000.h>
+#include <generated/nifties.h>
 
 extern void hcf(void);
 extern struct limine_module_response *mod_res;
@@ -64,9 +65,9 @@ void kmain(void) {
 
     #ifdef CONFIG_KTEST
      debugln("[ktest] Testing sleep(2000)...");
-     uint64_t s_start = timer_ticks;
+     uint64_t s_start = nifties;
      sleep(2000);
-     uint64_t s_end = timer_ticks;
+     uint64_t s_end = nifties;
      debugln("[ktest] sleep(2000) finished. PIT ticks elapsed: %d", s_end - s_start);
      if (s_end - s_start != 2000) {
          debugwarn("sleep(2000) is not accurate!");
@@ -111,8 +112,6 @@ void kmain(void) {
        } else {
            net_init();
        }
-    #else
-       net_init();
     #endif
 
     // sleep(1000);
