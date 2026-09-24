@@ -1,6 +1,6 @@
 # Znu
 
-[<img src="https://raw.githubusercontent.com/turbomaster95/znu/refs/heads/main/Documentation/images/nori.png" width="250" align="right" alt="Nori">]()
+[<img src="https://raw.githubusercontent.com/turbomaster95/znu/refs/heads/main/Documentation/images/nori.png" width="250" align="right" alt="Nori" title="This is Znu's mascot, Nori!">]()
 
 Znu is a modular, SMP-capable kernel and operating-system project, primarily targeting x86_64. It is written mainly in C with architecture-specific assembly and a small amount of supporting tooling.
 
