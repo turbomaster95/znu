@@ -4,12 +4,10 @@ import sys
 import struct
 import os
 
-# --- Magics & Markers from your limine.h ---
 COMMON_MAGIC = [0xc7b1dd30df4c8b88, 0x0a82e883a194f07b]
 START_MARKER = [0xf6b8f4b39de7d1ae, 0xfab91a6940fcb9cf]
 END_MARKER   = [0xadc0e0531bb10d03, 0x9572709f31764c62]
 
-# --- Request ID Mapping ---
 REQUESTS = {
     0xf55038d8e2a1202f: "Bootloader Info",
     0x4b161536e598651e: "Executable Cmdline",
@@ -41,11 +39,9 @@ def parse_kernel(bin_path):
         print(f"Error: File '{bin_path}' not found.")
         return
 
-    print(f"--- Analyzing Limine Requests for Znu ---")
     temp_file = "/tmp/limine_section.bin"
 
     try:
-        # Extract the specific section as a raw binary blob
         subprocess.run(
             ["objcopy", "-O", "binary", "-j", ".limine_requests", bin_path, temp_file],
             check=True, stderr=subprocess.DEVNULL
@@ -55,28 +51,23 @@ def parse_kernel(bin_path):
             data = f.read()
     except subprocess.CalledProcessError:
         print("Error: Could not find '.limine_requests' section.")
-        print("Check if your linker script uses KEEP(*(.limine_requests))")
         return
 
-    # Each request or marker is exactly 4 QWORDs (32 bytes)
     step = 8
     found_count = 0
 
     for i in range(0, len(data) - 31, step):
-        # Unpack 4 unsigned 64-bit integers (Little Endian)
         block = struct.unpack("<QQQQ", data[i:i+32])
         m1, m2, id1, id2 = block
 
-        # Check for Start/End Markers
         if list(block[:2]) == START_MARKER:
-            print(f"[{hex(i).ljust(5)}] START_MARKER detected.")
+            print(f"[{hex(i).ljust(5)}] START_MARKER")
             continue
         
         if list(block[:2]) == END_MARKER:
-            print(f"[{hex(i).ljust(5)}] END_MARKER detected.")
+            print(f"[{hex(i).ljust(5)}] END_MARKER")
             continue
 
-        # Check for actual requests using COMMON_MAGIC
         if m1 == COMMON_MAGIC[0] and m2 == COMMON_MAGIC[1]:
             req_name = REQUESTS.get(id1, f"Unknown Request ({hex(id1)})")
             print(f"[{hex(i).ljust(5)}] FOUND: {req_name}")

@@ -251,25 +251,6 @@ See:
 - `Documentation/kbuild/kconfig-language.txt`
 - `Documentation/kbuild/makefiles.txt`
 
-## Configuration
-
-Important top-level configuration switches include:
-
-- `CLANG`
-- `CROSS_COMPILE`
-- `GENERATE_ISO`
-- `ISO_MULTI`
-- `ISO_BIOS`
-- `ISO_UEFI`
-- `SMP`
-- `MODULES`
-- `KTEST`
-- `BGA`
-- `E1000`
-- `AHCI`
-
-The checked-in default configuration is under `configs/defconfig`.
-
 ## Documentation map
 
 - `Documentation/README.md` - documentation index
@@ -292,6 +273,8 @@ The checked-in default configuration is under `configs/defconfig`.
 
 This Project is licensed under the Nicense 1.1.
 See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+Znu's mascot, Nori, was initially designed by [NekoMimiOfficial](https://github.com/NekoMimiOfficial)
 
 ## Used Languages
 
