@@ -200,7 +200,7 @@ ifneq ($(CONFIG_CLANG), y)
 else
   AS      = llvm-as
   LD      = ld
-  CC      = clang --target=x86_64-elf
+  CC      = clang
   CPP     = $(CC) -E
   AR      = llvm-ar
   NM      = llvm-nm
@@ -224,8 +224,17 @@ CPIO		= cpio
 BISON		= bison
 FLEX		= flex
 
-SRCARCH		= x86
-ARCH		= $(SRCARCH)
+ARCH		?= x86
+
+ifeq ($(ARCH),arm64)
+    CC += --target=aarch64-elf
+else ifeq ($(ARCH),x86)
+    CC += --target=x86_64-elf
+endif   
+
+ifeq ($(ARCH),x86)
+    CFLAGS += -mno-mmx -mno-sse -mno-sse2 -mcmodel=large -mno-red-zone
+endif   
 
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
@@ -251,7 +260,7 @@ LINUXINCLUDE    := -Iinclude \
 KBUILD_CPPFLAGS := -D__KERNEL__ -include $(srctree)/include/prelude.h
 KBUILD_CPPFLAGS += -I$(srctree)/lib/libc/include -I$(srctree)/arch/$(ARCH)/include -I$(srctree)/drivers/include
 
-KBUILD_CFLAGS   := -Wall -Wno-unused-function -Wno-undef -Wno-array-compare -Wno-address-of-packed-member -Wno-infinite-recursion -Wno-unused-variable -Wno-format-truncation -Wno-misleading-indentation -Wno-undef -Wstrict-prototypes -Wno-trigraphs -mno-mmx -mno-sse -mno-sse2 \
+KBUILD_CFLAGS   := -Wall -Wno-unused-function -Wno-undef -Wno-array-compare -Wno-address-of-packed-member -Wno-infinite-recursion -Wno-unused-variable -Wno-format-truncation -Wno-misleading-indentation -Wno-undef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common -Wno-incompatible-pointer-types -fno-pic -fno-PIC -fno-PIE -fno-pie \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \

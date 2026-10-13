@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <stddef.h>
+#include <stdbool.h>
 #include <limine.h>
 
 extern uint64_t hhdm_offset;

@@ -200,6 +200,23 @@ $(obj)/%.o: $(src)/%.S FORCE
 	$(call if_changed,as_o_S)
 
 
+# Compile GAS assembler sources (.asm)
+# ---------------------------------------------------------------------------
+
+modkern_aflags := $(KBUILD_AFLAGS_KERNEL) $(AFLAGS_KERNEL)
+
+quiet_cmd_as_Asm_asm = CPP $(quiet_modtag) $@
+cmd_as_Asm_asm       = $(CPP) $(a_flags)   -o $@ $< 
+
+$(obj)/%.Asm: $(src)/%.asm FORCE
+	$(call if_changed_dep,as_Asm_asm)
+
+quiet_cmd_as_o_asm = AS $(quiet_modtag)  $@
+      cmd_as_o_asm = $(CC) $(a_flags) -c -o $@ $<
+
+$(obj)/%.o: $(src)/%.asm FORCE
+	$(call if_changed,as_o_asm)
+
 # Compile flat assembler sources and wrap into an ELF64 object file (.asmflat -> .bin -> .o)
 # ---------------------------------------------------------------------------
 

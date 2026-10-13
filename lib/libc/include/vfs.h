@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #define VFS_FILE      1
 #define VFS_DIRECTORY 2

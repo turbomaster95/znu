@@ -4,4 +4,4 @@ KBUILD_CPPFLAGS += -I$(srctree)/include -I$(srctree)/lib/libc/include -I$(srctre
 
 export KBUILD_CPPFLAGS KBUILD_CFLAGS
 
-obj-y += x86/
+obj-y += $(ARCH)/

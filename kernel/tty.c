@@ -76,7 +76,7 @@ size_t tty_read(tty_t* tty, char* buf, size_t count, bool nonblock) {
     if (!tty || !buf || count == 0)
         return 0;
 
-    stac();
+    _uaccess_begin();
     size_t got = 0;
 
     #ifdef KRNLDBG
@@ -98,7 +98,7 @@ size_t tty_read(tty_t* tty, char* buf, size_t count, bool nonblock) {
             #endif
 
             if (nonblock) {
-                clac();
+                _uaccess_end();
                 return got;
             }
 
@@ -140,7 +140,7 @@ size_t tty_read(tty_t* tty, char* buf, size_t count, bool nonblock) {
                 break;
         }
     }
-    clac();
+    _uaccess_end();
     return got;
 }
 
@@ -149,7 +149,7 @@ long tty_write(tty_t* tty, const char* buf, size_t count) {
     if (!tty || !buf)
         return -1;
 
-    stac(); // THIS FRICKS UP SMAP AND KILLS THE KERNEL PLS DONT REMOVE!!
+    _uaccess_begin(); // THIS FRICKS UP SMAP AND KILLS THE KERNEL PLS DONT REMOVE!!
     for (size_t i = 0; i < count; i++) {
        char c = buf[i];
 
@@ -161,7 +161,7 @@ long tty_write(tty_t* tty, const char* buf, size_t count) {
        terminal_putchar(c);
        debug_putcharn(c);
     }
-    clac(); // SAME AS STAC();
+    _uaccess_end(); // SAME AS _uaccess_begin();
 
     return (long)count;
 }
@@ -187,7 +187,7 @@ static int tty_vfs_read(vfs_node_t* node,
     bool nonblock = false;
 
     if (current_process) {
-        for (int i = 0; i < 32; i++) { // Fallback to your standard descriptor cap (usually 32 or 64)
+        for (int i = 0; i < 32; i++) {
             vfs_file_t* f = current_process->files[i];
             if (f && f->node == node) {
                 nonblock = (f->flags & 0x800) ? true : false; // O_NONBLOCK = 0x800

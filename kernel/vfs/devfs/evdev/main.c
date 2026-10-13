@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <vfs.h>
 #include <page.h>
+#include <string.h>
 
 extern vfs_node_t* dev_root;
 vfs_node_t* ev_root = NULL;

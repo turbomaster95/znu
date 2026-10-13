@@ -221,6 +221,8 @@ void earlykmain(void) {
     gdt_init_core(0);
     debugln("[gdt] GDT initialized");
 
+    cs_reg = 0;
+
     __asm__ volatile("mov %%cs, %0" : "=r"(cs_reg));
     debugln("[kernel] CS after GDT Init: 0x%x", cs_reg);
 

@@ -1,28 +1,15 @@
 #ifndef _PRELUDE_H
 #define _PRELUDE_H
 
-#include <cpuid.h>
+#include <stdint.h>
+#include <stddef.h>
 
 #define PERFORM __attribute__((no_sanitize("undefined", "address", "thread"), noinline))
 
 #define likely(x)      __builtin_expect(!!(x), 1)
 #define unlikely(x)    __builtin_expect(!!(x), 0)
 
-static inline void stac(void) {
-    if (cpu_has(SMAP_SUPPORT)) {
-    	asm volatile("stac" ::: "cc");
-    } else {
-	// do nothing here bc it's probs a old machine or qemu without kvm or any accel lol
-    }
-}
-
-static inline void clac(void) {
-    if (cpu_has(SMAP_SUPPORT)) {
-        asm volatile("clac" ::: "cc");
-    } else {
-	// do nothing here bc it's probs a old machine or qemu without kvm or any accel lol
-    } 
-}
+#include <arch/prelude.h>
 
 extern uint8_t* framebuffer_addr;
 extern size_t framebuffer_size;
