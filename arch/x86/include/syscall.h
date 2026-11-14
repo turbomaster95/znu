@@ -8,19 +8,12 @@
 #define MSR_FS_BASE        0xC0000100
 
 typedef struct {
-    char name[128];
-    uint32_t type;
-    uint32_t size;
-} znu_dirent_t;
-
-typedef struct {
     uint64_t kernel_stack;
     uint64_t user_stack_scratch;
     uint64_t user_rdx_scratch;
 } cpu_context_t;
 
-void syscall_init(void);
-void gs_init(uintptr_t stack_top);
-void enable_syscalls(void);
+void x86_64_syscall_init(void);
+void x86_64_gs_init(uintptr_t stack_top);
 
 #endif

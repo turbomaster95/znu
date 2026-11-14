@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <gdt.h>
 #include <syscall.h>
+#include <regs.h>
 
 extern void     jump_to_usermode(uintptr_t entry, uintptr_t stack);
 extern uint64_t *kernel_pml4;

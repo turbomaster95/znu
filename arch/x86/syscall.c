@@ -15,6 +15,7 @@
 #include <elf.h>
 #include <fcntl.h>
 #include <entropy.h>
+#include <regs.h>
 
 extern void hcf(void);
 extern void enable_nx_bit(void);
@@ -45,15 +46,6 @@ static bool is_user_addr(void* ptr, size_t len) {
     return true;
 }
 
-void enable_syscalls(void) {
-    uint32_t low, high;
-    asm volatile("rdmsr" : "=a"(low), "=d"(high) : "c"(EFER_MSR));
-
-    low |= EFER_SCE;
-
-    asm volatile("wrmsr" : : "a"(low), "d"(high), "c"(EFER_MSR));
-}
-
 cpu_context_t main_cpu_context;
 
 void gs_init(uintptr_t kernel_stack_top) {
@@ -68,7 +60,7 @@ void gs_init(uintptr_t kernel_stack_top) {
     debugln("[sys] GS Shadow initialized to %p", (void*)addr);
 }
 
-void syscall_init(void) {
+void x86_64_syscall_init(void) {
     uint32_t lo, hi;
 
     uint32_t kernel_base = 0x08;
@@ -86,6 +78,13 @@ void syscall_init(void) {
     // Enables the No-Execute bit in the EFER register so we can set pages to not be able to be executed
     enable_nx_bit();
     debugln("[sys] Syscall MSRs initialized.");
+
+    uint32_t low, high;
+    asm volatile("rdmsr" : "=a"(low), "=d"(high) : "c"(EFER_MSR));
+
+    low |= EFER_SCE;
+
+    asm volatile("wrmsr" : : "a"(low), "d"(high), "c"(EFER_MSR));
 }
 
 long sys_read(int fd, void* buf, size_t count) {

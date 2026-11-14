@@ -136,7 +136,6 @@ void kmain(void) {
     tty_init();
     debugln("[tty] Initialized tty");
 
-    enable_syscalls();
     syscall_init();
     gs_init(stack_top);
 

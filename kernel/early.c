@@ -1,4 +1,3 @@
-#include <rtc.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -6,18 +5,12 @@
 #include <stdlib.h>
 #include <kernel/display.h>
 #include <kernel/tty.h>
-#include <idt.h>
-#include <lapic.h>
-#include <pi.h>
 #include <page.h>
 #include <uacpi/uacpi.h>
 #include <timekeeper.h>
 #include <elf.h>
 #include <syscall.h>
-#include <gdt.h>
 #include <proc.h>
-#include <x86.h>
-#include <cpuid.h>
 #include <kernel.h>
 #include <sync.h>
 #include <symbols.h>
@@ -99,21 +92,15 @@ volatile uint64_t limine_requests_end_marker[] = LIMINE_REQUESTS_END_MARKER;
 
 _Noreturn void hcf(void) {
     for (;;) {
-        asm ("hlt");
+       arch_halt();
     }
-}
-
-void force_sync(void* addr) {
-    volatile uint32_t* fb = (volatile uint32_t*)addr;
-    uint32_t dummy = *fb; // Force a read
-    (void)dummy;
 }
 
 uint64_t* kernel_pml4;
 struct limine_rsdp_response *rsdp_response = NULL;
 struct limine_module_response *mod_res = NULL;
 
-volatile bool screen_lock = false; 
+volatile bool screen_lock = false;
 
 void lock_screen(void) { screen_lock = true; }
 void unlock_screen(void) { screen_lock = false; }
@@ -189,9 +176,6 @@ void earlykmain(void) {
 
     terminal_initialize();
     vmm_ready = true;
-
-    debugln("Test Log for KVM and others.");
-    force_sync(framebuffer->address);
 
     // Shows the current cmdline from Limine
     if (cmdline_request.response == NULL || 

@@ -7,6 +7,8 @@ if [ -z "$SRCTREE" ]; then
     SRCTREE="."
 fi
 
+ARCHFLAGS=$2
+
 # In Kbuild, we execute from the OBJTREE (the build folder)
 OBJTREE=$PWD
 CONF="include/config/auto.conf"
@@ -66,7 +68,7 @@ for f in $FILES; do
         -include "$SRCTREE/lib/libc/include/string.h" \
         -include "$SRCTREE/lib/libc/include/ctype.h" \
         -D__is_libk -DFLANTERM_FB_DISABLE_BUMP_ALLOC \
-        -ffreestanding -nostdinc -fno-stack-protector -mcmodel=kernel -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -fno-pic -fno-PIC -fno-PIE -fno-pie; then
+        -ffreestanding -nostdinc -fno-stack-protector $ARCHFLAGS -fno-pic -fno-PIC -fno-PIE -fno-pie; then
         NEW_FILES_COMPILED=true
     else
         echo "  ERROR: Failed to compile $f"

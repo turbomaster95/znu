@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <idt.h>
+#include <regs.h>
 #include <vfs.h>
 #include <vfse.h>
 

@@ -2,6 +2,7 @@
 #include <page.h>
 #include <string.h>
 #include <stdlib.h>
+#include <regs.h>
 
 extern uint64_t* kernel_pml4;
 extern uint64_t get_timer_ticks(void);

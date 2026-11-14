@@ -1,5 +1,5 @@
 KBUILD_CFLAGS += -ffreestanding -nostdinc -isystem $(shell $(CC) -print-file-name=include)
-KBUILD_CFLAGS += -mcmodel=large -mno-red-zone -Wno-return-type -Wno-format-security -fsanitize=undefined -fno-sanitize-recover=all
+KBUILD_CFLAGS += -mno-red-zone -Wno-return-type -Wno-format-security -fsanitize=undefined -fno-sanitize-recover=all
 
 KBUILD_CPPFLAGS += -I$(srctree)/include -I$(srctree)/lib/libc/include -I$(srctree)/arch/$(ARCH)/include -I$(srctree)/lib/uacpi/include/ -I$(srctree)/drivers/include
 KBUILD_CPPFLAGS += -DUACPI_OVERRIDE_LIBC -DUACPI_NATIVE_ALLOC_ZEROED -DUACPI_FORMATTED_LOGGING

@@ -10,6 +10,7 @@
 #include <symbols.h>
 #include <kernel.h>
 #include <mailbox.h>
+#include <regs.h>
 
 extern void hcf(void);
 struct idt_entry idt[256] __attribute__((aligned(16)));

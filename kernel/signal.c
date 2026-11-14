@@ -1,6 +1,6 @@
 #include <proc.h>
 #include <string.h>
-#include <idt.h>
+#include <regs.h>
 
 void kernel_signal_raise(process_t* proc, int signum) {
     if (!proc || signum <= 0 || signum >= 64) return;

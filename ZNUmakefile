@@ -233,7 +233,8 @@ else ifeq ($(ARCH),x86)
 endif   
 
 ifeq ($(ARCH),x86)
-    CFLAGS += -mno-mmx -mno-sse -mno-sse2 -mcmodel=large -mno-red-zone
+    ARCH_CFLAGS += -mno-mmx -mno-sse -mno-sse2 -mcmodel=large -mno-red-zone
+    CFLAGS += $(ARCH_CFLAGS)
 endif   
 
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
