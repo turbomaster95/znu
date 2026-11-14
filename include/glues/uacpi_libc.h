@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdio.h>
+#include <stddef.h>
 
 #define uacpi_memcpy memcpy
 #define uacpi_memset memset

@@ -16,6 +16,7 @@
 #include <timekeeper.h>
 #include <uacpi/sleep.h>
 #include <sync.h>
+#include <proc.h>
 
 extern struct limine_rsdp_request *rsdp_request;
 extern void hcf(void);
@@ -291,6 +292,71 @@ void uacpi_kernel_unlock_spinlock(uacpi_handle handle, uacpi_cpu_flags flags) {
 
 typedef struct {
     semaphore_t sem;
+} znu_uacpi_semaphore_t;
+
+uacpi_handle uacpi_kernel_create_semaphore(uacpi_u32 initial_units) {
+    if (initial_units > 0x7FFFFFFF)
+        return UACPI_NULL;
+
+    znu_uacpi_semaphore_t *sem = kmalloc(sizeof(znu_uacpi_semaphore_t));
+    if (!sem)
+        return UACPI_NULL;
+
+    semaphore_init(&sem->sem, (int32_t)initial_units);
+    return (uacpi_handle)sem;
+}
+
+void uacpi_kernel_free_semaphore(uacpi_handle handle) {
+    if (!handle)
+        return;
+
+    kfree((znu_uacpi_semaphore_t *)handle);
+}
+
+uacpi_status uacpi_kernel_wait_for_semaphore(uacpi_handle handle, uacpi_u16 timeout) {
+    if (!handle)
+        return UACPI_STATUS_INVALID_ARGUMENT;
+
+    znu_uacpi_semaphore_t *sem = (znu_uacpi_semaphore_t *)handle;
+
+    if (timeout == 0xFFFF) {
+        semaphore_wait(&sem->sem);
+        return UACPI_STATUS_OK;
+    }
+
+    if (timeout == 0)
+        return semaphore_try_wait(&sem->sem) ? UACPI_STATUS_OK : UACPI_STATUS_TIMEOUT;
+
+    uint64_t start_ms = timekeeper_timefromboot() / 1000000;
+
+    while (!semaphore_try_wait(&sem->sem)) {
+        if ((timekeeper_timefromboot() / 1000000) - start_ms >= timeout)
+            return UACPI_STATUS_TIMEOUT;
+
+        if (current_process)
+            sleep(1);
+        else
+            __asm__ volatile("pause");
+    }
+
+    return UACPI_STATUS_OK;
+}
+
+void uacpi_kernel_signal_semaphore(uacpi_handle handle) {
+    if (!handle)
+        return;
+
+    znu_uacpi_semaphore_t *sem = (znu_uacpi_semaphore_t *)handle;
+    uint64_t flags = spinlock_irq_save(&sem->sem.lock);
+
+    if (sem->sem.count < 0x7FFFFFFF)
+        sem->sem.count++;
+
+    spinlock_irq_restore(&sem->sem.lock, flags);
+}
+
+typedef struct {
+    semaphore_t sem;
     volatile bool signaled;
 } uacpi_event_t;
 
@@ -352,12 +418,39 @@ uacpi_status uacpi_kernel_uninstall_interrupt_handler(
     return UACPI_STATUS_OK;
 }
 
-uacpi_status uacpi_kernel_schedule_work(uacpi_work_type type, uacpi_work_handler handler, uacpi_handle ctx) {
+static spinlock_t uacpi_work_lock = SPINLOCK_INIT;
+static volatile uint64_t uacpi_active_work = 0;
+
+void uacpi_kernel_schedule_work(uacpi_work_type type, uacpi_handle work_item, uacpi_work_handler handler, uacpi_handle ctx) {
+    (void)type;
+    (void)work_item;
+
+    uint64_t flags = spinlock_irq_save(&uacpi_work_lock);
+    uacpi_active_work++;
+    spinlock_irq_restore(&uacpi_work_lock, flags);
+
     handler(ctx);
-    return UACPI_STATUS_OK;
+
+    flags = spinlock_irq_save(&uacpi_work_lock);
+    uacpi_active_work--;
+    spinlock_irq_restore(&uacpi_work_lock, flags);
 }
 
-uacpi_status uacpi_kernel_wait_for_work_completion(void) { return UACPI_STATUS_OK; }
+uacpi_status uacpi_kernel_wait_for_work_completion(void) {
+    while (1) {
+        uint64_t flags = spinlock_irq_save(&uacpi_work_lock);
+        bool complete = (uacpi_active_work == 0);
+        spinlock_irq_restore(&uacpi_work_lock, flags);
+
+        if (complete)
+            return UACPI_STATUS_OK;
+
+        if (current_process)
+            sleep(1);
+        else
+            __asm__ volatile("pause");
+    }
+}
 
 uacpi_thread_id uacpi_kernel_get_thread_id(void) { return (uacpi_thread_id)1; }
 
@@ -428,6 +521,16 @@ uacpi_interrupt_state uacpi_kernel_disable_interrupts(void) {
 
 void uacpi_kernel_restore_interrupts(uacpi_interrupt_state flags) {
     __asm__ volatile("push %0; popf" : : "rm"(flags) : "memory", "cc");
+}
+
+static uint8_t uacpi_work_item_sentinel;
+
+uacpi_handle uacpi_kernel_create_work_item(void) {
+    return (uacpi_handle)&uacpi_work_item_sentinel;
+}
+
+void uacpi_kernel_free_work_item(uacpi_handle work_item) {
+    (void)work_item;
 }
 
 uacpi_status uacpi_kernel_initialize(uacpi_init_level current_init_lvl) {

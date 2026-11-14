@@ -3,22 +3,22 @@
         "lib/flanterm": {
             "url": "https://github.com/Mintsuki/Flanterm",
             "branch": "trunk",
-            "hash": "3e311fe2ce4f663273c22d1a229745bc53afa930"
+            "hash": "0b7b2e32b8e1f4a539d488aa3405b73f078071ad"
         },
         "user/dash": {
             "url": "https://git.kernel.org/pub/scm/utils/dash/dash.git",
             "branch": "master",
-            "hash": "037bbdfd330017c368caf6242f977974123239b5"
+            "hash": "0a896bfccbefdd5e79ae8ef6061f7e17e20c03f4"
         },
         "scripts/limine": {
             "url": "https://github.com/limine-bootloader/limine",
             "branch": "v12.x",
-            "hash": "34fe53c3d27d229ea25c28fc3e04db362543715b"
+            "hash": "033b59788039d5aec35ced33082f23388ab33cda"
         },
         "lib/uacpi": {
             "url": "https://github.com/uACPI/uACPI",
             "branch": "master",
-            "hash": "f5f6cc29f85dd5db0dd79c47700c8f3ebce18be4"
+            "hash": "c0edecef62bcac6ce3f783540099190bafadadda"
         },
         "lib/ulibc/third-party/zline": {
             "url": "https://github.com/turbomaster95/zline",
@@ -28,7 +28,7 @@
         "lib/musl": {
             "url": "git://git.musl-libc.org/musl",
             "branch": "master",
-            "hash": "5e9972eaef08ccf55dabe254ac829a30329793d3"
+            "hash": "7813e9119eb5fe681b6750b8a033a0490bca0941"
         },
         "lib/fatfs": {
             "url": "https://github.com/abbrev/fatfs",
@@ -38,7 +38,7 @@
         "kernel/filters/external/nosry": {
             "url": "https://github.com/turbomaster95/nosry",
             "branch": "main",
-            "hash": "8e01115780e498b9feb67e03a93c72913a7665e3"
+            "hash": "e94c267bbeb8c8b784c0e0c7a035cbc37e58ee0f"
         }
     }
 }

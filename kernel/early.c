@@ -134,6 +134,9 @@ void earlykmain(void) {
     disable_smap();
     debugln("Disabled SMAP");
 
+    simd_init();
+    debugln("[simd] Initialized SIMD");
+
     debugln("[rng] About to seed!");
     seed_from_hardware();
     debugln("[rng] Seeded RNG with hardware noise!");
@@ -161,8 +164,6 @@ void earlykmain(void) {
         debugerr("Memmap request response is NULL!");
         hcf();
     }
-
-    simd_init();
 
     // Ensure we got a framebuffer.
     if (framebuffer_request.response == NULL

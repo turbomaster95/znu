@@ -1,6 +1,8 @@
 #ifndef ARCH_PRELUDE
 #define ARCH_PRELUDE
 
+#include <cpuid.h>
+
 static inline void stac(void) {
     if (cpu_has(SMAP_SUPPORT)) {
         asm volatile("stac" ::: "cc");
