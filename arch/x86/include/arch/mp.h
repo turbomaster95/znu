@@ -1,5 +1,5 @@
-#ifndef SMP_H
-#define SMP_H
+#ifndef MP_H
+#define MP_H
 
 #include <stdint.h>
 #include <stddef.h>
@@ -27,9 +27,5 @@ typedef struct {
 extern kernel_cpu_core_t g_cpu_cores[MAX_CORES];
 extern size_t g_cpu_core_count;
 extern uint32_t g_lapic_physical_address;
-
-void smp_discover_topology(void);
-void smp_init(void);
-void smp_boot_core(uint8_t apic_id);
 
 #endif

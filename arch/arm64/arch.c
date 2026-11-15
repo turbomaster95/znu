@@ -26,8 +26,7 @@ void arch_timer_init(uint32_t frequency) {
     (void)frequency;
 }
 
-void arch_pat_init(void) {
-}
+void arch_pat_init(void) {}
 
 void arch_map_local_irq(uint64_t *pml4) {
     (void)pml4;
@@ -99,3 +98,4 @@ void arch_yield(void) {
    __asm__ volatile("yield" ::: "memory");
 }
 
+void arch_main_init(void) {}

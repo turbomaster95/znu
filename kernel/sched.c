@@ -4,8 +4,6 @@
 #include <page.h>
 #include <stdlib.h>
 #include <syscall.h>
-#include <gdt.h>
-#include <lapic.h>
 #include <regs.h>
 
 extern void force_context_restore(registers_t* regs) __attribute__((noreturn));

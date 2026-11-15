@@ -131,3 +131,46 @@ _Noreturn void arch_halt(void) {
         __asm__ volatile("hlt");
     }
 }
+
+void arch_main_init(void) {
+    lapic_init(0);
+    debugln("[lapic] LAPIC initialized.");
+
+    ps2_init();
+
+    serial_init();
+    
+    debugln("[lapic] LAPIC calibrated: %u ticks/ms", lapic_ticks_per_ms);
+
+    arch_disable_interrupts();
+    pit_init(1000);
+    outb(0x21, 0xFD);
+    arch_enable_interrupts();
+
+    debugln("[lapic] Starting LAPIC periodic timer...");
+    lapic_write(LAPIC_REG_DIVIDE_CONF, 0x3);
+    lapic_write(LAPIC_REG_LVT_TIMER, LAPIC_TIMER_VECTOR | (1 << 17));
+    lapic_write(LAPIC_REG_INITIAL_COUNT,lapic_ticks_per_ms);
+    debugln("[lapic] LAPIC timer armed.");
+}
+
+void arch_basic_init(void) {
+    debugln("[kernel] Starting uACPI...");
+
+    uacpi_status status = uacpi_initialize(UACPI_LOG_DEBUG);
+    if (status != UACPI_STATUS_OK) {
+        debugerr("[ERROR] uACPI init failed: %s", uacpi_status_to_string(status));
+        arch_halt();
+    }
+    //debugln("[kernel] uACPI Initialized!");
+
+    status = uacpi_namespace_load();
+    if (status != UACPI_STATUS_OK) {
+        debugerr("[ERROR] Namespace load failed!");
+    }
+    //debugln("[kernel] uACPI Namespace Loaded!");
+
+    //debugln("[kernel_debug] About to initialize namespace..");
+    status = uacpi_namespace_initialize();
+    debugln("[SUCCESS] uACPI is live.");
+}

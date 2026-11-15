@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <uacpi/uacpi.h>
 
 // This file contains definitions of functions called by kmain, but who don't necessarily need their own .h files.
 // The arch-specific counterpart of this is at arch/x86/include/x86.h
@@ -22,15 +21,11 @@ int serial_received(void);
 void calibrate_lapic_timer_no_irq(void);
 int lz4_unframe(const uint8_t* source, uint8_t* dest, size_t input_size, size_t max_output);
 void jump_to_usermode(uintptr_t entry, uintptr_t stack);
-void draw_kernel_gui(void);
-extern uacpi_status init_acpi(void);
-extern void kernel_reboot(void);
-extern void lapic_timer_test(void);
+void kernel_reboot(void);
+void kernel_shutdown(void);
+void lapic_timer_test(void);
 void parse_cmdline(char *cmdline);
 bool boot_get_flag(const char *key);
 const char* boot_get_value(const char *key);
-int rump_init(void);
-void rump_schedule(void);
-void rump_unschedule(void);
 
 #endif

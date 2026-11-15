@@ -6,7 +6,7 @@
 #define CAT_PINK      0xf5c2e7
 #define CAT_MAUVE     0xcba6f7
 #define CAT_RED       0xf38ba8
-#define CAT_MAROON    0 eba0ac
+#define CAT_MAROON    0xeba0ac
 #define CAT_PEACH     0xfab387
 #define CAT_YELLOW    0xf9e2af
 #define CAT_GREEN     0xa6e3a1

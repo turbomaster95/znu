@@ -16,9 +16,11 @@ void arch_system_init(void);
 void arch_timer_start(void);
 void arch_uaccess_enable(void);
 bool arch_has_acpi(void);
-void arch_smp_init(void);
+void arch_mp_init(void);
 void arch_syscall_init(uintptr_t stack_top);
 void arch_yield(void);
+void arch_main_init(void);
+void arch_basic_init(void);
 _Noreturn void arch_enter_usermode(uint64_t *pml4, uintptr_t kstack_top,
                                    uintptr_t entry, uintptr_t stack);
 #endif

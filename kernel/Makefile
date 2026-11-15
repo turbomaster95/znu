@@ -13,7 +13,9 @@ export KBUILD_LDFLAGS
 obj-y := early.o
 obj-y += main.o
 obj-y += ubsan.o
-obj-y += acpi.o
+ifeq ($(ARCH),x86)
+   obj-y += acpi.o
+endif
 obj-y += keyboard.o
 obj-y += sched.o
 obj-y += nifties.o
