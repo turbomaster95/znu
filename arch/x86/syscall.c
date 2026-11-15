@@ -48,7 +48,7 @@ static bool is_user_addr(void* ptr, size_t len) {
 
 cpu_context_t main_cpu_context;
 
-void gs_init(uintptr_t kernel_stack_top) {
+void x86_64_gs_init(uintptr_t kernel_stack_top) {
     main_cpu_context.kernel_stack = kernel_stack_top;
     main_cpu_context.user_stack_scratch = 0;
 
@@ -58,6 +58,17 @@ void gs_init(uintptr_t kernel_stack_top) {
     wrmsr(MSR_KERNEL_GS_BASE, 0, 0); 
 
     debugln("[sys] GS Shadow initialized to %p", (void*)addr);
+}
+
+void gs_init(uintptr_t kernel_stack_top) {
+    x86_64_gs_init(kernel_stack_top);
+}
+
+void syscall_init(void) {
+    x86_64_syscall_init();
+}
+
+void enable_syscalls(void) {
 }
 
 void x86_64_syscall_init(void) {

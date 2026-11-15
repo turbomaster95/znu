@@ -1,43 +1,27 @@
-#include <stdlib.h>
-
-#define COM1 0x3F8
+#include <arch/serial.h>
 
 void serial_init(void) {
-    outb(COM1 + 1, 0x00);    // Disable all interrupts
-    outb(COM1 + 3, 0x80);    // Enable DLAB (set baud rate divisor)
-    outb(COM1 + 0, 0x03);    // Set divisor to 3 (38400 baud)
-    outb(COM1 + 1, 0x00);
-    outb(COM1 + 3, 0x03);    // 8 bits, no parity, one stop bit
-    outb(COM1 + 2, 0xC7);    // Enable FIFO, clear them, with 14-byte threshold
-    outb(COM1 + 4, 0x0B);    // IRQs enabled, RTS/DSR set
+    arch_serial_init();
 }
 
 int serial_received(void) {
-    return inb(COM1 + 5) & 1;
+    return arch_serial_received();
 }
 
 char serial_read(void) {
-    while (serial_received() == 0);
-    return inb(COM1);
+    return arch_serial_read();
 }
 
 int serial_read_nonblock(char* buf, int count) {
-    int i = 0;
-    while (i < count && serial_received()) {
-        buf[i++] = inb(COM1);
-    }
-    return i;
+    return arch_serial_read_nonblock(buf, count);
 }
 
 int is_transmit_empty(void) {
-    return inb(COM1 + 5) & 0x20;
+    return arch_serial_tx_empty();
 }
 
 void serial_putchar(char c) {
-    while (is_transmit_empty() == 0) {
-        __asm__ volatile("pause");
-    }
-    outb(COM1, c);
+    arch_serial_putc(c);
 }
 
 void serial_write_string(const char* str) {

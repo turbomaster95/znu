@@ -3,6 +3,7 @@
 #include <mailbox.h>
 #include <net.h>
 #include <e1000.h>
+#include <string.h>
 
 extern uint8_t my_gw[4];
 

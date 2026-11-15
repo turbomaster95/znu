@@ -20,7 +20,6 @@ spinlock_t terminal_print_lock = SPINLOCK_INIT;
 bool krnl_init_done = false;
 
 extern void kmain(void);
-extern void simd_init(void);
 
 __attribute__((used, section(".limine_requests")))
 volatile uint64_t limine_base_revision[] = LIMINE_BASE_REVISION(5);
@@ -118,14 +117,10 @@ void earlykmain(void) {
         hcf();
     }
 
-    disable_smap();
-    debugln("Disabled SMAP");
-
-    simd_init();
-    debugln("[simd] Initialized SIMD");
+    arch_early_init();
 
     debugln("[rng] About to seed!");
-    seed_from_hardware();
+    arch_seed_entropy();
     debugln("[rng] Seeded RNG with hardware noise!");
 
     __stack_chk_guard = (uintptr_t)rand() << 32 | rand();
@@ -172,7 +167,7 @@ void earlykmain(void) {
     framebuffer_pitch = framebuffer->pitch;
     framebuffer_bpp = framebuffer->bpp;
 
-    pat_init();
+    arch_pat_init();
 
     terminal_initialize();
     vmm_ready = true;
@@ -198,28 +193,13 @@ void earlykmain(void) {
     debugln("[kernel] Welcome to znu!");
     debugln("[tty] \033[1mGot a \033[1;31mC\033[1;33mO\033[1;32mL\033[1;34mO\033[1;35mR\033[0;1m Display?\033[0m");
 
-    uint16_t cs_reg;
-    __asm__ volatile("mov %%cs, %0" : "=r"(cs_reg));
-    debugln("[kernel] Current CS: 0x%x", cs_reg);
-
-    __asm__ volatile("cli");
-    gdt_init_core(0);
-    debugln("[gdt] GDT initialized");
-
-    cs_reg = 0;
-
-    __asm__ volatile("mov %%cs, %0" : "=r"(cs_reg));
-    debugln("[kernel] CS after GDT Init: 0x%x", cs_reg);
-
-    idt_global_init();
-    idt_local_load();
-    debugln("[idt] IDT initialized.");
+    arch_debug_cpu_info();
+    arch_interrupt_init();
 
     symbols_init();
 
-    // Initialize PIT
-    pit_init(1000);
-    debugln("[pit] PIT initialized for calibration.");
+    arch_timer_init(1000);
+    debugln("[timer] Timer initialized for calibration.");
 
     init_scheduler();
     debugln("[sched] Initialized Scheduler.");
@@ -227,10 +207,10 @@ void earlykmain(void) {
     debugln("[kernel] HHDM Offset: %p", hhdm_request.response->offset);
     debugln("[kernel] RSDP Address: %p", rsdp_request.response->address);
 
-    debugln("[kernel] About to map page");
-    debugln("[kernel_debug] PML4[511] is: %p", kernel_pml4[511]);
-    map_page(kernel_pml4, 0xffff8000fee00000, 0xfee00000, PTE_WRITABLE | PTE_CACHE_DISABLE);
-    debugln("[SUCCESS] Mapped page!");
+    debugln("[kernel] About to map local IRQ");
+    arch_debug_kernel_pml4(kernel_pml4);
+    arch_map_local_irq(kernel_pml4);
+    debugln("[SUCCESS] Mapped local IRQ!");
 
     rsdp_response = rsdp_request.response;
     mod_res = module_request.response;

@@ -18,7 +18,7 @@ void smp_enqueue_log(const char* str) {
     uint32_t slot = atomic_fetch_add(&g_queue_write_idx, 1) % LOG_QUEUE_SIZE;
 
     while (atomic_load(&g_log_queue[slot].ready) != 0) {
-        __asm__ volatile("pause");
+        arch_yield();
     }
 
     atomic_store(&g_log_queue[slot].ready, 1);

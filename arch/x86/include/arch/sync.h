@@ -1,5 +1,5 @@
-#ifndef _SYNC_H
-#define _SYNC_H
+#ifndef ARCH_SYNC_H
+#define ARCH_SYNC_H
 
 #include <stdint.h>
 #include <stdbool.h>

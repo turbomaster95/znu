@@ -1,21 +1,17 @@
 .global _start
-.global stack_top
-.global stack_bottom
 .extern earlykmain
-
-.bss
-.align 4
-stack_bottom:
-.space 32768
-stack_top:
+.extern stack_top
 
 .text
+.type _start, %function
 _start:
     adrp  x0, stack_top
     add   x0, x0, :lo12:stack_top
     mov   sp, x0
     mov   x29, sp
     bl    earlykmain
+1:
     wfi
+    b     1b
 
-    .size _start, . - _start   
+.size _start, . - _start

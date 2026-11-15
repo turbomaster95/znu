@@ -9,7 +9,6 @@
 #include <kernel/tty.h>
 #include <kernel/module.h>
 #include <kernel/initcall.h>
-#include <idt.h>
 #include <lapic.h>
 #include <symbols.h>
 #include <pi.h>

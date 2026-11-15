@@ -2,7 +2,9 @@
 #define _SYSCALL_H
 
 #include <stdint.h>
+#ifdef __KERNEL__
 #include <arch/syscall.h>
+#endif
 
 typedef struct {
     char name[128];
@@ -12,5 +14,6 @@ typedef struct {
 
 void syscall_init(void);
 void enable_syscalls(void);
+void gs_init(uintptr_t stack_top);
 
 #endif

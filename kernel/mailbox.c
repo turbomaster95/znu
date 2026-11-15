@@ -18,7 +18,7 @@ void mailbox_send_task(int cpu_id, ap_task_func func, void *arg) {
     if (cpu_id >= MAX_CPUS) return;
 
     while (__atomic_load_n(&mailboxes[cpu_id].task_pending, __ATOMIC_ACQUIRE)) {
-        __asm__ volatile("pause");
+        arch_yield();
     }
 
     mailboxes[cpu_id].func = func;

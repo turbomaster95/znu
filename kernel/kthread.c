@@ -14,12 +14,12 @@ static void kthread_trampoline(void)
     void (*fn)(void*) = (void (*)(void*))me->entry;
     void* arg = (void*)me->stack_top;
 
-    __asm__ volatile("sti");
+    arch_enable_interrupts();
 
     fn(arg);
 
     kthread_exit(0);
-    while (1) __asm__ volatile("hlt");
+    while (1) arch_halt();
 }
 
 process_t* kthread_create(void (*fn)(void*), void* arg, const char* name)

@@ -1,7 +1,9 @@
 KBUILD_CPPFLAGS += -I$(srctree)/arch/x86/include
+KBUILD_CFLAGS += -mno-red-zone
 
 obj-y += start.o
 obj-y += arch.o
+obj-y += serial.o
 obj-y += gdt.o
 obj-y += gdt_flush.o
 obj-y += idt.o

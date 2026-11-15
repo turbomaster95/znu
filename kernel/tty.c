@@ -1,3 +1,4 @@
+#include "arch/prelude.h"
 #include <termios.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -117,9 +118,9 @@ size_t tty_read(tty_t* tty, char* buf, size_t count, bool nonblock) {
         	        (void*)tty->waiting_reader);
 	    #endif
 
-            asm volatile("sti");
-            asm volatile("hlt");
-            asm volatile("cli");
+            arch_enable_interrupts();
+            arch_halt();
+            arch_disable_interrupts();
 
             if (current_process->state != TASK_READY) continue;
 	    #ifdef KRNLDBG

@@ -102,4 +102,4 @@ static inline uint64_t read_cr4(void) { return 0; }
 static inline void disable_smap(void) {}
 static inline void enable_smap(void) {}
 
-#endif   
+#endif

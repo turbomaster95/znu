@@ -1,8 +1,9 @@
 KBUILD_CPPFLAGS := -I$(src)/include -I$(src)/third-party/zline/
 KBUILD_CFLAGS := -Wno-builtin -Wno-unknown-warning-option
 CFLAGS_KERNEL :=
+LINUXINCLUDE := -I$(src)/include $(LINUXINCLUDE)
 
-export KBUILD_CPPFLAGS KBUILD_CPPFLAGS
+export KBUILD_CPPFLAGS KBUILD_CPPFLAGS LINUXINCLUDE
 
 always-y += stdio/built-in.a
 
