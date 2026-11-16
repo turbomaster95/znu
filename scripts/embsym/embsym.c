@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include <elf.h>
+#include "elf.h"
 
 int main(int argc, char **argv) {
     if (argc != 4) {
