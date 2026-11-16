@@ -6,6 +6,12 @@ extern "C" {
 #endif
 
 #include <stdint.h>
+#include <proc.h>
+
+/* Putting these functions here for easy access */
+void load_elf(uint8_t* elf_data);
+uint64_t* vmm_create_user_pml4(void);
+process_t* create_process_from_elf(uint8_t* elf_data, char** argv, char** envp);
 
 typedef uint16_t Elf32_Half;
 typedef uint16_t Elf64_Half;
