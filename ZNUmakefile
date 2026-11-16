@@ -191,6 +191,7 @@ ifneq ($(CONFIG_CLANG), y)
   AS      = $(CROSS_COMPILE)as
   LD      = $(CROSS_COMPILE)ld
   CC      = $(CROSS_COMPILE)gcc
+  CXX     = $(CROSS_COMPILE)g++
   CPP     = $(CC) -E
   AR      = $(CROSS_COMPILE)ar
   NM      = $(CROSS_COMPILE)nm
@@ -199,10 +200,11 @@ ifneq ($(CONFIG_CLANG), y)
   OBJDUMP = $(CROSS_COMPILE)objdump
 else
   AS      = llvm-as
-  LD      = ld
+  LD      = ld.lld
   CC      = clang
+  CXX     = clang++
   CPP     = $(CC) -E
-  AR      = llvm-ar
+  AR      = llvm-ar --format=gnu
   NM      = llvm-nm
   STRIP   = llvm-strip
   OBJCOPY = llvm-objcopy
@@ -210,7 +212,7 @@ else
 endif
 
 # This is used for the generation of built-in.a
-COMPAR		= ar
+COMPAR		?= $(AR)
 
 AWK		= awk
 PERL		= perl
@@ -229,7 +231,7 @@ ARCH		?= x86
 ifeq ($(ARCH),arm64)
     CC += --target=aarch64-elf
 else ifeq ($(ARCH),x86)
-    CC += --target=x86_64-elf
+    # CC += --target=x86_64-elf
 endif   
 
 ifeq ($(ARCH),x86)
@@ -238,8 +240,7 @@ endif
 
 ifeq ($(ARCH),arm64)
     ARCH_CFLAGS += -march=armv8-a
-    LD = ld.lld
-    LDFLAGS += -fuse-ld=lld
+    KBUILD_LDFLAGS += -fuse-ld=lld
 endif
 
 LINKER_SCRIPT_x86 := $(srctree)/scripts/linker.ld
@@ -278,6 +279,8 @@ KBUILD_CFLAGS   := -Wall -Wno-unused-function -Wno-undef -Wno-array-compare -Wno
 		   $(EXTRA_CFLAGS) $(KBUILD_CMDFLAGS)
 KBUILD_CFLAGS += $(ARCH_CFLAGS)
 
+KBUILD_CXXFLAGS := $(KBUILD_CFLAGS) -fno-exceptions -fno-rtti -fno-sanitize=vptr \
+                   -fno-use-cxa-atexit -fno-threadsafe-statics -nostdinc++
 LDFLAGS += -nostdlib
 LDFLAGS += -z max-page-size=0x1000
 
@@ -291,7 +294,7 @@ KBUILD_AFLAGS   := -D__ASSEMBLY__ -Xpreprocessor -P
 KERNELRELEASE = $(shell cat include/config/kernel.release 2> /dev/null)
 KERNELVERSION = $(VERSION)$(if $(PATCHLEVEL),.$(PATCHLEVEL)$(if $(SUBLEVEL),.$(SUBLEVEL)))$(EXTRAVERSION)
 
-export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE AS LD CC
+export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE AS LD CC CXX
 export CPP AR NM STRIP OBJCOPY OBJDUMP
 
 export NASM LZ4 XORRISO MCOPY MFORMAT MMD CPIO
@@ -301,7 +304,7 @@ export MAKE AWK GENKSYMS INSTALLKERNEL PERL UTS_MACHINE
 export HOSTCXX HOSTCXXFLAGS
 
 export KBUILD_CPPFLAGS NOSTDINC_FLAGS LINUXINCLUDE OBJCOPYFLAGS LDFLAGS
-export KBUILD_CFLAGS CFLAGS_KERNEL ARCH_CFLAGS LINKER_SCRIPT
+export KBUILD_CXXFLAGS KBUILD_CFLAGS CFLAGS_KERNEL ARCH_CFLAGS LINKER_SCRIPT
 export KBUILD_AFLAGS AFLAGS_KERNEL
 export KBUILD_AFLAGS_KERNEL KBUILD_CFLAGS_KERNEL
 export KBUILD_ARFLAGS
@@ -466,7 +469,7 @@ quiet_cmd_$(TARGET)_a = KRNLA   $@
       $($(TARGET)-libs) $($(TARGET)-objs) $(LEGAL_OBJS)
 
 quiet_cmd_$(TARGET) = KRNLD   $@
-      cmd_$(TARGET) = $(CC) $(LDFLAGS) -fno-pie -Wl,-no-pie $(KBUILD_LDFLAGS) -o $@ \
+      cmd_$(TARGET) = $(CC) -ffreestanding -nostdlib -fno-pie -Wl,-no-pie $(KBUILD_LDFLAGS) -o $@ \
       -Wl,--whole-archive $(TARGET).a -Wl,--no-whole-archive -T $(LINKER_SCRIPT)
 
 quiet_cmd_syms = SYMS    $@

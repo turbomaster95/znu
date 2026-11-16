@@ -79,7 +79,8 @@ The kernel initializes the RTC/timekeeper and arms the LAPIC periodic timer.
 
 SMP support is split between:
 
-- `arch/x86/smp.h`
+- `arch/x86/arch/mp.h`
+- `include/mp.h`
 - `kernel/smp.c`
 - LAPIC/IPI support
 - per-CPU context/TSS state

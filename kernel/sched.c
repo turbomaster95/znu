@@ -5,12 +5,14 @@
 #include <stdlib.h>
 #include <syscall.h>
 #include <regs.h>
+#include <gdt.h>
 
 extern void force_context_restore(registers_t* regs) __attribute__((noreturn));
 extern uint64_t next_pid;
 extern uint64_t* vmm_clone_pml4(uint64_t* src_pml4);
 extern void vmm_switch(uint64_t* pml4);
 extern vfs_file_t* dup_file(vfs_file_t* src_file);
+extern int get_cpu_id(void);
 
 process_t* processes[MAX_PROCESSES];
 int process_count = 0;

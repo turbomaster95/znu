@@ -2,6 +2,7 @@
 #include <kernel/initcall.h>
 #include <stdlib.h>
 #include <string.h>
+#include <devkit/devkit.h>
 
 pci_device_t pci_devices[PCI_MAX_DEVICES];
 int pci_device_count = 0;
@@ -76,6 +77,7 @@ static void pci_add_device(uint8_t bus, uint8_t slot, uint8_t func) {
     dev->subclass    = pci_read_byte(bus, slot, func, 0x0A);
     dev->class_code  = pci_read_byte(bus, slot, func, 0x0B);
     dev->header_type = pci_read_byte(bus, slot, func, 0x0E);
+    dev->irq         = pci_read_byte(bus, slot, func, 0x3C);
 
     for (int i = 0; i < 6; i++) {
         dev->bar[i] = pci_read_dword(bus, slot, func, 0x10 + (i * 4));
@@ -88,6 +90,10 @@ static void pci_add_device(uint8_t bus, uint8_t slot, uint8_t func) {
             dev->vendor_id, dev->device_id,
             pci_get_vendor_name(dev->vendor_id),
             pci_get_class_name(dev->class_code, dev->subclass, dev->prog_if));
+
+    devkit_publish_pci_device(dev->bus, dev->slot, dev->func,
+                               dev->vendor_id, dev->device_id,
+                               dev->bar[0], dev->irq);
 }
 
 static void pci_scan_device(uint8_t bus, uint8_t slot) {

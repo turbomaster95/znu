@@ -42,3 +42,7 @@ obj-y += initcall.o
 # Folders
 obj-y += vfs/
 obj-$(CONFIG_ZFILTER) += filters/
+
+# DevKit
+obj-y += devkit.o
+obj-y += devkit/

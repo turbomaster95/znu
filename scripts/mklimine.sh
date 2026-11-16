@@ -39,7 +39,7 @@ pushd "$LIMINE_DIR" > /dev/null
     # Check for Makefile to avoid redundant config
     if [ ! -f "Makefile" ]; then
         ./bootstrap
-	patch -p1 < "$SRCTREE/scripts/patchs/limine-mtools.patch"
+	#patch -p1 < "$SRCTREE/scripts/patchs/limine-mtools.patch"
         ./configure --enable-bios --enable-bios-cd --enable-uefi-x86-64 --enable-uefi-cd CC="gcc"
     fi
 

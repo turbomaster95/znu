@@ -35,10 +35,10 @@ extern void net_test_suite(void);
 void kmain(void) {
     debugln("[znu] Reached Kmain!");
 
-    arch_main_init();
-
     rtc_init();
     timekeeper_init();
+
+    arch_main_init();
 
     #ifdef CONFIG_KTEST
      debugln("[ktest] Testing sleep(2000)...");
@@ -78,9 +78,9 @@ void kmain(void) {
     // net_test_suite();
 
     #ifdef CONFIG_SMP
-    smp_init();
+    mp_init();
 
-    sleep(1000);
+    sleep(10);
     test_smp_workers(2);
 
     #endif

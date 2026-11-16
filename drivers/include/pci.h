@@ -31,6 +31,7 @@ typedef struct {
     uint8_t  bus;
     uint8_t  slot;
     uint8_t  func;
+    uint8_t  irq;
 
     uint16_t vendor_id;
     uint16_t device_id;

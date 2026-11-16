@@ -1,6 +1,11 @@
 #ifndef _PRELUDE_H
 #define _PRELUDE_H
 
+#ifdef __cplusplus
+#define _Noreturn [[noreturn]]
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include <stddef.h>
 
@@ -18,5 +23,9 @@ extern uint64_t framebuffer_width;
 extern uint64_t framebuffer_height;
 extern uint64_t framebuffer_pitch;
 extern uint16_t framebuffer_bpp;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -1,4 +1,4 @@
-#include <smp.h>
+#include <mp.h>
 #include <kernel.h>
 #include <string.h>
 #include <lapic.h>
@@ -32,7 +32,7 @@ void ap_kernel_entry(struct limine_mp_info *info) {
     }
 }
 
-void smp_init(void) {
+void mp_init(void) {
     struct limine_mp_response *mp_response = mp_request.response;
     if (mp_request.response == NULL) {
         debugln("[smp] Error: Limine MP response not found!");

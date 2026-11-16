@@ -182,6 +182,26 @@ quiet_cmd_cc_lst_c = MKLST   $@
 $(obj)/%.lst: $(src)/%.c FORCE
 	$(call if_changed_dep,cc_lst_c)
 
+# Compile C++ sources (.cpp, .cc)
+# ---------------------------------------------------------------------------
+
+quiet_cmd_cxx_o_cpp = CXX $(quiet_modtag) $@
+cmd_cxx_o_cpp = $(CXX) $(cxx_flags) -c -o $@ $<
+
+define rule_cxx_o_cpp
+	$(call echo-cmd,cxx_o_cpp) $(cmd_cxx_o_cpp);			  \
+	scripts/basic/fixdep $(depfile) $@ '$(call make-cmd,cxx_o_cpp)' > \
+	                                              $(dot-target).tmp;  \
+	rm -f $(depfile);						  \
+	mv -f $(dot-target).tmp $(dot-target).cmd
+endef
+
+$(obj)/%.o: $(src)/%.cpp FORCE
+	$(call if_changed_rule,cxx_o_cpp)
+
+$(obj)/%.o: $(src)/%.cc FORCE
+	$(call if_changed_rule,cxx_o_cpp)
+
 # Compile assembler sources (.S)
 # ---------------------------------------------------------------------------
 

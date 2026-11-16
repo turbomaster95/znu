@@ -8,7 +8,7 @@
 #include <lapic.h>
 #include <rtc.h>
 #include <timekeeper.h>
-#include <smp.h>
+#include <mp.h>
 #include <syscall.h>
 #include <arch/syscall.h>
 #include <kernel.h>
@@ -97,7 +97,7 @@ bool arch_has_acpi(void) {
 }
 
 void arch_smp_init(void) {
-    smp_init();
+    mp_init();
 }
 
 void arch_syscall_init(uintptr_t stack_top) {
@@ -173,4 +173,8 @@ void arch_basic_init(void) {
     //debugln("[kernel_debug] About to initialize namespace..");
     status = uacpi_namespace_initialize();
     debugln("[SUCCESS] uACPI is live.");
+}
+
+void arch_yield(void) {
+   __asm__ volatile("pause" ::: "memory");
 }
