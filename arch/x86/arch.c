@@ -11,7 +11,7 @@
 #include <mp.h>
 #include <syscall.h>
 #include <arch/syscall.h>
-#include <kernel.h>
+#include <misc.h>
 
 extern void simd_init(void);
 

@@ -24,6 +24,9 @@ extern uint64_t framebuffer_height;
 extern uint64_t framebuffer_pitch;
 extern uint16_t framebuffer_bpp;
 
+// Include kernel headers needed by everything
+#include <kernel/logging.h>
+
 #ifdef __cplusplus
 }
 #endif

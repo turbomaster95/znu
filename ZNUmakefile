@@ -264,7 +264,7 @@ endif
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
-LINUXINCLUDE    := -Iinclude \
+LINUXINCLUDE    := -Iinclude -DLOG_LEVEL=$(CONFIG_DEFAULT_LOGLEVEL) \
                    $(if $(KBUILD_SRC), -I$(srctree)/include) \
                    -include include/generated/autoconf.h
 

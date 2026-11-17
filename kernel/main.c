@@ -21,7 +21,7 @@
 #include <fat32.h>
 #include <disk.h>
 #include <mp.h>
-#include <kernel.h>
+#include <misc.h>
 #include <sync.h>
 #include <net.h>
 #include <e1000.h>

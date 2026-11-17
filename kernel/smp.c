@@ -1,5 +1,5 @@
 #include <mp.h>
-#include <kernel.h>
+#include <misc.h>
 #include <string.h>
 #include <lapic.h>
 #include <stdlib.h>

@@ -7,7 +7,7 @@
 #include <vfs.h>
 #include <vfse.h>
 #include <page.h>
-#include <kernel.h>
+#include <misc.h>
 #include <stdio.h>
 #include <errno.h>
 #include <kernel/display.h>

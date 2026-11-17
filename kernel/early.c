@@ -11,7 +11,7 @@
 #include <elf.h>
 #include <syscall.h>
 #include <proc.h>
-#include <kernel.h>
+#include <misc.h>
 #include <sync.h>
 #include <symbols.h>
 

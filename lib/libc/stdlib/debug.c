@@ -6,7 +6,7 @@
 #include <kernel/display.h>
 #include <sync.h>
 #include <lapic.h>
-#include <kernel.h>
+#include <misc.h>
 
 bool vmm_ready = false;
 extern spinlock_t terminal_print_lock;

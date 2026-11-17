@@ -8,7 +8,7 @@
 #include <proc.h>
 #include <kernel/display.h>
 #include <symbols.h>
-#include <kernel.h>
+#include <misc.h>
 #include <mailbox.h>
 #include <regs.h>
 
