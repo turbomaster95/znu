@@ -117,27 +117,33 @@ static void do_safe_log(const char* prefix, const char* format, va_list args, bo
 void debugln(const char* format, ...) {
     va_list args;
     va_start(args, format);
-    do_safe_log(NULL, format, args);
+    do_safe_log(NULL, format, args, false);
     va_end(args);
+}
+
+void vdebugln(const char* level, const char* tag, const char* format, va_list args) {
+    char prefix[128];
+    snprintf(prefix, sizeof(prefix), "%s[%s]%s (%s) ", ANSI_BOLD, level, ANSI_RESET, tag);
+    do_safe_log(prefix, format, args, true);
 }
 
 void debugwarn(const char* format, ...) {
     va_list args;
     va_start(args, format);
-    do_safe_log("\033[1;33m[WARN] \033[0m", format, args);
+    do_safe_log("\033[1;33m[WARN] \033[0m", format, args, false);
     va_end(args);
 }
 
 void debugerr(const char* format, ...) {
     va_list args;
     va_start(args, format);
-    do_safe_log("\033[1;31m[ERROR] \033[0m", format, args);
+    do_safe_log("\033[1;31m[ERROR] \033[0m", format, args, false);
     va_end(args);
 }
 
 void debuginfo(const char* format, ...) {
     va_list args;
     va_start(args, format);
-    do_safe_log(NULL, format, args);
+    do_safe_log(NULL, format, args, false);
     va_end(args);
 }

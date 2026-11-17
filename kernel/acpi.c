@@ -34,16 +34,16 @@ static uint32_t pci_get_addr(uacpi_handle device, uacpi_size offset) {
 
 void uacpi_kernel_vlog(uacpi_log_level lvl, const char *fmt, va_list args) {
     switch (lvl) {
-        case UACPI_LOG_INFO:  p_info("uacpi", fmt, args); break;
-        case UACPI_LOG_WARN:  p_warn("uacpi", fmt, args); break;
-        case UACPI_LOG_ERROR: p_error("uacpi", fmt, args);  break;
+        case UACPI_LOG_INFO:  vp_info("uacpi", fmt, args); break;
+        case UACPI_LOG_WARN:  vp_warn("uacpi", fmt, args); break;
+        case UACPI_LOG_ERROR: vp_error("uacpi", fmt, args);  break;
         default:              vdebugprintf(fmt, args); break;
     }
 }
 
 void *uacpi_kernel_alloc(uacpi_size size) {
     void *p = kmalloc(size);
-//    debugln("[uACPI] Allocated  %d bytes at %p", (uint32_t)size, p);
+//    p_trace("uacpi", "Allocated  %d bytes at %p", (uint32_t)size, p);
     return p;
 }
 
@@ -63,7 +63,7 @@ void uacpi_kernel_free(void *ptr) {
 }
 
 void *uacpi_kernel_map(uacpi_phys_addr physical, uacpi_size length) {
-//    debugln("[VMM] uACPI requesting map: Phys %p (len %d)", (void*)physical, length);
+//    p_trace("vmm", "uACPI requesting map: Phys %p (len %d)", (void*)physical, length);
     (void)length;
 
     return (void*)(physical + hhdm_offset);
@@ -75,8 +75,8 @@ void uacpi_kernel_unmap(void *ptr, uacpi_size length) {
 }
 
 uacpi_status uacpi_kernel_raw_memory_read(uacpi_phys_addr address, uacpi_u8 byte_width, uacpi_u64 *out_value) {
-//    debugln("acpi raw mem read addr: %s", address);
-//    debugln("acpi raw mem read byte_width: %s", byte_width);
+//    p_trace("uacpi", "acpi raw mem read addr: %s", address);
+//    p_trace("uacpi", "acpi raw mem read byte_width: %s", byte_width);
     void* virt = (void*)((uintptr_t)address + hhdm_offset);
     
     if (byte_width == 1) *out_value = *(volatile uint8_t*)virt;
@@ -455,14 +455,14 @@ uacpi_status uacpi_kernel_wait_for_work_completion(void) {
 uacpi_thread_id uacpi_kernel_get_thread_id(void) { return (uacpi_thread_id)1; }
 
 void uacpi_kernel_stall(uacpi_u8 usec) {
-    debugln("stall called");
+    p_trace("uacpi", "stall called");
     for (uint32_t i = 0; i < (uint32_t)usec; i++) {
         outb(0x80, 0);
     }
 }
 
 void uacpi_kernel_sleep(uacpi_u64 msec) {
-    debugln("sleep called");
+    p_trace("uacpi", "sleep called");
     sleep(msec);
 }
 
@@ -479,7 +479,22 @@ uacpi_status uacpi_kernel_handle_firmware_request(uacpi_firmware_request *req) {
 void uacpi_kernel_log(uacpi_log_level lvl, const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    vdebugprintf(fmt, args);
+
+    size_t len = strlen(fmt);
+    while (len > 0 && (fmt[len - 1] == '\n' || fmt[len - 1] == '\r')) len--;
+    char clean_fmt[len + 1];
+    memcpy(clean_fmt, fmt, len);
+    clean_fmt[len] = '\0';
+
+    switch (lvl) {
+        case UACPI_LOG_DEBUG: vp_debug("uacpi", clean_fmt, args); break;
+        case UACPI_LOG_TRACE: vp_trace("uacpi", clean_fmt, args); break;
+        case UACPI_LOG_INFO:  vp_info("uacpi", clean_fmt, args); break;
+        case UACPI_LOG_WARN:  vp_warn("uacpi", clean_fmt, args); break;
+        case UACPI_LOG_ERROR: vp_error("uacpi", clean_fmt, args); break;
+        default:              vp_debug("uacpi", clean_fmt, args); break;
+    }
+
     va_end(args);
 }
 
@@ -579,38 +594,31 @@ uacpi_status uacpi_kernel_pci_read32(uacpi_handle device, uacpi_size offset, uac
 }
 
 void kernel_shutdown(void) {
-    debugln("Shutting down...");
+    p_warn("kernel", "Shutting down...");
 
     uacpi_status status = uacpi_prepare_for_sleep_state(UACPI_SLEEP_STATE_S5);
     if (status != UACPI_STATUS_OK) {
-        debugerr("Failed to prepare for sleep: %s", uacpi_status_to_string(status));
+        p_error("kernel", "Failed to prepare for sleep: %s", uacpi_status_to_string(status));
     }
 
-    __asm__ volatile("cli");
+    arch_disable_interrupts();
 
     status = uacpi_enter_sleep_state(UACPI_SLEEP_STATE_S5);
 
-    debugerr("Shutdown failed: %s", uacpi_status_to_string(status));
+    p_error("kernel", "Shutdown failed: %s", uacpi_status_to_string(status));
     
-    outw(0x604, 0x2000);
-
     hcf();
 }
 
 void kernel_reboot(void) {
-    debugln("Attempting System Reboot...");
+    p_warn("kernel", "Attempting System Reboot...");
 
     uacpi_status status = uacpi_reboot();
 
     if (status != UACPI_STATUS_OK) {
-        debugerr("uACPI reboot failed: %s", uacpi_status_to_string(status));
+        p_error("kernel", "uACPI reboot failed: %s", uacpi_status_to_string(status));
     }
 
-    debugln("Falling back to PS/2 controller reset...");
-
-    outb(0x64, 0xFE);
-	
     // Ultimate Halt
     hcf();
 }
-

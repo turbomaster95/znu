@@ -170,7 +170,7 @@ void kmain(void) {
     vfs_node_t* init_module = vfs_path_to_node("/init.ko");
 
     if (!init_module) {
-        debugwarn("Init.ko initialization module not found!");
+        p_warn("kernel", "init.ko initialization module not found!");
     } else {
         load_kernel_module("ModInit", (uint8_t*)init_module->data, init_module->size, NULL);
     }

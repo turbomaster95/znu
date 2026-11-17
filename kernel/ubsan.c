@@ -238,3 +238,13 @@ void __ubsan_handle_nonnull_return_v1_abort(struct ubsan_nonnull_return_data *da
     if (data && data->attr_location.filename) debugln("  Non-null attribute declared at: %s:%d:%d\n", data->attr_location.filename, data->attr_location.line, data->attr_location.column);
     panic("[ubsan] Null pointer returned from non-null function");
 }
+
+void __ubsan_handle_vla_bound_not_positive_abort(struct ubsan_source_location *data, uintptr_t bound) {
+    ubsan_log_header("VLA Bound Not Positive", data);
+    debugln("  VLA Bound: %lu\n", (unsigned long)bound);
+    panic("[ubsan] VLA Bound Not Positive");
+}
+
+void __ubsan_handle_vla_bound_not_positive(struct ubsan_source_location *data, uintptr_t bound) {
+    __ubsan_handle_vla_bound_not_positive_abort(data, bound);
+}
