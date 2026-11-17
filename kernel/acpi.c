@@ -34,9 +34,9 @@ static uint32_t pci_get_addr(uacpi_handle device, uacpi_size offset) {
 
 void uacpi_kernel_vlog(uacpi_log_level lvl, const char *fmt, va_list args) {
     switch (lvl) {
-        case UACPI_LOG_INFO:  p_info("fmt, args); break;
-        case UACPI_LOG_WARN:  debugwarn(fmt, args); break;
-        case UACPI_LOG_ERROR: debugerr(fmt, args);  break;
+        case UACPI_LOG_INFO:  p_info("uacpi", fmt, args); break;
+        case UACPI_LOG_WARN:  p_warn("uacpi", fmt, args); break;
+        case UACPI_LOG_ERROR: p_error("uacpi", fmt, args);  break;
         default:              vdebugprintf(fmt, args); break;
     }
 }

@@ -69,11 +69,11 @@ void debug_write(const char* data) {
     spinlock_irq_restore(&terminal_print_lock, flags);
 }
 
-static void do_safe_log(const char* prefix, const char* format, va_list args) {
+static void do_safe_log(const char* prefix, const char* format, va_list args, bool force_prefix) {
     char log_buffer[1024]; 
     int written = 0;
 
-    if (format[0] == '[') {
+    if (format[0] == '[' && !force_prefix) {
         const char* end_bracket = strchr(format, ']');
         if (end_bracket) {
             written += snprintf(log_buffer + written, sizeof(log_buffer) - written, "%s[", ANSI_BOLD);

@@ -189,7 +189,7 @@ void earlykmain(void) {
     }
 
     p_info("kernel", "Welcome to znu!");
-    p_info("tty", \033[1mGot a \033[1;31mC\033[1;33mO\033[1;32mL\033[1;34mO\033[1;35mR\033[0;1m Display?\033[0m");
+    p_info("tty", "\033[1mGot a \033[1;31mC\033[1;33mO\033[1;32mL\033[1;34mO\033[1;35mR\033[0;1m Display?\033[0m");
 
     arch_debug_cpu_info();
     arch_interrupt_init();
