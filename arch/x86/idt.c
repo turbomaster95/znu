@@ -129,9 +129,10 @@ registers_t* k_exception_handler(registers_t *regs) {
 
 	cnt++;
 	if (cnt == 1000) {
-	    debugln("TICK!");
+	    // debugln("TICK!");
 	    cnt = 0;
 	}
+
 	if (regs && (regs->cs & 0x3) == 3) {
             signal_check_and_deliver(regs);
         }
@@ -158,7 +159,7 @@ registers_t* k_exception_handler(registers_t *regs) {
 	    uint8_t status = inb(0x64);
 	    if (status & 1) {
 	            uint8_t scancode = inb(0x60);
-		    debugln("[kbd] scancode=0x%x", scancode);
+		    // debugln("[kbd] scancode=0x%x", scancode);
 	            static bool ctrl_pressed = false;
 	            if (scancode == 0x1D) ctrl_pressed = true;
 	            else if (scancode == 0x9D) ctrl_pressed = false; // Release

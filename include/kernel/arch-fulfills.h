@@ -7,6 +7,7 @@ void arch_timer_init(uint32_t frequency);
 void arch_enable_interrupts(void);
 void arch_disable_interrupts(void);
 _Noreturn void arch_halt(void);
+void arch_ret_halt(void);
 void arch_debug_cpu_info(void);
 void arch_pat_init(void);
 void arch_map_local_irq(uint64_t *pml4);

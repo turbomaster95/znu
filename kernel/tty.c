@@ -118,7 +118,7 @@ size_t tty_read(tty_t* tty, char* buf, size_t count, bool nonblock) {
 	    #endif
 
             arch_enable_interrupts();
-            arch_halt();
+            arch_ret_halt();
             arch_disable_interrupts();
 
 	    #ifdef KRNLDBG

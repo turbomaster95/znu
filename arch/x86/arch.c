@@ -116,6 +116,10 @@ _Noreturn void arch_halt(void) {
     }
 }
 
+void arch_ret_halt(void) {
+    __asm__ volatile("sti; hlt; cli" ::: "memory");
+}
+
 void arch_main_init(void) {
     lapic_init(0);
     debugln("[lapic] LAPIC initialized.");
