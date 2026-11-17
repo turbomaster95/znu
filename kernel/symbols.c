@@ -71,11 +71,11 @@ void symbols_init(void) {
     uint64_t section_size = (uint64_t)(__ksyms_end - __ksyms_start);
     
     if (section_size == 0 || (uintptr_t)__ksyms_start == (uintptr_t)__ksyms_end) {
-        debugln("[sym] No .ksyms section");
+        p_warn("ksyms", "No .ksyms section");
         return;
     }
     
-    debugln("[sym] .ksyms at %p, size %lu bytes", __ksyms_start, section_size);
+    p_info("ksyms", ".ksyms at %p, size %lu bytes", __ksyms_start, section_size);
     
     /* Check if section has actual data (not all zeros) */
     bool has_data = false;
@@ -87,12 +87,12 @@ void symbols_init(void) {
     }
     
     if (!has_data) {
-        debugln("[sym] .ksyms section is empty (not populated by embsym)");
+        p_warn("ksyms", ".ksyms section is empty (not populated by embsym)");
         return;
     }
     
     parse_symbols(__ksyms_start, __ksyms_end);
-    debugln("[sym] Loaded %u symbols", ksym_count);
+    p_info("ksyms", "Loaded %u symbols", ksym_count);
 }
 
 const char *sym_lookup(uint64_t addr, uint64_t *offset_out) {

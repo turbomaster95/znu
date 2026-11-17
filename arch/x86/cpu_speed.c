@@ -12,7 +12,7 @@ extern void msleep(uint32_t ms);
 extern tsc_info_t tsc_data;
 
 uint64_t measure_cpu_speed(void) {
-    debugln("[CPU] Measuring CPU speed...");
+    p_debug("cpu", "Measuring CPU speed...");
 
     const uint32_t ms_to_wait = 10;
     
@@ -33,8 +33,8 @@ uint64_t measure_cpu_speed(void) {
 
     uint64_t cpu_frequency = (tsc_cycles * 1000) / ms_to_wait;
 
-    debugln("[CPU] Measured %llu cycles in %u ms", tsc_cycles, ms_to_wait);
-    debugln("[CPU] Estimated frequency: %llu Hz (%llu MHz)", 
+    p_debug("cpu", "Measured %llu cycles in %u ms", tsc_cycles, ms_to_wait);
+    p_debug("cpu", "Estimated frequency: %llu Hz (%llu MHz)", 
             cpu_frequency, cpu_frequency / 1000000);
 
     return cpu_frequency;

@@ -357,9 +357,7 @@ registers_t* scheduler(registers_t* regs) {
 
     __asm__ volatile("fxrstor %0" : : "m"(next->sse_state));
 
-    //debugln("[sched] switch %llu -> %llu",
-            // old_process ? old_process->pid : 0,
-       // next->pid);
+    // p_trace("sched", "switch %llu -> %llu", old_process ? old_process->pid : 0, next->pid);
 
     return &next->context;
 }
@@ -550,7 +548,7 @@ process_t* clone_process(process_t* src, registers_t* regs) {
         return NULL;
     }
 
-    debugln("[clone] parent=%llu child=%llu",
+    p_debug("clone", "parent=%llu child=%llu",
             src->pid,
             dst->pid);
 

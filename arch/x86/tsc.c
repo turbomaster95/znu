@@ -14,10 +14,10 @@ tsc_info_t tsc_data = {
 static uint64_t tsc_calibrate_frequency(void);
 
 tsc_info_t tsc_detect(void) {
-    debugln("[TSC] Detecting TSC...");
+    p_info("tsc", "Detecting TSC...");
 
     if (cpu_has(MAX_STANDARD_LEAF) < 1) { 
-        debugln("[TSC] CPUID leaf 1 not supported.");
+        p_warn("tsc", "CPUID leaf 1 not supported.");
         tsc_data.supported = false;
         tsc_data.frequency = 0;
         return tsc_data;
@@ -25,7 +25,7 @@ tsc_info_t tsc_detect(void) {
 
     if (cpu_has(TSC_SUPPORT)) { 
         tsc_data.supported = true;
-        debugln("[TSC] TSC supported.");
+        p_info("tsc", "TSC supported.");
 
         if (cpu_has(MAX_STANDARD_LEAF) >= CPUID_TSC_INFO) {
             cpuid_res_t tsc_info = cpuid_query(CPUID_TSC_INFO, 0);
@@ -33,7 +33,7 @@ tsc_info_t tsc_detect(void) {
             if (tsc_info.eax != 0 && tsc_info.ebx != 0) {
                 uint64_t crystal = tsc_info.ecx ? tsc_info.ecx : 24000000; // Default 24MHz
                 tsc_data.frequency = (crystal * tsc_info.ebx) / tsc_info.eax;
-                debugln("[TSC] Hardware-reported frequency: %llu Hz", tsc_data.frequency);
+                p_debug("tsc", "Hardware-reported frequency: %llu Hz", tsc_data.frequency);
             }
         }
 
@@ -45,10 +45,10 @@ tsc_info_t tsc_detect(void) {
             debugwarn("[TSC] Failed to calibrate frequency, using placeholder.");
             tsc_data.frequency = 3000000000; // 3 GHz
         } else {
-            debugln("[TSC] Final TSC frequency: %llu Hz", tsc_data.frequency);
+            p_info("tsc", "Final TSC frequency: %llu Hz", tsc_data.frequency);
         }
     } else {
-        debugln("[TSC] TSC not supported.");
+        p_warn("tsc", "TSC not supported.");
         tsc_data.supported = false;
         tsc_data.frequency = 0;
     }
@@ -81,7 +81,7 @@ uint64_t tsc_get_frequency(void) {
 }
 
 static uint64_t tsc_calibrate_frequency(void) {
-    debugln("[TSC] Calibrating TSC frequency via hardware PIT polling...");
+    p_debug("tsc", "Calibrating TSC frequency via hardware PIT polling...");
 
     outb(0x61, (inb(0x61) & ~0x02) | 0x01); // Gate on for Channel 2
     outb(0x43, 0xB0);                       // Select Channel 2, LSB/MSB, Mode 0
@@ -101,6 +101,6 @@ static uint64_t tsc_calibrate_frequency(void) {
 
     uint64_t frequency = (tsc_cycles * 1193182) / 65535;
 
-    debugln("[TSC] Calibration complete: %llu Hz", frequency);
+    p_info("tsc", "Calibration complete: %llu Hz", frequency);
     return frequency;
 }

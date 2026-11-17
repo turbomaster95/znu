@@ -27,7 +27,7 @@ bool fat32_init_on_disk(disk_t* d) {
     
     FRESULT res = f_mount(&g_fatfs, "0:", 1);
     if (res != FR_OK) {
-        debugln("[fat32] f_mount failed with error code: %d", res);
+        p_error("fat32", "f_mount failed with error code: %d", res);
         return false;
     }
     
@@ -76,7 +76,7 @@ vfs_node_t* fat32_vfs_find(vfs_node_t* parent, const char* name) {
         return node;
     }
 
-    debugln("[fat32] File '%s' not found. Creating a new file...", path);
+    p_debug("fat32", "File '%s' not found. Creating a new file...", path);
 
     FIL* file_handle = kmalloc(sizeof(FIL));
     /* FA_CREATE_ALWAYS creates a new file. If it exists, it overwrites it.
@@ -97,7 +97,7 @@ vfs_node_t* fat32_vfs_find(vfs_node_t* parent, const char* name) {
         f_sync(file_handle);
         return node;
     } {
-        debugln("[fat32] Failed to create file '%s'. FatFs error: %d", path, res);
+        p_error("fat32", "Failed to create file '%s'. FatFs error: %d", path, res);
         kfree(file_handle);
     }
 
@@ -132,7 +132,7 @@ int fat32_vfs_write(vfs_node_t* node, const void* buf, size_t size, size_t offse
     if (f_tell(file) != offset) {
         res = f_lseek(file, (FSIZE_t)offset);
         if (res != FR_OK) {
-            debugln("[fat32 write] f_lseek to %zu failed: %d", offset, res);
+            p_error("fat32", "f_lseek to %zu failed: %d", offset, res);
             return -1;
         }
     }
@@ -140,7 +140,7 @@ int fat32_vfs_write(vfs_node_t* node, const void* buf, size_t size, size_t offse
     UINT bytes_written = 0;
     res = f_write(file, buf, (UINT)size, &bytes_written);
     if (res != FR_OK) {
-        debugln("[fat32 write] f_write failed: %d", res);
+        p_error("fat32", "f_write failed: %d", res);
         return -1;
     }
 

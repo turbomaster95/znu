@@ -5,7 +5,7 @@
 volatile uint64_t timer_ticks = 0;
 
 PERFORM void pit_init(uint32_t frequency) {
-    debugln("[pit] Setting frequency to %u Hz", frequency);
+    p_debug("pit", "Setting frequency to %u Hz", frequency);
     uint32_t divisor = 1193182 / frequency;
 
     outb(0x43, 0x36);

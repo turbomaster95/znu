@@ -29,13 +29,13 @@ void run_initcall_level(int level) {
     initcall_t *start = level_boundaries[level];
     initcall_t *end   = level_boundaries[level + 1];
 
-    debugln("[initcall] Running level %d...", level);
+    p_debug("initcall", "Running level %d...", level);
     for (initcall_t *call = start; call < end; call++) {
         if (*call) {
-            debugln("[initcall] Running initcall %p..", *call);
+            p_trace("initcall", "Running initcall %p..", *call);
             int ret = (*call)();
             if (ret != 0) {
-                debugwarn("[initcall] Initcall %p failed with code %d", *call, ret);
+                p_error("initcall", "Initcall %p failed with code %d", *call, ret);
             }
         }
     }
@@ -48,6 +48,6 @@ void run_initcall_range(int start_level, int end_level) {
 }
 
 void do_initcalls(void) {
-    debugln("[initcall] Running all initcalls!");
+    p_info("initcall", "Running all initcalls!");
     run_initcall_range(0, 7);
 }

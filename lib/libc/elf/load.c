@@ -330,12 +330,12 @@ uint64_t *vmm_create_user_pml4(void)
 
 static int elf_validate(const Elf64_Ehdr *hdr)
 {
-    if (memcmp(hdr->e_ident, ELFMAG, 4) != 0)      { debugln("[elf] Bad magic"); return -1; }
-    if (hdr->e_ident[EI_CLASS]   != ELFCLASS64)    { debugln("[elf] Not ELF64"); return -1; }
-    if (hdr->e_ident[EI_DATA]    != ELFDATA2LSB)    { debugln("[elf] Not LE"); return -1; }
-    if (hdr->e_machine           != EM_X86_64)      { debugln("[elf] Not x86-64"); return -1; }
+    if (memcmp(hdr->e_ident, ELFMAG, 4) != 0)      { p_error("elf", "Bad magic"); return -1; }
+    if (hdr->e_ident[EI_CLASS]   != ELFCLASS64)    { p_error("elf", "Not ELF64"); return -1; }
+    if (hdr->e_ident[EI_DATA]    != ELFDATA2LSB)    { p_error("elf", "Not LE"); return -1; }
+    if (hdr->e_machine           != EM_X86_64)      { p_error("elf", "Not x86-64"); return -1; }
     if (hdr->e_type != ET_EXEC && hdr->e_type != ET_DYN) {
-        debugln("[elf] Not executable or dynamic (type=%u)", hdr->e_type);
+        p_error("elf", "Not executable or dynamic (type=%u)", hdr->e_type);
         return -1;
     }
     return 0;
@@ -357,7 +357,7 @@ static int elf_load_segments(process_t *proc,
 
     for (int i = 0; i < hdr->e_phnum; i++) {
         if (phdr[i].p_type == PT_INTERP) {
-            debugln("[elf] PT_INTERP found — dynamic executables not yet supported");
+            p_error("elf", "PT_INTERP found — dynamic executables not yet supported");
             return -1;
         }
     }
@@ -399,7 +399,7 @@ static int elf_load_segments(process_t *proc,
                                      p->p_memsz,
                                      p->p_align);
             if (!tls_base) {
-                debugln("[elf] TLS setup failed");
+                p_error("elf", "TLS setup failed");
                 return -1;
             }
             break;
@@ -706,7 +706,7 @@ void load_elf(uint8_t *elf_data)
 {
     const Elf64_Ehdr *hdr = (const Elf64_Ehdr *)elf_data;
     if (elf_validate(hdr) < 0) {
-        debugln("[elf] load_elf: invalid ELF");
+        p_error("elf", "load_elf: invalid ELF");
         return;
     }
 
@@ -737,6 +737,6 @@ void load_elf(uint8_t *elf_data)
     /* No auxv for the raw boot path — _start will get argc=0 */
     *(uint64_t *)(vmm_virt_to_phys(kernel_pml4, sp) + hhdm_offset) = 0; /* argc */
 
-    debugln("[elf] Jumping to entry %lx, rsp %lx", hdr->e_entry, sp);
+    p_info("elf", "Jumping to entry %lx, rsp %lx", hdr->e_entry, sp);
     jump_to_usermode(hdr->e_entry, sp);
 }

@@ -167,7 +167,7 @@ void keyboard_handle_scancode(uint8_t scancode) {
     kb_buffer[kb_head] = (uint8_t)c;
     kb_head = (kb_head + 1) % KB_BUF_SIZE;
 
-    // debugln("[kbd] char=0x%x tty=%d", (unsigned char)c, active_tty);
+    // p_debug("[kbd] char=0x%x tty=%d", (unsigned char)c, active_tty);
     tty_input_char(active_tty, c);
 }
 

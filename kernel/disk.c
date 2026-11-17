@@ -11,10 +11,10 @@ static disk_t* g_boot_disk = NULL;
 
 bool disk_read_sector(disk_t* d, uint64_t lba, void* buf) {
     if (!d || !d->present) {
-        debugln("[disk] Read failed: disk not present");
+        p_error("disk", "Read failed: disk not present");
         return false;
     }
-    //debugln("[disk] Calling AHCI read: port %d, LBA %u, buffer %p", d->port, (uint32_t)lba, buf);
+    //p_trace("disk", "Calling AHCI read: port %d, LBA %u, buffer %p", d->port, (uint32_t)lba, buf);
     return ahci_read_sector(d->port, lba, buf);
 }
 
@@ -40,7 +40,7 @@ void disk_register_ahci_port(int port) {
 
     d->sector_size = 512;
 
-    debugln("[disk] registered %s", d->name);
+    p_info("disk", "registered %s", d->name);
 
     if (!g_boot_disk)
         g_boot_disk = d;
@@ -56,7 +56,7 @@ void disk_init(void) {
         }
     }
 
-    debugln("[disk] total disks: %d", g_disk_count);
+    p_info("disk", "total disks: %d", g_disk_count);
 }
 
 disk_t* disk_get_boot(void) {

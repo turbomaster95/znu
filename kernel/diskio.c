@@ -79,7 +79,7 @@ DRESULT disk_read (
         memcpy(buff + (i * 512), bounce_buf, 512);
 
         if (sector + i == 0) {
-            debugln("[diskio] Sector 0 Signature: 0x%02X 0x%02X", 
+            p_debug("diskio", "Sector 0 Signature: 0x%02X 0x%02X", 
                     buff[(i * 512) + 510], buff[(i * 512) + 511]);
         }
     }

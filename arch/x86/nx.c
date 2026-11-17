@@ -21,10 +21,10 @@ void enable_nx_bit(void) {
 	    efer |= EFER_NXE;
     
 	    wrmsr(EFER_MSR, (uint32_t)(efer & 0xFFFFFFFF), (uint32_t)(efer >> 32));
-	    debugln("[nx] NX Bit support enabled!");
+	    p_info("nx", "NX Bit support enabled!");
 	    nx_supported = true;
     } else {
-	    debugln("[nx] NX Bit isn't supported by this CPU!");
+	    p_warn("nx", "NX Bit isn't supported by this CPU!");
 	    nx_supported = false;
     }
 }

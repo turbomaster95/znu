@@ -23,7 +23,7 @@ void ap_kernel_entry(struct limine_mp_info *info) {
     idt_local_load();
     lapic_init_per_core(cpu_id);
 
-    debugln("[core] CPU Core %d is online and ready.", cpu_id, cpu_id);
+    p_info("core", "CPU Core %d is online and ready.", cpu_id, cpu_id);
 
     while (1) {
         asm volatile("sti; hlt");
@@ -35,14 +35,14 @@ void ap_kernel_entry(struct limine_mp_info *info) {
 void mp_init(void) {
     struct limine_mp_response *mp_response = mp_request.response;
     if (mp_request.response == NULL) {
-        debugln("[smp] Error: Limine MP response not found!");
+        p_error("smp", "Error: Limine MP response not found!");
         return;
     }
 
     uint64_t cpu_count = mp_response->cpu_count;
     uint32_t bsp_lapic_id = mp_response->bsp_lapic_id;
 
-    debugln("[smp] Discovered %lu CPU cores available.", cpu_count);
+    p_info("smp", "Discovered %lu CPU cores available.", cpu_count);
 
     int current_ap_index = 1;
 
@@ -55,7 +55,7 @@ void mp_init(void) {
 
         cpu_info->extra_argument = (uint64_t)cpu_info->lapic_id;
 
-        debugln("[smp] Booting AP Core (LAPIC ID: %u) with CID: %d...", 
+        p_info("smp", "Booting AP Core (LAPIC ID: %u) with CID: %d...", 
                 cpu_info->lapic_id, current_ap_index);
 
         __atomic_store_n(&cpu_info->goto_address, ap_kernel_entry, __ATOMIC_RELEASE);
@@ -63,5 +63,5 @@ void mp_init(void) {
         current_ap_index++;
     }
 
-    debugln("[smp] Initialized All AP's");
+    p_info("smp", "Initialized All AP's");
 }

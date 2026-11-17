@@ -49,7 +49,7 @@ void ps2_init(void) {
     ps2_wait_output();
     uint8_t ack = inb(0x60);
 
-    debugln("[ps2] Enable scanning ACK=0x%x", ack);
+    p_debug("ps2", "Enable scanning ACK=0x%x", ack);
 
-    debugln("[ps2] Initialized PS/2");
+    p_info("ps2", "Initialized PS/2");
 }

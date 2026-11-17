@@ -65,7 +65,7 @@ void bga_init(void) {
     pci_device_t* dev = pci_find_class(0x03, 0x00, 0x00);
 
     if (!dev || dev->vendor_id != 0x1234) {
-        debugln("[bga] Device not found or incompatible.");
+        p_warn("bga", "Device not found or incompatible.");
         return;
     }
 
@@ -73,7 +73,7 @@ void bga_init(void) {
     bga_framebuffer = (uint32_t*)(phys_fb + hhdm_offset);
 
     uint16_t version = bga_read(BGA_IDX_ID);
-    debugln("[bga] Initialized. ID: 0x%04X, LFB at: %p", version, bga_framebuffer);
+    p_info("bga", "Initialized. ID: 0x%04X, LFB at: %p", version, bga_framebuffer);
 
     using_bga = true;
     
@@ -87,7 +87,7 @@ void bga_init(void) {
     for (uint32_t i = 0; i < width * height; i++) {
         bga_framebuffer[i] = 0x00000000; // Deep Black
     }
-    debugln("bga fb: %lx", bga_framebuffer);
+    p_debug("bga", "bga fb: %lx", bga_framebuffer);
 
     framebuffer_addr = (void*)bga_framebuffer;
     framebuffer_width = width;
@@ -172,7 +172,7 @@ int bga_module_init(void) {
 }
 
 void bga_module_exit(void) {
-    debugln("[bga] Driver unloaded");
+    p_info("bga", "Driver unloaded");
 }
 
 module_init(bga_module_init);

@@ -44,7 +44,7 @@ static uint8_t bcd_to_binary(uint8_t bcd) {
 }
 
 bool rtc_init(void) {
-    debugln("[RTC] Initializing RTC...");
+    p_info("rtc", "Initializing RTC...");
 
     nmi_disable();
 
@@ -65,7 +65,7 @@ bool rtc_init(void) {
         return false;
     }
 
-    debugln("[RTC] RTC initialized successfully. Format: %s", is_24_hour_format ? "24-hour" : "12-hour AM/PM");
+    p_info("rtc", "RTC initialized successfully. Format: %s", is_24_hour_format ? "24-hour" : "12-hour AM/PM");
     return true;
 }
 
@@ -150,7 +150,7 @@ bool rtc_read_time(rtc_time_t *time) {
         return false;
     }
 
-    debugln("[RTC] Read time: %02d%02d-%02d-%02d %02d:%02d:%02d",
+    p_debug("rtc", "Read time: %02d%02d-%02d-%02d %02d:%02d:%02d",
             time->century, time->year, time->month, time->day, 
             time->hour, time->minute, time->second);
 
@@ -158,6 +158,6 @@ bool rtc_read_time(rtc_time_t *time) {
 }
 
 bool rtc_write_time(const rtc_time_t *time) {
-    debugln("[RTC] rtc_write_time not implemented yet.");
+    p_warn("rtc", "rtc_write_time not implemented yet.");
     return false;
 }

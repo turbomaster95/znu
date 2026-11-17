@@ -23,23 +23,23 @@ static uint32_t mod_count = 0;
 static int elf_validate_reloc(const Elf64_Ehdr *hdr)
 {
     if (memcmp(hdr->e_ident, ELFMAG, 4) != 0) {
-        debugln("[mod] Bad magic");
+        p_error("mod", "Bad magic");
         return -1;
     }
     if (hdr->e_ident[EI_CLASS] != ELFCLASS64) {
-        debugln("[mod] Not ELF64");
+        p_error("mod", "Not ELF64");
         return -1;
     }
     if (hdr->e_ident[EI_DATA] != ELFDATA2LSB) {
-        debugln("[mod] Not little-endian");
+        p_error("mod", "Not little-endian");
         return -1;
     }
     if (hdr->e_machine != EM_X86_64) {
-        debugln("[mod] Not x86-64");
+        p_error("mod", "Not x86-64");
         return -1;
     }
     if (hdr->e_type != ET_REL) {
-        debugln("[mod] Not ET_REL (type=%u)", hdr->e_type);
+        p_error("mod", "Not ET_REL (type=%u)", hdr->e_type);
         return -1;
     }
     return 0;
@@ -150,7 +150,7 @@ static int apply_rela(module_t *mod, Elf64_Rela *rela, uint64_t symval, size_t s
         *(int32_t *)where  = (int32_t)(S + A);
         break;
     default:
-        debugln("[mod] Unknown reloc type %lu", ELF64_R_TYPE(rela->r_info));
+        p_error("mod", "Unknown reloc type %lu", ELF64_R_TYPE(rela->r_info));
         return -1;
     }
     return 0;
@@ -192,13 +192,13 @@ static int process_relocations(module_t *mod, const Elf64_Ehdr *hdr, uint16_t *s
             if (sym->st_shndx == SHN_UNDEF) {
                 symval = mod_resolve_symbol(symname, mod);
                 if (!symval) {
-                    debugln("[mod] Unresolved external: %s", symname);
+                    p_error("mod", "Unresolved external: %s", symname);
                     return -1;
                 }
             } else if (sym->st_shndx == SHN_ABS) {
                 symval = sym->st_value;
             } else if (sym->st_shndx == SHN_COMMON) {
-	        debugln("[mod] Common symbol '%s' not supported in dynamic loader", symname);
+	        p_error("mod", "Common symbol '%s' not supported in dynamic loader", symname);
 	        return -1;
             } else if (sym->st_shndx < hdr->e_shnum) {
                 size_t soff = 0;
@@ -344,14 +344,14 @@ static int parse_export_table(module_t *mod, const Elf64_Ehdr *hdr, uint16_t *se
             void *sym_addr = entries[e].addr;
 
             if (!sym_name || !sym_addr) {
-                debugln("[mod] Export %zu: bad relocated ptr name=%p addr=%p", e, sym_name, sym_addr);
+                p_error("mod", "Export %zu: bad relocated ptr name=%p addr=%p", e, sym_name, sym_addr);
                 continue;
             }
 
             mod->exports[mod->export_count].name = sym_name;
             mod->exports[mod->export_count].addr = (uint64_t)sym_addr;
             mod->export_count++;
-            debugln("[mod] Export: %s @ %p", sym_name, sym_addr);
+            p_debug("mod", "Export: %s @ %p", sym_name, sym_addr);
         }
         return 0;
     }
@@ -386,7 +386,7 @@ static int parse_param_table(module_t *mod, const Elf64_Ehdr *hdr, uint16_t *sec
         for (size_t p = 0; p < nparams && mod->param_count < MAX_MOD_PARAMS; p++) {
             memcpy(&mod->params[mod->param_count], &params[p], sizeof(mod_param_t));
 
-            debugln("[mod] Param: %s type=%u addr=%p desc=%s",
+            p_debug("mod", "Param: %s type=%u addr=%p desc=%s",
                     mod->params[mod->param_count].name,
                     mod->params[mod->param_count].type,
                     mod->params[mod->param_count].addr,
@@ -403,19 +403,19 @@ static int resolve_dependencies(module_t *mod)
 {
     for (uint32_t i = 0; i < mod->dep_count; i++) {
         const char *depname = mod->depends[i];
-        debugln("[mod] Checking dependency: %s", depname);
+        p_debug("mod", "Checking dependency: %s", depname);
 
         module_t *dep = mod_find(depname);
         if (!dep) {
-            debugln("[mod] Dependency '%s' not loaded", depname);
+            p_error("mod", "Dependency '%s' not loaded", depname);
             return -1;
         }
         if (dep->state != MOD_STATE_LIVE) {
-            debugln("[mod] Dependency '%s' not live (state=%d)", depname, dep->state);
+            p_error("mod", "Dependency '%s' not live (state=%d)", depname, dep->state);
             return -1;
         }
         mod_get(dep);
-        debugln("[mod] Dependency '%s' resolved", depname);
+        p_debug("mod", "Dependency '%s' resolved", depname);
     }
     return 0;
 }
@@ -455,7 +455,7 @@ static int apply_params(module_t *mod, const char *args)
                         num = num * 10 + (val[k] - '0');
                 }
                 *(int *)mod->params[i].addr = (int)num;
-                debugln("[mod] Param %s = %d", mod->params[i].name, (int)num);
+                p_debug("mod", "Param %s = %d", mod->params[i].name, (int)num);
                 break;
             }
             case PARAM_TYPE_BOOL: {
@@ -463,7 +463,7 @@ static int apply_params(module_t *mod, const char *args)
                          (val_len == 1 && val[0] == '1') ||
                          (val_len == 2 && strncmp(val, "on", 2) == 0);
                 *(bool *)mod->params[i].addr = b;
-                debugln("[mod] Param %s = %s", mod->params[i].name, b ? "true" : "false");
+                p_debug("mod", "Param %s = %s", mod->params[i].name, b ? "true" : "false");
                 break;
             }
             case PARAM_TYPE_STRING:
@@ -473,7 +473,7 @@ static int apply_params(module_t *mod, const char *args)
                     memcpy(str, val, val_len);
                     str[val_len] = '\0';
                     *(char **)mod->params[i].addr = str;
-                    debugln("[mod] Param %s = %s", mod->params[i].name, str);
+                    p_debug("mod", "Param %s = %s", mod->params[i].name, str);
                 }
                 break;
             }
@@ -487,7 +487,7 @@ static int apply_params(module_t *mod, const char *args)
 static void find_module_hooks(module_t *mod, const Elf64_Ehdr *hdr, uint16_t *sec_idx, size_t *sec_off, size_t nalloc)
 {
     if (!mod->symtab || !mod->strtab) {
-        debugln("[mod] No symtab/strtab for hook search");
+        p_warn("mod", "No symtab/strtab for hook search");
         return;
     }
 
@@ -511,10 +511,10 @@ static void find_module_hooks(module_t *mod, const Elf64_Ehdr *hdr, uint16_t *se
 
         if (strcmp(name, "init_module") == 0 || strcmp(name, "module_init") == 0) {
             mod->init_fn = (void *)addr;
-            debugln("[mod] module_init @ %p", (void*)addr);
+            p_debug("mod", "module_init @ %p", (void*)addr);
         } else if (strcmp(name, "cleanup_module") == 0 || strcmp(name, "module_exit") == 0) {
             mod->exit_fn = (void *)addr;
-            debugln("[mod] module_exit @ %p", (void*)addr);
+            p_debug("mod", "module_exit @ %p", (void*)addr);
         }
     }
 }
@@ -523,21 +523,21 @@ void mod_get(module_t *mod)
 {
     if (!mod) return;
     mod->refcount++;
-    debugln("[mod] %s refcount -> %d", mod->name, mod->refcount);
+    p_debug("mod", "%s refcount -> %d", mod->name, mod->refcount);
 }
 
 void mod_put(module_t *mod)
 {
     if (!mod) return;
     mod->refcount--;
-    debugln("[mod] %s refcount -> %d", mod->name, mod->refcount);
+    p_debug("mod", "%s refcount -> %d", mod->name, mod->refcount);
 }
 
 module_t *load_kernel_module(const char *name, uint8_t *elf_data, size_t len, const char *args)
 {
     if (!elf_data || len < sizeof(Elf64_Ehdr)) return NULL;
     if (mod_count >= MAX_MODULES) {
-        debugln("[mod] Module table full");
+        p_error("mod", "Module table full");
         return NULL;
     }
 
@@ -589,7 +589,7 @@ module_t *load_kernel_module(const char *name, uint8_t *elf_data, size_t len, co
     parse_modinfo(mod, hdr, elf_data);
 
     if (resolve_dependencies(mod) < 0) {
-        debugln("[mod] Dependency resolution failed");
+        p_error("mod", "Dependency resolution failed");
         goto fail;
     }
 
@@ -606,7 +606,7 @@ module_t *load_kernel_module(const char *name, uint8_t *elf_data, size_t len, co
     }
 
     if (process_relocations(mod, hdr, sec_idx, sec_off, nalloc) < 0) {
-        debugln("[mod] Relocation failed");
+        p_error("mod", "Relocation failed");
         goto fail;
     }
 
@@ -614,7 +614,7 @@ module_t *load_kernel_module(const char *name, uint8_t *elf_data, size_t len, co
     parse_param_table(mod, hdr, sec_idx, sec_off, nalloc);
 
     if (args && apply_params(mod, args) < 0) {
-        debugln("[mod] Failed to apply parameters");
+        p_error("mod", "Failed to apply parameters");
         goto fail;
     }
 
@@ -625,23 +625,23 @@ module_t *load_kernel_module(const char *name, uint8_t *elf_data, size_t len, co
     sec_idx = NULL;
     sec_off = NULL;
 
-    debugln("[mod] Loaded '%s' base=%p size=%lu init=%p exit=%p exports=%u",
+    p_info("mod", "Loaded '%s' base=%p size=%lu init=%p exit=%p exports=%u",
             mod->name, mod->base, mod->size, mod->init_fn, mod->exit_fn, mod->export_count);
 
     if (mod->init_fn) {
-        debugln("[mod] Calling %s::module_init", mod->name);
+        p_debug("mod", "Calling %s::module_init", mod->name);
         mod->state = MOD_STATE_LOADING;
         int ret = ((int (*)(void))mod->init_fn)();
         mod->init_ret = ret;
         if (ret != 0) {
-            debugln("[mod] %s::module_init returned %d", mod->name, ret);
+            p_error("mod", "%s::module_init returned %d", mod->name, ret);
             mod->state = MOD_STATE_GOING;
             goto fail;
         }
     }
 
     mod->state = MOD_STATE_LIVE;
-    debugln("[mod] %s is now LIVE", mod->name);
+    p_info("mod", "%s is now LIVE", mod->name);
     return mod;
 
 fail:
@@ -662,14 +662,14 @@ int unload_kernel_module(module_t *mod)
     if (!mod || mod->state == MOD_STATE_UNLOADED) return -1;
 
     if (mod->refcount > 1) {
-        debugln("[mod] %s refcount=%d, cannot unload", mod->name, mod->refcount);
+        p_warn("mod", "%s refcount=%d, cannot unload", mod->name, mod->refcount);
         return -1;
     }
 
     mod->state = MOD_STATE_GOING;
 
     if (mod->exit_fn) {
-        debugln("[mod] Calling %s::module_exit", mod->name);
+        p_debug("mod", "Calling %s::module_exit", mod->name);
         ((void (*)(void))mod->exit_fn)();
     }
 
@@ -690,7 +690,7 @@ int unload_kernel_module(module_t *mod)
     mod->state = MOD_STATE_UNLOADED;
     mod->refcount = 0;
 
-    debugln("[mod] %s unloaded", mod->name);
+    p_info("mod", "%s unloaded", mod->name);
     return 0;
 }
 
@@ -719,7 +719,7 @@ void mod_info(const char *name)
 {
     module_t *mod = mod_find(name);
     if (!mod) {
-        debugln("[mod] Module '%s' not found", name);
+        p_warn("mod", "Module '%s' not found", name);
         return;
     }
 
@@ -749,11 +749,11 @@ void mod_info(const char *name)
 
 void mod_list(void)
 {
-    debugln("[mod] Loaded modules:");
+    p_info("mod", "Loaded modules:");
     for (uint32_t i = 0; i < mod_count; i++) {
         module_t *m = &modules[i];
         if (m->state == MOD_STATE_UNLOADED) continue;
-        debugln("  [%u] %-16s state=%s ref=%d size=%lu exports=%u init=%s",
+        p_info("mod", "  [%u] %-16s state=%s ref=%d size=%lu exports=%u init=%s",
                 i, m->name,
                 m->state == MOD_STATE_LIVE ? "LIVE" :
                 m->state == MOD_STATE_LOADING ? "LOAD" :

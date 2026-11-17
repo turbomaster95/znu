@@ -161,7 +161,7 @@ void e1000_init(void)
     e1000_init_rx();
     e1000_init_tx();
 
-    debugln("E1000: Init complete. MAC: %02x:%02x:%02x:%02x:%02x:%02x", 1, 0,
+    p_info("e1000", "E1000: Init complete. MAC: %02x:%02x:%02x:%02x:%02x:%02x", 1, 0,
 	    dev.mac[0], dev.mac[1], dev.mac[2], dev.mac[3], dev.mac[4], dev.mac[5]);
 }
 
@@ -204,7 +204,7 @@ int e1000_receive_packet(void *buf, size_t buf_size)
 void e1000_handle_interrupt(void)
 {
     uint32_t status = e1000_get_interrupt_status();
-    if (status & E1000_ICR_LSC) debugln("E1000: Link Status Change", 1, 0);
+    if (status & E1000_ICR_LSC) p_debug("e1000", "E1000: Link Status Change", 1, 0);
     if (status & (E1000_ICR_RXT0)) net_poll();
 }
 

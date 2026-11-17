@@ -85,7 +85,7 @@ static void pci_add_device(uint8_t bus, uint8_t slot, uint8_t func) {
 
     dev->present = true;
 
-    debugln("PCI %02X:%02X.%u class=%02X subclass=%02X progif=%02X vendor=%04X device=%04X [%s %s]",
+    p_debug("pci", "PCI %02X:%02X.%u class=%02X subclass=%02X progif=%02X vendor=%04X device=%04X [%s %s]",
             bus, slot, func, dev->class_code, dev->subclass, dev->prog_if,
             dev->vendor_id, dev->device_id,
             pci_get_vendor_name(dev->vendor_id),
@@ -116,13 +116,13 @@ void pci_init(void) {
     g_ops = arch_pci_get_ops();
     pci_device_count = 0;
 
-    debugln("[pci] scanning bus...");
+    p_info("pci", "scanning bus...");
     for (uint16_t bus = 0; bus < 256; bus++) {
         for (uint8_t slot = 0; slot < 32; slot++) {
             pci_scan_device((uint8_t)bus, slot);
         }
     }
-    debugln("[pci] found %d devices", pci_device_count);
+    p_info("pci", "found %d devices", pci_device_count);
 }
 
 pci_device_t* pci_find_class(uint8_t class_code, uint8_t subclass, uint8_t prog_if) {

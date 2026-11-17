@@ -58,7 +58,7 @@ static errcode_t znu_ext2_io_open(const char* name, int flags, io_channel* chann
 
     retval = ext2fs_get_mem(sizeof(struct struct_io_channel), (void**)&ch);
     if (retval != 0) {
-        debugln("[ext2] io_open: failed to allocate io_channel memory");
+        p_error("ext2", "io_open: failed to allocate io_channel memory");
         return retval;
     }
 
@@ -67,7 +67,7 @@ static errcode_t znu_ext2_io_open(const char* name, int flags, io_channel* chann
     retval = ext2fs_get_mem(sizeof(struct znu_ext2_io_private), (void**)&priv);
     if (retval != 0) {
         ext2fs_free_mem((void**)&ch);
-        debugln("[ext2] io_open: failed to allocate private data");
+        p_error("ext2", "io_open: failed to allocate private data");
         return retval;
     }
 
@@ -85,7 +85,7 @@ static errcode_t znu_ext2_io_open(const char* name, int flags, io_channel* chann
     ch->manager = NULL;
 
     *channel = ch;
-    debugln("[ext2] io_open: channel initialized");
+    p_debug("ext2", "io_open: channel initialized");
     return 0;
 }
 
@@ -110,7 +110,7 @@ static errcode_t znu_ext2_io_close(io_channel channel)
     channel->magic = 0;
     ext2fs_free_mem((void**)&channel);
 
-    debugln("[ext2] io_close: channel closed");
+    p_debug("ext2", "io_close: channel closed");
     return retval;
 }
 
@@ -135,7 +135,7 @@ static errcode_t znu_ext2_io_set_blksize(io_channel channel, int blksize)
         priv->sectors_per_block = 1;
     }
 
-    debugln("[ext2] set_blksize: block_size=%d, sectors_per_block=%d",
+    p_debug("ext2", "set_blksize: block_size=%d, sectors_per_block=%d",
             blksize, priv->sectors_per_block);
     return 0;
 }
@@ -173,7 +173,7 @@ static errcode_t znu_ext2_io_read_blk(io_channel channel,
 
     ret = ahci_read_sectors(lba, sector_count, buf);
     if (ret != 0) {
-        debugln("[ext2] read_blk: ahci_read_sectors failed at LBA %lu, count %u, ret=%d",
+        p_error("ext2", "read_blk: ahci_read_sectors failed at LBA %lu, count %u, ret=%d",
                 (unsigned long)lba, sector_count, ret);
         //channel->read_error = ret;
         return EXT2_ET_IO_CHANNEL_CORRUPT;
@@ -215,7 +215,7 @@ static errcode_t znu_ext2_io_write_blk(io_channel channel,
 
     ret = ahci_write_sectors(lba, sector_count, buf);
     if (ret != 0) {
-        debugln("[ext2] write_blk: ahci_write_sectors failed at LBA %lu, count %u, ret=%d",
+        p_error("ext2", "write_blk: ahci_write_sectors failed at LBA %lu, count %u, ret=%d",
                 (unsigned long)lba, sector_count, ret);
         //channel->write_error = ret;
         return EXT2_ET_IO_CHANNEL_CORRUPT;
@@ -230,7 +230,7 @@ static errcode_t znu_ext2_io_flush(io_channel channel)
         return EXT2_ET_MAGIC_IO_CHANNEL;
     }
 
-    debugln("[ext2] flush: cache flush requested (no-op for AHCI)");
+    p_debug("ext2", "flush: cache flush requested (no-op for AHCI)");
     return 0;
 }
 
@@ -267,7 +267,7 @@ static errcode_t znu_ext2_io_read_blk64(io_channel channel,
 
     ret = ahci_read_sectors(lba, sector_count, buf);
     if (ret != 0) {
-        debugln("[ext2] read_blk64: ahci_read_sectors failed at LBA %llu, count %u, ret=%d",
+        p_error("ext2", "read_blk64: ahci_read_sectors failed at LBA %llu, count %u, ret=%d",
                 (unsigned long long)lba, sector_count, ret);
         //channel->read_error = ret;
         return EXT2_ET_IO_CHANNEL_CORRUPT;
@@ -309,7 +309,7 @@ static errcode_t znu_ext2_io_write_blk64(io_channel channel,
 
     ret = ahci_write_sectors(lba, sector_count, buf);
     if (ret != 0) {
-        debugln("[ext2] write_blk64: ahci_write_sectors failed at LBA %llu, count %u, ret=%d",
+        p_error("ext2", "write_blk64: ahci_write_sectors failed at LBA %llu, count %u, ret=%d",
                 (unsigned long long)lba, sector_count, ret);
         //channel->write_error = ret;
         return EXT2_ET_IO_CHANNEL_CORRUPT;
@@ -380,7 +380,7 @@ static errcode_t znu_ext2_malloc(unsigned long size, void** ptr)
 {
     void* p = kmalloc((size_t)size);
     if (p == NULL) {
-        debugln("[ext2] malloc: failed to allocate %lu bytes", size);
+        p_error("ext2", "malloc: failed to allocate %lu bytes", size);
         return ENOMEM;
     }
     *ptr = p;
@@ -393,7 +393,7 @@ static errcode_t znu_ext2_realloc(void* old_ptr,
 {
     void* p = kmalloc((size_t)size);
     if (p == NULL) {
-        debugln("[ext2] realloc: failed to allocate %lu bytes", size);
+        p_error("ext2", "realloc: failed to allocate %lu bytes", size);
         return ENOMEM;
     }
     if (old_ptr != NULL) {
@@ -449,32 +449,32 @@ static int ext2_vfs_read(vfs_node_t* node, void* buf, size_t size, size_t offset
     }
 
     if (node->type != VFS_FILE) {
-        debugln("[ext2] read: node '%s' is not a file (type=%d)",
+        p_error("ext2", "read: node '%s' is not a file (type=%d)",
                 node->name, node->type);
         return -1;
     }
 
     ino = (ext2_ino_t)node->data;
     if (ino == 0) {
-        debugln("[ext2] read: invalid inode for node '%s'", node->name);
+        p_error("ext2", "read: invalid inode for node '%s'", node->name);
         return -1;
     }
 
     if (znu_ext2_fs == NULL) {
-        debugln("[ext2] read: filesystem not initialized");
+        p_error("ext2", "read: filesystem not initialized");
         return -1;
     }
 
     retval = ext2fs_file_open(znu_ext2_fs, ino, 0, &file);
     if (retval != 0) {
-        debugln("[ext2] read: ext2fs_file_open failed for inode %u, retval=%d",
+        p_error("ext2", "read: ext2fs_file_open failed for inode %u, retval=%d",
                 (unsigned int)ino, retval);
         return -1;
     }
 
     retval = ext2fs_file_llseek(file, (ext2_off64_t)offset, EXT2_SEEK_SET, NULL);
     if (retval != 0) {
-        debugln("[ext2] read: ext2fs_file_llseek failed for inode %u, retval=%d",
+        p_error("ext2", "read: ext2fs_file_llseek failed for inode %u, retval=%d",
                 (unsigned int)ino, retval);
         ext2fs_file_close(file);
         return -1;
@@ -489,7 +489,7 @@ static int ext2_vfs_read(vfs_node_t* node, void* buf, size_t size, size_t offset
 
         retval = ext2fs_file_read(file, dest + total_read, to_read, &bytes_read);
         if (retval != 0) {
-            debugln("[ext2] read: ext2fs_file_read failed at offset %zu, retval=%d",
+            p_error("ext2", "read: ext2fs_file_read failed at offset %zu, retval=%d",
                     current_offset, retval);
             break;
         }
@@ -505,10 +505,10 @@ static int ext2_vfs_read(vfs_node_t* node, void* buf, size_t size, size_t offset
 
     retval = ext2fs_file_close(file);
     if (retval != 0) {
-        debugln("[ext2] read: ext2fs_file_close warning, retval=%d", retval);
+        p_warn("ext2", "read: ext2fs_file_close warning, retval=%d", retval);
     }
 
-    debugln("[ext2] read: inode %u, offset %zu, requested %zu, read %u",
+    p_trace("ext2", "read: inode %u, offset %zu, requested %zu, read %u",
             (unsigned int)ino, offset, size, total_read);
 
     return (int)total_read;
@@ -530,32 +530,32 @@ static int ext2_vfs_write(vfs_node_t* node, const void* buf, size_t size, size_t
     }
 
     if (node->type != VFS_FILE) {
-        debugln("[ext2] write: node '%s' is not a file (type=%d)",
+        p_error("ext2", "write: node '%s' is not a file (type=%d)",
                 node->name, node->type);
         return -1;
     }
 
     ino = (ext2_ino_t)node->data;
     if (ino == 0) {
-        debugln("[ext2] write: invalid inode for node '%s'", node->name);
+        p_error("ext2", "write: invalid inode for node '%s'", node->name);
         return -1;
     }
 
     if (znu_ext2_fs == NULL) {
-        debugln("[ext2] write: filesystem not initialized");
+        p_error("ext2", "write: filesystem not initialized");
         return -1;
     }
 
     retval = ext2fs_file_open(znu_ext2_fs, ino, EXT2_FILE_WRITE, &file);
     if (retval != 0) {
-        debugln("[ext2] write: ext2fs_file_open failed for inode %u, retval=%d",
+        p_error("ext2", "write: ext2fs_file_open failed for inode %u, retval=%d",
                 (unsigned int)ino, retval);
         return -1;
     }
 
     retval = ext2fs_file_llseek(file, (ext2_off64_t)offset, EXT2_SEEK_SET, NULL);
     if (retval != 0) {
-        debugln("[ext2] write: ext2fs_file_llseek failed for inode %u, retval=%d",
+        p_error("ext2", "write: ext2fs_file_llseek failed for inode %u, retval=%d",
                 (unsigned int)ino, retval);
         ext2fs_file_close(file);
         return -1;
@@ -570,7 +570,7 @@ static int ext2_vfs_write(vfs_node_t* node, const void* buf, size_t size, size_t
 
         retval = ext2fs_file_write(file, src + total_written, to_write, &bytes_written);
         if (retval != 0) {
-            debugln("[ext2] write: ext2fs_file_write failed at offset %zu, retval=%d",
+            p_error("ext2", "write: ext2fs_file_write failed at offset %zu, retval=%d",
                     current_offset, retval);
             break;
         }
@@ -586,12 +586,12 @@ static int ext2_vfs_write(vfs_node_t* node, const void* buf, size_t size, size_t
 
     retval = ext2fs_file_flush(file);
     if (retval != 0) {
-        debugln("[ext2] write: ext2fs_file_flush warning, retval=%d", retval);
+        p_warn("ext2", "write: ext2fs_file_flush warning, retval=%d", retval);
     }
 
     retval = ext2fs_file_close(file);
     if (retval != 0) {
-        debugln("[ext2] write: ext2fs_file_close warning, retval=%d", retval);
+        p_warn("ext2", "write: ext2fs_file_close warning, retval=%d", retval);
     }
 
     struct ext2_inode inode;
@@ -600,7 +600,7 @@ static int ext2_vfs_write(vfs_node_t* node, const void* buf, size_t size, size_t
         node->size = (size_t)inode.i_size;
     }
 
-    debugln("[ext2] write: inode %u, offset %zu, requested %zu, written %u",
+    p_trace("ext2", "write: inode %u, offset %zu, requested %zu, written %u",
             (unsigned int)ino, offset, size, total_written);
 
     return (int)total_written;
@@ -700,19 +700,19 @@ static int ext2_vfs_readdir(vfs_node_t* node,
     }
 
     if (node->type != VFS_DIRECTORY) {
-        debugln("[ext2] readdir: node '%s' is not a directory (type=%d)",
+        p_error("ext2", "readdir: node '%s' is not a directory (type=%d)",
                 node->name, node->type);
         return -1;
     }
 
     ino = (ext2_ino_t)node->data;
     if (ino == 0) {
-        debugln("[ext2] readdir: invalid inode for node '%s'", node->name);
+        p_error("ext2", "readdir: invalid inode for node '%s'", node->name);
         return -1;
     }
 
     if (znu_ext2_fs == NULL) {
-        debugln("[ext2] readdir: filesystem not initialized");
+        p_error("ext2", "readdir: filesystem not initialized");
         return -1;
     }
 
@@ -731,12 +731,12 @@ static int ext2_vfs_readdir(vfs_node_t* node,
     retval = ext2fs_dir_iterate(znu_ext2_fs, ino, 0, NULL,
                                  znu_ext2_dir_iterate_callback, &ctx);
     if (retval != 0 && retval != EXT2_ET_DIR_NO_SPACE) {
-        debugln("[ext2] readdir: ext2fs_dir_iterate failed for inode %u, retval=%d",
+        p_error("ext2", "readdir: ext2fs_dir_iterate failed for inode %u, retval=%d",
                 (unsigned int)ino, retval);
         return -1;
     }
 
-    debugln("[ext2] readdir: inode %u, start_index %u, returned %u entries",
+    p_trace("ext2", "readdir: inode %u, start_index %u, returned %u entries",
             (unsigned int)ino, start_index, ctx.found_count);
 
     return (int)ctx.found_count;
@@ -756,7 +756,7 @@ static vfs_node_t* ext2_vfs_find(vfs_node_t* parent, const char* name)
     }
 
     if (znu_ext2_fs == NULL) {
-        debugln("[ext2] find: filesystem not initialized");
+        p_error("ext2", "find: filesystem not initialized");
         return NULL;
     }
 
@@ -767,25 +767,25 @@ static vfs_node_t* ext2_vfs_find(vfs_node_t* parent, const char* name)
     }
 
     if (parent_ino == 0) {
-        debugln("[ext2] find: invalid parent inode");
+        p_error("ext2", "find: invalid parent inode");
         return NULL;
     }
 
     retval = ext2fs_namei(znu_ext2_fs, parent_ino, parent_ino, name, &child_ino);
     if (retval != 0) {
-        debugln("[ext2] find: ext2fs_namei failed for '%s' in inode %u, retval=%d",
+        p_error("ext2", "find: ext2fs_namei failed for '%s' in inode %u, retval=%d",
                 name, (unsigned int)parent_ino, retval);
         return NULL;
     }
 
     if (child_ino == 0) {
-        debugln("[ext2] find: inode not found for '%s'", name);
+        p_error("ext2", "find: inode not found for '%s'", name);
         return NULL;
     }
 
     retval = ext2fs_read_inode(znu_ext2_fs, child_ino, &inode);
     if (retval != 0) {
-        debugln("[ext2] find: ext2fs_read_inode failed for inode %u, retval=%d",
+        p_error("ext2", "find: ext2fs_read_inode failed for inode %u, retval=%d",
                 (unsigned int)child_ino, retval);
         return NULL;
     }
@@ -794,14 +794,14 @@ static vfs_node_t* ext2_vfs_find(vfs_node_t* parent, const char* name)
 
     node = vfs_create_node(name, vfs_type);
     if (node == NULL) {
-        debugln("[ext2] find: vfs_create_node failed for '%s'", name);
+        p_error("ext2", "find: vfs_create_node failed for '%s'", name);
         return NULL;
     }
 
     node->size = (size_t)inode.i_size;
     node->data = (uintptr_t)child_ino;
 
-    debugln("[ext2] find: resolved '%s' -> inode %u, type=%s, size=%zu",
+    p_debug("ext2", "find: resolved '%s' -> inode %u, type=%s, size=%zu",
             name, (unsigned int)child_ino, znu_ext2_type_name(vfs_type), node->size);
 
     return node;
@@ -820,10 +820,10 @@ bool ext2_init_on_disk(void)
     struct znu_ext2_io_private* priv;
     int flags = EXT2_FLAG_RW;
 
-    debugln("[ext2] init: starting ext2 filesystem initialization");
+    p_info("ext2", "init: starting ext2 filesystem initialization");
 
     if (znu_ext2_fs != NULL) {
-        debugln("[ext2] init: filesystem already mounted");
+        p_warn("ext2", "init: filesystem already mounted");
         return false;
     }
 
@@ -833,13 +833,13 @@ bool ext2_init_on_disk(void)
 
     retval = ext2fs_open(NULL, flags, 0, 0, &znu_ext2_io_manager, &znu_ext2_fs);
     if (retval != 0) {
-        debugln("[ext2] init: ext2fs_open failed, retval=%d", retval);
+        p_error("ext2", "init: ext2fs_open failed, retval=%d", retval);
         znu_ext2_fs = NULL;
         return false;
     }
 
     if (znu_ext2_fs == NULL) {
-        debugln("[ext2] init: ext2fs_open returned NULL filesystem");
+        p_error("ext2", "init: ext2fs_open returned NULL filesystem");
         return false;
     }
 
@@ -852,13 +852,13 @@ bool ext2_init_on_disk(void)
         if (priv->sectors_per_block == 0) {
             priv->sectors_per_block = 1;
         }
-        debugln("[ext2] init: block_size=%u, sectors_per_block=%u",
+        p_debug("ext2", "init: block_size=%u, sectors_per_block=%u",
                 priv->block_size, priv->sectors_per_block);
     }
 
     retval = ext2fs_read_block_bitmap(znu_ext2_fs);
     if (retval != 0) {
-        debugln("[ext2] init: ext2fs_read_block_bitmap failed, retval=%d", retval);
+        p_error("ext2", "init: ext2fs_read_block_bitmap failed, retval=%d", retval);
         ext2fs_close(znu_ext2_fs);
         znu_ext2_fs = NULL;
         znu_ext2_channel = NULL;
@@ -867,7 +867,7 @@ bool ext2_init_on_disk(void)
 
     retval = ext2fs_read_inode_bitmap(znu_ext2_fs);
     if (retval != 0) {
-        debugln("[ext2] init: ext2fs_read_inode_bitmap failed, retval=%d", retval);
+        p_error("ext2", "init: ext2fs_read_inode_bitmap failed, retval=%d", retval);
         ext2fs_close(znu_ext2_fs);
         znu_ext2_fs = NULL;
         znu_ext2_channel = NULL;
@@ -876,10 +876,10 @@ bool ext2_init_on_disk(void)
 
     retval = ext2fs_read_inode_bitmap(znu_ext2_fs);
     if (retval != 0) {
-        debugln("[ext2] init: inode bitmap re-read warning, retval=%d", retval);
+        p_warn("ext2", "init: inode bitmap re-read warning, retval=%d", retval);
     }
 
-    debugln("[ext2] init: filesystem mounted successfully, blocksize=%ld, inodes=%u, blocks=%u",
+    p_info("ext2", "init: filesystem mounted successfully, blocksize=%ld, inodes=%u, blocks=%u",
             znu_ext2_fs->blocksize,
             znu_ext2_fs->super->s_inodes_count,
             znu_ext2_fs->super->s_blocks_count);
@@ -894,19 +894,19 @@ vfs_node_t* ext2_get_root_node(void)
     errcode_t retval;
 
     if (znu_ext2_fs == NULL) {
-        debugln("[ext2] get_root: filesystem not initialized");
+        p_error("ext2", "get_root: filesystem not initialized");
         return NULL;
     }
 
     retval = ext2fs_read_inode(znu_ext2_fs, EXT2_ROOT_INO, &inode);
     if (retval != 0) {
-        debugln("[ext2] get_root: ext2fs_read_inode failed for root, retval=%d", retval);
+        p_error("ext2", "get_root: ext2fs_read_inode failed for root, retval=%d", retval);
         return NULL;
     }
 
     root = vfs_create_node("/", VFS_DIRECTORY);
     if (root == NULL) {
-        debugln("[ext2] get_root: vfs_create_node failed for root");
+        p_error("ext2", "get_root: vfs_create_node failed for root");
         return NULL;
     }
 
@@ -914,7 +914,7 @@ vfs_node_t* ext2_get_root_node(void)
     root->data = (uintptr_t)EXT2_ROOT_INO;
     root->ops = &ext2_vfs_ops;
 
-    debugln("[ext2] get_root: root node created, inode=%u, size=%zu",
+    p_debug("ext2", "get_root: root node created, inode=%u, size=%zu",
             (unsigned int)EXT2_ROOT_INO, root->size);
 
     return root;
@@ -925,47 +925,47 @@ bool ext2_unmount(void)
     errcode_t retval;
 
     if (znu_ext2_fs == NULL) {
-        debugln("[ext2] unmount: no filesystem mounted");
+        p_warn("ext2", "unmount: no filesystem mounted");
         return false;
     }
 
     retval = ext2fs_close(znu_ext2_fs);
     if (retval != 0) {
-        debugln("[ext2] unmount: ext2fs_close warning, retval=%d", retval);
+        p_warn("ext2", "unmount: ext2fs_close warning, retval=%d", retval);
     }
 
     znu_ext2_fs = NULL;
     znu_ext2_channel = NULL;
 
-    debugln("[ext2] unmount: filesystem unmounted");
+    p_info("ext2", "unmount: filesystem unmounted");
     return true;
 }
 
 void ext2_print_superblock_info(void)
 {
     if (znu_ext2_fs == NULL || znu_ext2_fs->super == NULL) {
-        debugln("[ext2] info: filesystem not initialized");
+        p_warn("ext2", "info: filesystem not initialized");
         return;
     }
 
     struct ext2_super_block* sb = znu_ext2_fs->super;
 
-    debugln("[ext2] info: === Ext2 Superblock ===");
-    debugln("[ext2] info: inodes_count      = %u", sb->s_inodes_count);
-    debugln("[ext2] info: blocks_count      = %u", sb->s_blocks_count);
-    debugln("[ext2] info: r_blocks_count    = %u", sb->s_r_blocks_count);
-    debugln("[ext2] info: free_blocks_count = %u", sb->s_free_blocks_count);
-    debugln("[ext2] info: free_inodes_count = %u", sb->s_free_inodes_count);
-    debugln("[ext2] info: first_data_block  = %u", sb->s_first_data_block);
-    debugln("[ext2] info: block_size        = %u", 1024 << sb->s_log_block_size);
-    debugln("[ext2] info: frag_size         = %u", 1024 << sb->s_log_cluster_size);
-    debugln("[ext2] info: blocks_per_group  = %u", sb->s_blocks_per_group);
+    p_debug("ext2", "info: === Ext2 Superblock ===");
+    p_debug("ext2", "info: inodes_count      = %u", sb->s_inodes_count);
+    p_debug("ext2", "info: blocks_count      = %u", sb->s_blocks_count);
+    p_debug("ext2", "info: r_blocks_count    = %u", sb->s_r_blocks_count);
+    p_debug("ext2", "info: free_blocks_count = %u", sb->s_free_blocks_count);
+    p_debug("ext2", "info: free_inodes_count = %u", sb->s_free_inodes_count);
+    p_debug("ext2", "info: first_data_block  = %u", sb->s_first_data_block);
+    p_debug("ext2", "info: block_size        = %u", 1024 << sb->s_log_block_size);
+    p_debug("ext2", "info: frag_size         = %u", 1024 << sb->s_log_cluster_size);
+    p_debug("ext2", "info: blocks_per_group  = %u", sb->s_blocks_per_group);
     //debugln("[ext2] info: frags_per_group   = %u", sb->s_frags_per_group);
-    debugln("[ext2] info: inodes_per_group  = %u", sb->s_inodes_per_group);
-    debugln("[ext2] info: magic             = 0x%04X", sb->s_magic);
-    debugln("[ext2] info: state             = %u", sb->s_state);
-    debugln("[ext2] info: rev_level         = %u", sb->s_rev_level);
-    debugln("[ext2] info: first_ino         = %u", sb->s_first_ino);
-    debugln("[ext2] info: inode_size        = %u", sb->s_inode_size);
-    debugln("[ext2] info: ======================");
+    p_debug("ext2", "info: inodes_per_group  = %u", sb->s_inodes_per_group);
+    p_debug("ext2", "info: magic             = 0x%04X", sb->s_magic);
+    p_debug("ext2", "info: state             = %u", sb->s_state);
+    p_debug("ext2", "info: rev_level         = %u", sb->s_rev_level);
+    p_debug("ext2", "info: first_ino         = %u", sb->s_first_ino);
+    p_debug("ext2", "info: inode_size        = %u", sb->s_inode_size);
+    p_debug("ext2", "info: ======================");
 }

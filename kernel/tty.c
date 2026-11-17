@@ -69,7 +69,7 @@ static void tty_wake_reader(tty_t* tty) {
     proc->wait_channel = NULL;
     proc->wait_pid = -1;
     proc->state = TASK_READY;
-    debugln("[tty] waking pid=%llu state=%d", proc->pid, proc->state);
+    p_trace("tty", "waking pid=%llu state=%d", proc->pid, proc->state);
 }
 
 size_t tty_read(tty_t* tty, char* buf, size_t count, bool nonblock) {
@@ -80,7 +80,7 @@ size_t tty_read(tty_t* tty, char* buf, size_t count, bool nonblock) {
     size_t got = 0;
 
     #ifdef KRNLDBG
-    debugln("[tty] read enter pid=%llu tty=%p count=%zu nonblock=%d",
+    p_trace("tty", "read enter pid=%llu tty=%p count=%zu nonblock=%d",
         current_process ? current_process->pid : 0,
         (void*)tty,
         count,
@@ -90,7 +90,7 @@ size_t tty_read(tty_t* tty, char* buf, size_t count, bool nonblock) {
     while (got < count) {
         while (tty_buf_empty(tty)) {
 	    #ifdef KRNLDBG
-            debugln("[tty] empty pid=%llu nonblock=%d waiter=%p state=%d",
+            p_trace("tty", "empty pid=%llu nonblock=%d waiter=%p state=%d",
         	        current_process ? current_process->pid : 0,
                 	(int)nonblock,
         	        (void*)tty->waiting_reader,
@@ -112,7 +112,7 @@ size_t tty_read(tty_t* tty, char* buf, size_t count, bool nonblock) {
             current_process->state = TASK_WAITING;
 
 	    #ifdef KRNLDBG
-       	    debugln("[tty] blocking pid=%llu waiter=%p",
+       	    p_trace("tty", "blocking pid=%llu waiter=%p",
                 	current_process ? current_process->pid : 0,
         	        (void*)tty->waiting_reader);
 	    #endif
@@ -122,7 +122,7 @@ size_t tty_read(tty_t* tty, char* buf, size_t count, bool nonblock) {
             arch_disable_interrupts();
 
 	    #ifdef KRNLDBG
-            debugln("[tty] resumed pid=%llu state=%d head=%zu tail=%zu", current_process ? current_process->pid : 0, current_process ? current_process->state : -1, tty->cooked_head, tty->cooked_tail);
+            p_trace("tty", "resumed pid=%llu state=%d head=%zu tail=%zu", current_process ? current_process->pid : 0, current_process ? current_process->state : -1, tty->cooked_head, tty->cooked_tail);
             #endif
 	}
 
@@ -339,7 +339,7 @@ void tty_input_char(int id, char c) {
 
 int tty_ioctl(unsigned long request, void* argp) {
     tty_t* tty = &ttys[active_tty];
-    // debugln("tty_ioctl req=%lx", request);
+    // p_trace("tty_ioctl req=%lx", request);
     if (!argp)
         return -1;
 

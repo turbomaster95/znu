@@ -74,7 +74,7 @@ vfs_ops_t mem_ops = {
 
 vfs_node_t* vfs_create_node(const char* name, int type) {
     if (!name || !name[0]) {
-        debugln("[vfs] ERROR: vfs_create_node called with empty name!");
+        p_error("vfs", "ERROR: vfs_create_node called with empty name!");
         return NULL;
     }
     
@@ -230,7 +230,7 @@ void init_vfs(void) {
 bool vfs_mount(const char* device, const char* fs_type, const char* path) {
     if (!device || !fs_type || !path) return false;
 
-    debugln("[vfs] mount request: %s -> %s at %s", device, fs_type, path);
+    p_debug("vfs", "mount request: %s -> %s at %s", device, fs_type, path);
 
     if (strcmp(fs_type, "fat32") == 0) {
         disk_t* d = disk_get_by_name(device);
@@ -272,18 +272,18 @@ bool vfs_mount(const char* device, const char* fs_type, const char* path) {
         if (root_dir && f_opendir(root_dir, "0:/") == FR_OK) {
             mount_node->internal_data = root_dir;   /* Use internal_data, not data */
         } else {
-            debugln("[vfs] Failed to open FatFs root directory '0:/'");
+            p_error("vfs", "Failed to open FatFs root directory '0:/'");
             if (root_dir) kfree(root_dir);
             kfree(mount_node);
             return false;
         }
 
         vfs_add_child(parent, mount_node);
-        debugln("[vfs] fat32 mounted at %s", path);
+        p_info("vfs", "fat32 mounted at %s", path);
         return true;
     }
 
-    debugln("[vfs] unknown filesystem: %s", fs_type);
+    p_warn("vfs", "unknown filesystem: %s", fs_type);
     return false;
 }
 
@@ -300,7 +300,7 @@ void debug_vfs(vfs_node_t* node, int tab) {
         case VFS_SYMLINK:   type_str = "LINK"; break;
     }
     
-    debugln("[%s] \"%s\" size=%zu", type_str, node->name, node->size);
+    p_debug("vfs", "\"%s\" size=%zu", type_str, node->name, node->size);
     
     vfs_node_t* child = node->children;
     while (child) {

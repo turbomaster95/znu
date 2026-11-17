@@ -233,7 +233,7 @@ bool ahci_write_sector(int port_num, uint64_t lba, const void* buf) {
 }
 
 int ahci_init(void) {
-    debugln("[ahci] Initializing AHCI");
+    p_info("ahci", "Initializing AHCI");
 
     uint64_t abar = ahci_arch_get_abar();
     if (!abar) return -1;

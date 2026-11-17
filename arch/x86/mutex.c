@@ -115,7 +115,7 @@ void mutex_unlock(mutex_t *mutex) {
     uint64_t my_pid = current_process->pid;
     
     if (mutex->owner_pid != my_pid) {
-        debugln("[mutex] ERROR: PID %lu unlocking mutex owned by %lu!\n", 
+        p_error("mutex", "ERROR: PID %lu unlocking mutex owned by %lu!\n", 
                my_pid, mutex->owner_pid);
         return;
     }

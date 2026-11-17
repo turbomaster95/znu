@@ -34,7 +34,7 @@ extern void test_smp_workers(int total_cores);
 extern void net_test_suite(void);
 
 void kmain(void) {
-    debugln("[znu] Reached Kmain!");
+    p_info("znu", "Reached Kmain!");
 
     rtc_init();
     timekeeper_init();
@@ -42,22 +42,22 @@ void kmain(void) {
     arch_main_init();
 
     #ifdef CONFIG_KTEST
-     debugln("[ktest] Testing sleep(2000)...");
+     p_info("ktest", "Testing sleep(2000)...");
      uint64_t s_start = nifties;
      sleep(2000);
      uint64_t s_end = nifties;
-     debugln("[ktest] sleep(2000) finished. PIT ticks elapsed: %d", s_end - s_start);
+     p_debug("ktest", "sleep(2000) finished. PIT ticks elapsed: %d", s_end - s_start);
      if (s_end - s_start != 2000) {
          debugwarn("sleep(2000) is not accurate!");
          uint64_t elapsed = s_end - s_start;
          uint64_t error = (elapsed > 2000) ? (elapsed - 2000) : (2000 - elapsed);
-         debugln("[ktest] Thats like.. %d of error!", (uint32_t)error);
+         p_warn("ktest", "Thats like.. %d of error!", (uint32_t)error);
      } else {
-         debugln("[ktest] sleep(2000) is accurate!");
+         p_info("ktest", "sleep(2000) is accurate!");
      }
     #endif
 
-    debugln("[kernel] Basic System Initialization done!");
+    p_info("kernel", "Basic System Initialization done!");
 
     arch_basic_init();
 
@@ -92,13 +92,13 @@ void kmain(void) {
     disk_init();
 
     init_vfs();
-    debugln("[vfs] Initialized VFS");
+    p_info("vfs", "Initialized VFS");
 
     vfse_init();
-    debugln("[vfse] Initialized VFSe");
+    p_info("vfse", "Initialized VFSe");
 
     tty_init();
-    debugln("[tty] Initialized tty");
+    p_info("tty", "Initialized tty");
 
     syscall_init();
     gs_init(stack_top);
@@ -112,9 +112,9 @@ void kmain(void) {
     
     // Check for LZ4 magic number (Standard: 0x184D2204, Legacy: 0x184C2102)
     uint32_t magic = *(uint32_t*)initrd_addr;
-    debugln("[kernel] Initramfs magic: 0x%x", magic);
+    p_debug("kernel", "Initramfs magic: 0x%x", magic);
     if (magic == 0x184D2204 || magic == 0x184C2102) {
-        debugln("[kernel] Detected LZ4 compressed initramfs (%s)", 
+        p_info("kernel", "Detected LZ4 compressed initramfs (%s)", 
                 magic == 0x184D2204 ? "Standard" : "Legacy");
         // Allocate a buffer for decompression (64MB)
         size_t decomp_size_max = 64 * 1024 * 1024;
@@ -129,12 +129,12 @@ void kmain(void) {
             panic("Initramfs decompression failed!");
         }
         
-        debugln("[kernel] Decompressed initramfs: %d bytes", actual_size);
+        p_info("kernel", "Decompressed initramfs: %d bytes", actual_size);
         initrd_addr = decomp_buffer;
     }
 
     enable_smap();
-    debugln("[smap] Reenabled SMAP");
+    p_info("smap", "Reenabled SMAP");
 
     debugln("\033[1;34m  ______             \033[0m");
     debugln("\033[1;34m |___  /             \033[0m");
@@ -144,7 +144,7 @@ void kmain(void) {
     debugln("\033[1;34m /_____|_| |_|\\__,_| \033[0m");
     debugln("\033[1;36m  Kernel v0.1.0-alpha \033[0m\n");
 
-    debugln("[kernel] Parsing initramfs at %p...", initrd_addr);
+    p_info("kernel", "Parsing initramfs at %p...", initrd_addr);
     cpio_parse(initrd_addr);
 
     vfs_node_t* init_node = vfs_path_to_node("/bin/init");
@@ -152,7 +152,7 @@ void kmain(void) {
        panic("Initramfs parsed, but /bin/init not found in VFS!");
     }
     
-    debugln("[kernel] Loading init process from VFS (Size: %d bytes)", init_node->size);
+    p_info("kernel", "Loading init process from VFS (Size: %d bytes)", init_node->size);
     
     const char* init_argv[] = {"/bin/init", NULL};
     const char* init_envp[] = {"PATH=/bin", "TERM=linux", "HOME=/", NULL};
@@ -183,7 +183,7 @@ void kmain(void) {
        //tss_per_cpu[0].rsp0 = init_proc->kstack_top;
        main_cpu_context.kernel_stack = init_proc->kstack_top;
 
-       debugln("[kernel] Jumping to Ring 3...");
+       p_info("kernel", "Jumping to Ring 3...");
        jump_to_usermode(init_proc->entry, init_proc->stack_top);
        panic("Init binary exited!!!");
     }    

@@ -68,8 +68,8 @@ void lapic_init(int cpu_id) {
     uintptr_t lapic_phys = (lo & 0xFFFFF000) | ((uint64_t)(hi & 0x0F) << 32);
     lapic_base = (volatile uint64_t*)(lapic_phys + hhdm_request.response->offset);
 
-    debugln("[dlapic] LAPIC Base (Phys): 0x%p", lapic_phys);
-    debugln("[dlapic] LAPIC Base (Virt): 0x%p", lapic_base);
+    p_debug("dlapic", "LAPIC Base (Phys): 0x%p", lapic_phys);
+    p_debug("dlapic", "LAPIC Base (Virt): 0x%p", lapic_base);
 
     lapic_init_per_core(cpu_id);
 }
@@ -85,7 +85,7 @@ int get_cpu_id(void) {
 }
 
 PERFORM void calibrate_lapic_timer_no_irq(void) {
-    debugln("[clapic] Calibrating LAPIC timer using TSC...");
+    p_debug("clapic", "Calibrating LAPIC timer using TSC...");
 
     extern tsc_info_t tsc_data;
 
@@ -108,7 +108,7 @@ PERFORM void calibrate_lapic_timer_no_irq(void) {
         uint32_t elapsed = 0xFFFFFFFF - lapic_remaining;
         lapic_ticks_per_ms = (uint32_t)(((uint64_t)elapsed * 1193182ULL)
                                         / (65535ULL * 1000ULL));
-        debugln("[lapic] LAPIC calibration (PIT fallback): %u ticks/ms",
+        p_debug("lapic", "LAPIC calibration (PIT fallback): %u ticks/ms",
                 lapic_ticks_per_ms);
         return;
     }
@@ -134,7 +134,7 @@ PERFORM void calibrate_lapic_timer_no_irq(void) {
     uint32_t lapic_elapsed = lapic_start - lapic_end;
     lapic_ticks_per_ms     = lapic_elapsed / MEASURE_MS;
 
-    debugln("[lapic] LAPIC calibration: %u ticks in %u ms -> %u ticks/ms",
+    p_info("lapic", "LAPIC calibration: %u ticks in %u ms -> %u ticks/ms",
             lapic_elapsed, MEASURE_MS, lapic_ticks_per_ms);
 }
 
@@ -144,11 +144,11 @@ PERFORM void calibrate_lapic_timer(void) {
         return;
     }
     if (lapic_ticks_per_ms != 0) {
-        debugln("[lapic] LAPIC timer already calibrated.");
+        p_debug("lapic", "LAPIC timer already calibrated.");
         return;
     }
 
-    debugln("[clapic] Calibrating LAPIC timer...");
+    p_debug("clapic", "Calibrating LAPIC timer...");
 
     uint64_t pit_start_ticks = timer_ticks;
     uint64_t pit_wait_duration_ticks = 100;
@@ -180,7 +180,7 @@ PERFORM void calibrate_lapic_timer(void) {
 
     lapic_ticks_per_ms = ticks_elapsed / duration_ms;
 
-    debugln("[clapic] APIC timer calibrated: %u ticks/ms.", lapic_ticks_per_ms);
+    p_info("clapic", "APIC timer calibrated: %u ticks/ms.", lapic_ticks_per_ms);
 
     lapic_write(LAPIC_REG_INITIAL_COUNT, 0);
     lapic_write(LAPIC_REG_LVT_TIMER, 0x10000);
@@ -237,7 +237,7 @@ void lapic_send_ipi(uint8_t lapic_id, uint8_t vector) {
         __asm__ volatile("pause");
     }
 
-    // debugln("[ipi] Sending vector 0x%x to LAPIC %d", vector, lapic_id);
+    // p_trace("[ipi] Sending vector 0x%x to LAPIC %d", vector, lapic_id);
     lapic_write(LAPIC_REG_ICR_HIGH, (uint32_t)lapic_id << 24);
 
     uint32_t icr_low = (vector & 0xFF) | (0 << 8) | (0 << 11) | (1 << 14) | (0 << 18);

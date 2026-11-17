@@ -119,9 +119,9 @@ void earlykmain(void) {
 
     arch_early_init();
 
-    debugln("[rng] About to seed!");
+    p_debug("rng", "About to seed!");
     arch_seed_entropy();
-    debugln("[rng] Seeded RNG with hardware noise!");
+    p_info("rng", "Seeded RNG with hardware noise!");
 
     __stack_chk_guard = (uintptr_t)rand() << 32 | rand();
 
@@ -130,7 +130,7 @@ void earlykmain(void) {
     }
 
     if (rsdp_request.response) {
-        debugln("[kernel] Got RSDP from Limine!");
+        p_info("kernel", "Got RSDP from Limine!");
         rsdp_addr = (uintptr_t)rsdp_request.response->address;
     }
 
@@ -174,22 +174,22 @@ void earlykmain(void) {
     if (cmdline_request.response == NULL || 
         cmdline_request.response->cmdline == NULL || 
         cmdline_request.response->cmdline[0] == '\0') {
-        debugln("[kernel] No cmdline was passed.");
+        p_warn("kernel", "No cmdline was passed.");
     } else {
-        debugln("[kernel] Got cmdline!");
-        debugln("[kernel] cmdline: %s", cmdline_request.response->cmdline);
+        p_info("kernel", "Got cmdline!");
+        p_debug("kernel", "cmdline: %s", cmdline_request.response->cmdline);
         parse_cmdline(cmdline_request.response->cmdline);
     }
     if (efi_st_request.response == NULL) {
-        debugln("[kernel] Not running on an EFI system.");
+        p_warn("kernel", "Not running on an EFI system.");
         running_efi = false;
     } else {
-        debugln("[kernel] Running on an EFI system!");
+        p_info("kernel", "Running on an EFI system!");
         running_efi = true;
     }
 
-    debugln("[kernel] Welcome to znu!");
-    debugln("[tty] \033[1mGot a \033[1;31mC\033[1;33mO\033[1;32mL\033[1;34mO\033[1;35mR\033[0;1m Display?\033[0m");
+    p_info("kernel", "Welcome to znu!");
+    p_info("tty", \033[1mGot a \033[1;31mC\033[1;33mO\033[1;32mL\033[1;34mO\033[1;35mR\033[0;1m Display?\033[0m");
 
     arch_debug_cpu_info();
     arch_interrupt_init();
@@ -197,23 +197,23 @@ void earlykmain(void) {
     symbols_init();
 
     arch_timer_init(1000);
-    debugln("[timer] Timer initialized for calibration.");
+    p_info("timer", "Timer initialized for calibration.");
 
     init_scheduler();
-    debugln("[sched] Initialized Scheduler.");
+    p_info("sched", "Initialized Scheduler.");
 
-    debugln("[kernel] HHDM Offset: %p", hhdm_request.response->offset);
-    debugln("[kernel] RSDP Address: %p", rsdp_request.response->address);
+    p_debug("kernel", "HHDM Offset: %p", hhdm_request.response->offset);
+    p_debug("kernel", "RSDP Address: %p", rsdp_request.response->address);
 
-    debugln("[kernel] About to map local IRQ");
+    p_debug("kernel", "About to map local IRQ");
     arch_debug_kernel_pml4(kernel_pml4);
     arch_map_local_irq(kernel_pml4);
-    debugln("[SUCCESS] Mapped local IRQ!");
+    p_info("irq", "Mapped local IRQ!");
 
     rsdp_response = rsdp_request.response;
     mod_res = module_request.response;
 
-    debugln("[early] Early Kernel Boot DONE!");
+    p_info("early", "Early Kernel Boot DONE!");
     kmain();
 
     hcf(); // Halt

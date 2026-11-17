@@ -14,7 +14,7 @@ extern cpu_context_t main_cpu_context;
  */
 void vmm_switch(uint64_t* pml4_virt) {
     uint64_t phys = VIRT_TO_PHYS(pml4_virt);
-    // debugln("[VMM] Switching to PML4 at Phys: %p", phys);
+    // p_debug("[VMM] Switching to PML4 at Phys: %p", phys);
     __asm__ volatile("mov %0, %%cr3" : : "r"(phys) : "memory");
 }
 
@@ -22,7 +22,7 @@ void vmm_switch(uint64_t* pml4_virt) {
  * vmm_map_region: Helper to map a contiguous range of memory
  */
 void vmm_map_region(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t size, uint64_t flags) {
-    debugln("[VMM] Mapping region: %p -> %p (Size: %d KB)", virt, phys, (int)(size / 1024));
+    p_debug("vmm", "Mapping region: %p -> %p (Size: %d KB)", virt, phys, (int)(size / 1024));
     
     uint64_t offset = 0;
     while (offset < size) {
@@ -43,7 +43,7 @@ void vmm_map_region(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t size,
         }
     }
     
-    debugln("[VMM] Region mapping complete.");
+    p_debug("vmm", "Region mapping complete.");
 }
 
 uintptr_t vmm_virt_to_phys(uint64_t* pml4, uintptr_t virt) {
@@ -75,16 +75,16 @@ uintptr_t vmm_virt_to_phys(uint64_t* pml4, uintptr_t virt) {
 }
 
 void init_vmm(struct limine_memmap_response* memmap) {
-    debugln("[VMM] Initializing Virtual Memory Manager...");
+    p_info("vmm", "Initializing Virtual Memory Manager...");
 
     kernel_pml4 = (uint64_t*)PHYS_TO_VIRT(palloc_zero());
-    debugln("[VMM] New kernel PML4 allocated at %p", kernel_pml4);
+    p_debug("vmm", "New kernel PML4 allocated at %p", kernel_pml4);
 
     uint64_t current_cr3;
     __asm__ volatile("mov %%cr3, %0" : "=r"(current_cr3));
     
     uint64_t* boot_pml4 = (uint64_t*)PHYS_TO_VIRT(current_cr3);
-    debugln("[VMM] Cloning bootloader higher-half from %p", boot_pml4);
+    p_debug("vmm", "Cloning bootloader higher-half from %p", boot_pml4);
 
     // Entries 256-511 represent the top half of the address space (Kernel land)
     for (int i = 256; i < 512; i++) {
@@ -107,7 +107,7 @@ void init_vmm(struct limine_memmap_response* memmap) {
          PAGE_ALIGN_DOWN(stack_phys), 
          PTE_PRESENT | PTE_WRITABLE);
 
-    debugln("[VMM] Explicitly mapped kernel stack at %p (Phys: %p)", 
+    p_debug("vmm", "Explicitly mapped kernel stack at %p (Phys: %p)", 
         main_cpu_context.kernel_stack, stack_phys);
 
     map_page(kernel_pml4, (uintptr_t)syscall_handler, handler_phys, PTE_PRESENT);
@@ -118,9 +118,9 @@ void init_vmm(struct limine_memmap_response* memmap) {
     // map_page(kernel_pml4, stack_top_address, stack_phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
 
     map_page(kernel_pml4, hhdm_offset, 0, PTE_PRESENT | PTE_WRITABLE);
-    debugln("[VMM] Force-mapped HHDM base (page 0)");
+    p_debug("vmm", "Force-mapped HHDM base (page 0)");
 
-    debugln("[VMM] Mapping HHDM regions into new table...");
+    p_debug("vmm", "Mapping HHDM regions into new table...");
     for (uint64_t i = 0; i < memmap->entry_count; i++) {
         struct limine_memmap_entry* entry = memmap->entries[i];
         
@@ -133,7 +133,7 @@ void init_vmm(struct limine_memmap_response* memmap) {
         );
     }
 
-    debugln("[VMM] Mapping common MMIO range (0xFD000000 - 0xFFFFFFFF)...");
+    p_debug("vmm", "Mapping common MMIO range (0xFD000000 - 0xFFFFFFFF)...");
     vmm_map_region(
         kernel_pml4,
         0xfd000000 + hhdm_offset,
@@ -144,7 +144,7 @@ void init_vmm(struct limine_memmap_response* memmap) {
 
     vmm_switch(kernel_pml4);
     
-    debugln("[VMM] VMM initialization successful. Context switched.");
+    p_info("vmm", "VMM initialization successful. Context switched.");
 }
 
 

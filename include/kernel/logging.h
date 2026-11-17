@@ -29,31 +29,31 @@
 #define LOG_TRACE 4
 
 #if LOG_LEVEL >= LOG_ERROR
-#define p_error(tag, fmt, ...) debugln("[ERROR] [%s] " fmt, tag, ##__VA_ARGS__)
+#define p_error(tag, fmt, ...) debugln("[ERROR] (%s) " fmt, tag, ##__VA_ARGS__)
 #else
 #define p_error(tag, fmt, ...) ((void)0)
 #endif
 
 #if LOG_LEVEL >= LOG_WARN
-#define p_warn(tag, fmt, ...) debugln("[WARN] [%s] " fmt, tag, ##__VA_ARGS__)
+#define p_warn(tag, fmt, ...) debugln("[WARN] (%s) " fmt, tag, ##__VA_ARGS__)
 #else
 #define p_warn(tag, fmt, ...) ((void)0)
 #endif
 
 #if LOG_LEVEL >= LOG_INFO
-#define p_info(tag, fmt, ...) debugln("[INFO] [%s] " fmt, tag, ##__VA_ARGS__)
+#define p_info(tag, fmt, ...) debugln("[INFO] (%s) " fmt, tag, ##__VA_ARGS__)
 #else
 #define p_info(tag, fmt, ...) ((void)0)
 #endif
 
 #if LOG_LEVEL >= LOG_DEBUG
-#define p_debug(tag, fmt, ...) debugln("[DEBUG] [%s] " fmt, tag, ##__VA_ARGS__)
+#define p_debug(tag, fmt, ...) debugln("[DEBUG] (%s) " fmt, tag, ##__VA_ARGS__)
 #else
 #define p_debug(tag, fmt, ...) ((void)0)
 #endif
 
 #if LOG_LEVEL >= LOG_TRACE
-#define p_trace(tag, fmt, ...) debugln("[TRACE] [%s] " fmt, tag, ##__VA_ARGS__)
+#define p_trace(tag, fmt, ...) debugln("[TRACE] (%s) " fmt, tag, ##__VA_ARGS__)
 #else
 #define p_trace(tag, fmt, ...) ((void)0)
 #endif

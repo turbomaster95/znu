@@ -14,6 +14,35 @@ config CROSS_COMPILE
 	  directory to select the cross-compiler automatically.
 	 depends on !CLANG
 
+menu "General Configs"
+
+config DEFAULT_LOGLEVEL
+        int "Default message log level (0-4)"
+        range 0 4
+        default 2
+        help
+          Default priority level for Znu logging functions.
+
+          Depending on this value, each logging function
+          (p_error, p_warn, p_info, p_debug, p_trace) outputs
+          log messages to the console, or does nothing.
+
+          LOG_LEVEL  p_error  p_warn  p_info  p_debug  p_trace
+              0        o        x       x        x        x
+              1        o        o       x        x        x
+              2        o        o       o        x        x
+              3        o        o       o        o        x
+              4        o        o       o        o        o
+
+          Here:
+            o: Output log messages
+            x: Do nothing
+
+          This value can be overridden at build time using
+          the LOG_LEVEL make variable.
+
+endmenu
+
 source "kernel/filters/Kconfig"
 
 source "kernel/Kconfig"

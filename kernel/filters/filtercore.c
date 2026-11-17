@@ -13,7 +13,7 @@ int register_zfilter(const struct zvm_ops *ops) {
         return -1;
     }
     registered_engines[engine_count++] = ops;
-    debugln("[zfilter] Registered VM engine driver: %s\n", ops->name);
+    p_info("zfilter", "Registered VM engine driver: %s\n", ops->name);
     return 0;
 }
 
@@ -29,7 +29,7 @@ struct zfilter_prog *zfilter_create(const char *engine_name, const void *code, s
     if (!target_ops) return NULL;
 
     if (target_ops->verify && target_ops->verify(code, len) != 0) {
-        debugln("[zfilter] Bytecode verification failed for engine: %s\n", engine_name);
+        p_error("zfilter", "Bytecode verification failed for engine: %s\n", engine_name);
         return NULL;
     }
  

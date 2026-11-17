@@ -68,7 +68,7 @@ process_t* kthread_create(void (*fn)(void*), void* arg, const char* name)
 
     add_process(t);
 
-    debugln("[kthread] Created '%s' pid=%llu", t->name, t->pid);
+    p_debug("kthread", "Created '%s' pid=%llu", t->name, t->pid);
     return t;
 }
 

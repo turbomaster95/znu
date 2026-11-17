@@ -35,7 +35,7 @@ static void dk_match_and_attach(DKService *stub) {
     if (bestInstance && bestScore > 0) {
         stub->attachChild(bestInstance);
         if (bestInstance->start(stub)) {
-            debugln("[devkit] matched '%s' -> '%s' (score=%d)",
+            p_info("DevKit", "matched '%s' -> '%s' (score=%d)",
                     stub->getName(), bestFactory->driverName, bestScore);
         } else {
             debugln("[devkit] driver '%s' failed to start", bestFactory->driverName);
@@ -60,7 +60,7 @@ static void dk_print_tree(DKService *node, int depth) {
 extern "C" void devkit_init(void) {
     if (!gRootService) {
         gRootService = new DKService();
-        debugln("[devkit] root registry initialized");
+        p_info("DevKit", "root registry initialized");
     }
 }
 

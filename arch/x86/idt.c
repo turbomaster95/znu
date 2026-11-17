@@ -63,7 +63,7 @@ void nmi_panic_handler_c(void) {
 
 void register_interrupt_handler(uint8_t n, isr_t handler, const char* name) {
      interrupt_handlers[n] = handler;
-     debugln("[idt] Registered handler for %s", name);
+     p_debug("idt", "Registered handler for %s", name);
 }
 
 registers_t* k_exception_handler(registers_t *regs) {
@@ -129,7 +129,7 @@ registers_t* k_exception_handler(registers_t *regs) {
 
 	cnt++;
 	if (cnt == 1000) {
-	    // debugln("TICK!");
+	    // p_trace("TICK!");
 	    cnt = 0;
 	}
 
@@ -159,7 +159,7 @@ registers_t* k_exception_handler(registers_t *regs) {
 	    uint8_t status = inb(0x64);
 	    if (status & 1) {
 	            uint8_t scancode = inb(0x60);
-		    // debugln("[kbd] scancode=0x%x", scancode);
+		    // p_debug("[kbd] scancode=0x%x", scancode);
 	            static bool ctrl_pressed = false;
 	            if (scancode == 0x1D) ctrl_pressed = true;
 	            else if (scancode == 0x9D) ctrl_pressed = false; // Release
@@ -202,7 +202,7 @@ void idt_init(void) {
         idt_set_gate(i, isr_ptr_table[i], 0);
     }
 
-    debugln("[idt] Set all IDT gates");
+    p_info("idt", "Set all IDT gates");
 
     idt_set_gate(8,  isr_ptr_table[8],  1); // Vector 8: #DF Double Fault
     idt_set_gate(14, isr_ptr_table[14], 1); // Vector 14: #PF Page Fault
@@ -212,7 +212,7 @@ void idt_init(void) {
 
     asm volatile ("lidt %0" : : "m"(idtr_instance));
 
-    debugln("[idt] Ran lidt!");
+    p_info("idt", "Ran lidt!");
 
     pic_remap();
 
@@ -220,7 +220,7 @@ void idt_init(void) {
 
     outb(0xA1, 0xFF);
 
-    debugln("[idt] IDT initialized.");
+    p_info("idt", "IDT initialized.");
 }
 
 

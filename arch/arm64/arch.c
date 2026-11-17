@@ -8,7 +8,7 @@ extern void srand(unsigned int seed);
 
 void arch_early_init(void) {
     arch_serial_init();
-    debugln("[arch] PL011 console initialized");
+    p_info("arch", "PL011 console initialized");
 }
 
 void arch_interrupt_init(void) {
@@ -19,7 +19,7 @@ void arch_interrupt_init(void) {
     isb();
 
     arm64_irq_disable();
-    debugln("[arch] FPU enabled, interrupts masked");
+    p_info("arch", "FPU enabled, interrupts masked");
 }
 
 void arch_timer_init(uint32_t frequency) {
@@ -38,13 +38,13 @@ void arch_seed_entropy(void) {
 }
 
 void arch_debug_cpu_info(void) {
-    debugln("[arch] CurrentEL: 0x%llx MPIDR: 0x%llx",
+    p_debug("arch", "CurrentEL: 0x%llx MPIDR: 0x%llx",
             (unsigned long long)read_currentel(),
             (unsigned long long)read_mpidr_el1());
 }
 
 void arch_debug_kernel_pml4(uint64_t *pml4) {
-    debugln("[kernel_debug] L0[511] is: %p", (void *)pml4[511]);
+    p_debug("kernel_debug", "L0[511] is: %p", (void *)pml4[511]);
 }
 
 void arch_timer_start(void) {
@@ -68,7 +68,7 @@ _Noreturn void arch_enter_usermode(uint64_t *pml4, uintptr_t kstack_top,
                                    uintptr_t entry, uintptr_t stack) {
     (void)pml4;
     (void)kstack_top;
-    debugln("[arch] Cannot enter userspace yet: entry=%p stack=%p",
+    p_warn("arch", "Cannot enter userspace yet: entry=%p stack=%p",
             (void *)entry, (void *)stack);
     arch_halt();
 }

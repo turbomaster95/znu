@@ -19,14 +19,14 @@ static struct slab_header* buckets[8];
 static const uint32_t bucket_sizes[] = {16, 32, 64, 128, 256, 512, 1024, 2048};
 
 void init_slab(void) {
-    debugln("[SLAB] Initializing Slab Allocator...");
+    p_info("slab", "Initializing Slab Allocator...");
     // Starting heap at a safe high-half address
     heap_virtual_top = 0xffff900000000000; 
     
     for (int i = 0; i < 8; i++) {
         buckets[i] = NULL;
     }
-    debugln("[SLAB] Heap start: %p", heap_virtual_top);
+    p_debug("slab", "Heap start: %p", heap_virtual_top);
 }
 
 static int get_bucket_idx(uint64_t size) {
@@ -42,7 +42,7 @@ void* heap_extend(uint64_t pages) {
     for (uint64_t i = 0; i < pages; i++) {
         void* phys = palloc_zero();
         if (!phys) {
-            debugln("[SLAB] CRITICAL: Out of physical memory during heap extension!");
+            p_error("slab", "CRITICAL: Out of physical memory during heap extension!");
             return NULL;
         }
 

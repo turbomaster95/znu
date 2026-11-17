@@ -57,7 +57,7 @@ void x86_64_gs_init(uintptr_t kernel_stack_top) {
     wrmsr(MSR_GS_BASE, (uint32_t)addr, (uint32_t)(addr >> 32));
     wrmsr(MSR_KERNEL_GS_BASE, 0, 0); 
 
-    debugln("[sys] GS Shadow initialized to %p", (void*)addr);
+    p_debug("sys", "GS Shadow initialized to %p", (void*)addr);
 }
 
 void gs_init(uintptr_t kernel_stack_top) {
@@ -88,7 +88,7 @@ void x86_64_syscall_init(void) {
 
     // Enables the No-Execute bit in the EFER register so we can set pages to not be able to be executed
     enable_nx_bit();
-    debugln("[sys] Syscall MSRs initialized.");
+    p_info("sys", "Syscall MSRs initialized.");
 
     uint32_t low, high;
     asm volatile("rdmsr" : "=a"(low), "=d"(high) : "c"(EFER_MSR));
@@ -313,8 +313,8 @@ int sys_stat(const char* path, struct stat* buf) {
     }
     kpath[i] = '\0';
 
-    debugln("[sys] stat path: %s", kpath);    vfs_node_t* node = vfs_path_to_node(kpath);
-    debugln("[sys] stat: %s", kpath);    if (!node) return -1;
+    p_debug("sys", "stat path: %s", kpath);    vfs_node_t* node = vfs_path_to_node(kpath);
+    p_debug("sys", "stat: %s", kpath);    if (!node) return -1;
 
     struct stat kstat;
     memset(&kstat, 0, sizeof(kstat));
@@ -516,8 +516,8 @@ void* sys_mmap(void* addr, size_t len, int prot, int flags, int fd, uint64_t off
 long sys_fork(registers_t* regs) {
     if (!current_process) return -1;
 
-    debugln("Forking! Parent RIP: %p", regs->rip);
-    debugln("[debug] Cloning process at %p", current_process);
+    p_debug("fork", "Forking! Parent RIP: %p", regs->rip);
+    p_debug("debug", "Cloning process at %p", current_process);
 
     extern process_t* clone_process(process_t* src, registers_t* regs);
     process_t* child = clone_process(current_process, regs);
@@ -543,7 +543,7 @@ long sys_execve(const char* path, char** argv, char** envp, registers_t* regs) {
     }
     kpath[i] = '\0';
     
-    debugln("[sys] PID %d EXECVE: %s", current_process->pid, kpath);
+    p_info("sys", "PID %d EXECVE: %s", current_process->pid, kpath);
 
     char abspath[4096];
     vfse_resolve_path(kpath, abspath, sizeof(abspath));
@@ -556,7 +556,7 @@ long sys_execve(const char* path, char** argv, char** envp, registers_t* regs) {
     uint8_t* elf_buffer = kmalloc(node->size);
     if (!elf_buffer) {
       debugerr("NO MEMORY TO ALLOCATE ELF BUFFER???");
-      debugln("Now panicing because what to do else if no memory?");
+      p_error("sys", "Now panicing because what to do else if no memory?");
       panic("No memory left!");
       return -ENOMEM;
     }
@@ -575,7 +575,7 @@ long sys_execve(const char* path, char** argv, char** envp, registers_t* regs) {
     }
     vmm_switch(current_process->pml4);
 
-    debugln("[exec] Jumping to RIP=0x%x, RSP=0x%x", 
+    p_debug("exec", "Jumping to RIP=0x%x, RSP=0x%x", 
          current_process->entry, 
          current_process->stack_top);
 
@@ -627,7 +627,7 @@ uint64_t sys_mount(uint64_t source_ptr, uint64_t target_ptr, uint64_t fstype_ptr
         return -EINVAL;
     }
 
-    debugln("[sys] mount: dev=%s, path=%s, type=%s", source, target, fstype);
+    p_debug("sys", "mount: dev=%s, path=%s, type=%s", source, target, fstype);
 
     if (!vfs_mount(source, fstype, target)) {
         enable_smap();
@@ -662,7 +662,7 @@ long sys_sigreturn(registers_t* regs) {
 }
 
 long sys_arch_prctl(int code, unsigned long addr) {
-    debugln("[sys_arch_prctl] code: 0x%x, addr: %p", code, (void*)addr);
+    p_debug("sys_arch_prctl", "code: 0x%x, addr: %p", code, (void*)addr);
     
     if (code == ARCH_SET_FS) {
         if (!is_user_addr((void*)addr, 1)) {
@@ -932,13 +932,13 @@ uint64_t syscall_handler(registers_t* regs) {
             return (uint64_t)regs;
 
         case 169: // reboot
-            debugln("\n\nReboot called from user process\n\n");
+            p_info("sys", "\n\nReboot called from user process\n\n");
             kernel_reboot();
             regs->rax = 0;
             return (uint64_t)regs;
         
         case 48: // shutdown
-            debugln("\n\nShutdown called from user process\n\n");
+            p_info("sys", "\n\nShutdown called from user process\n\n");
             kernel_shutdown();
             regs->rax = 0;
             return (uint64_t)regs;
@@ -948,7 +948,7 @@ uint64_t syscall_handler(registers_t* regs) {
     	    return (uint64_t)regs;
 
         default:
-	    debugln("unsupported syscall: %i", num);
+	    p_warn("sys", "unsupported syscall: %i", num);
             regs->rax = (uint64_t)-ENOSYS;
             return (uint64_t)regs;
     }
