@@ -26,6 +26,7 @@
 #include <net.h>
 #include <e1000.h>
 #include <generated/nifties.h>
+#include <devkit/devkit.h>
 
 extern void hcf(void);
 extern struct limine_module_response *mod_res;
@@ -59,6 +60,9 @@ void kmain(void) {
     debugln("[kernel] Basic System Initialization done!");
 
     arch_basic_init();
+
+    devkit_init();
+
     do_initcalls();
 
     //  extern void terminal_teardown(void);

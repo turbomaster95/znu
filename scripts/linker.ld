@@ -29,14 +29,22 @@ SECTIONS
     . = ALIGN(CONSTANT(MAXPAGESIZE));
 
     .text : {
-        *(.text .text.*)
+	*(.text)
+	*(.text.*)
+	*(.ltext)
+	*(.ltext.*)
     } :text
 
     /* Move to the next memory page for .rodata */
     . = ALIGN(CONSTANT(MAXPAGESIZE));
 
     .rodata : {
-        *(.rodata .rodata.*)
+        *(.rodata)
+	*(.rodata.*)
+
+	*(.lrodata)
+	*(.lrodata.*)
+
         . = ALIGN(8);
         PROVIDE(legal_start = .);
         KEEP(*(.legal))

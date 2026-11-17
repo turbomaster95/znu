@@ -277,10 +277,13 @@ KBUILD_CFLAGS   := -Wall -Wno-unused-function -Wno-undef -Wno-array-compare -Wno
 		   -Wno-format-security \
 		   -fno-delete-null-pointer-checks -fno-sanitize=address \
 		   $(EXTRA_CFLAGS) $(KBUILD_CMDFLAGS)
+
 KBUILD_CFLAGS += $(ARCH_CFLAGS)
 
-KBUILD_CXXFLAGS := $(KBUILD_CFLAGS) -fno-exceptions -fno-rtti -fno-sanitize=vptr \
-                   -fno-use-cxa-atexit -fno-threadsafe-statics -nostdinc++
+KBUILD_CXXFLAGS := $(KBUILD_CFLAGS) -fno-exceptions -fno-rtti \
+                   -fno-use-cxa-atexit -fno-threadsafe-statics -nostdinc++ \
+                   -fno-unwind-tables -fno-asynchronous-unwind-tables
+
 LDFLAGS += -nostdlib
 LDFLAGS += -z max-page-size=0x1000
 

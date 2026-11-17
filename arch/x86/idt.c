@@ -17,6 +17,8 @@ struct idt_entry idt[256] __attribute__((aligned(16)));
 struct idtr idtr_instance;
 extern void keyboard_handle_scancode(uint8_t scancode);
 
+static int cnt = 0;
+
 #define MAX_INTERRUPTS 256
 
 typedef void (*isr_t)(registers_t*);
@@ -125,6 +127,11 @@ registers_t* k_exception_handler(registers_t *regs) {
 
 	if (!regs) panic("[idt] scheduler returned NULL");
 
+	cnt++;
+	if (cnt == 1000) {
+	    debugln("TICK!");
+	    cnt = 0;
+	}
 	if (regs && (regs->cs & 0x3) == 3) {
             signal_check_and_deliver(regs);
         }
@@ -151,8 +158,7 @@ registers_t* k_exception_handler(registers_t *regs) {
 	    uint8_t status = inb(0x64);
 	    if (status & 1) {
 	            uint8_t scancode = inb(0x60);
-	            // Check for Ctrl+C scancodes before passing down
-	            // Left Ctrl press = 0x1D, 'C' press = 0x2E
+		    debugln("[kbd] scancode=0x%x", scancode);
 	            static bool ctrl_pressed = false;
 	            if (scancode == 0x1D) ctrl_pressed = true;
 	            else if (scancode == 0x9D) ctrl_pressed = false; // Release

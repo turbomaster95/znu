@@ -7,9 +7,8 @@
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 
-__attribute__((__noreturn__))
-void panic(const char* reason);
-void abort(void);
+_Noreturn void panic(const char* reason);
+_Noreturn void abort(void);
 
 #include <arch/io.h>
 

@@ -13,12 +13,37 @@ namespace __cxxabiv1 {
     };
 }
 
-void *operator new(size_t size) { return kmalloc(size); }
-void *operator new[](size_t size) { return kmalloc(size); }
-void operator delete(void *p) noexcept { kfree(p); }
-void operator delete(void *p, size_t) noexcept { kfree(p); }
-void operator delete[](void *p) noexcept { kfree(p); }
-void operator delete[](void *p, size_t) noexcept { kfree(p); }
+void *operator new(size_t size) {
+    void *ptr = kmalloc(size); 
+
+    if (!ptr) panic("C++: operator new failed"); 
+
+    return ptr;
+}
+
+void *operator new[](size_t size) {
+    void *ptr = kmalloc(size);
+
+    if (!ptr) panic("C++: operator new[] failed");
+
+    return ptr;
+}
+
+void operator delete(void *p) noexcept {
+    kfree(p);
+}
+
+void operator delete(void *p, size_t) noexcept {
+    kfree(p); 
+}
+
+void operator delete[](void *p) noexcept {
+    kfree(p);
+}
+
+void operator delete[](void *p, size_t) noexcept {
+   kfree(p);
+}
 
 extern "C" void __cxa_pure_virtual() {
     panic("C++: Somehow called a virtual function, eep!!");

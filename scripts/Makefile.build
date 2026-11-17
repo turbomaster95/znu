@@ -303,7 +303,7 @@ quiet_cmd_link_o_target = AR      $@
 # If it's completely empty, create an empty standard archive so the build loop doesn't break.
 cmd_link_o_target = rm -f $@; \
                     $(if $(strip $(filter-out %.ko, $(obj-y))), \
-                      $(COMPAR) rcsT $@ $(filter-out %.ko, $(filter $(obj-y), $^)), \
+                      $(COMPAR) rcsT $@ $(filter-out %.a %.ko, $(filter $(obj-y), $^)) $(foreach a,$(filter %.a,$(filter $(obj-y),$^)),$(if $(strip $(shell $(AR) t $(a))),$(a))), \
                       $(COMPAR) rcs $@)
 
 $(builtin-target): $(filter-out %.ko, $(obj-y)) FORCE

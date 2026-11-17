@@ -69,6 +69,10 @@ struct ubsan_dynamic_type_cache_miss_data {
     uint8_t type_check_kind;
 };
 
+struct ubsan_nonnull_return_data {
+    struct ubsan_source_location attr_location;
+};
+
 static void ubsan_log_header(const char *err, struct ubsan_source_location *loc) {
     debugln("\n[UBSAN FATAL ERROR]\n");
     debugln("  Condition: %s\n", err);
@@ -227,4 +231,10 @@ void __ubsan_handle_dynamic_type_cache_miss(
     uintptr_t hash)
 {
     __ubsan_handle_dynamic_type_cache_miss_abort(data, ptr, hash);
+}
+
+void __ubsan_handle_nonnull_return_v1_abort(struct ubsan_nonnull_return_data *data, struct ubsan_source_location *loc) {
+    ubsan_log_header("Null Return", loc);
+    if (data && data->attr_location.filename) debugln("  Non-null attribute declared at: %s:%d:%d\n", data->attr_location.filename, data->attr_location.line, data->attr_location.column);
+    panic("[ubsan] Null pointer returned from non-null function");
 }

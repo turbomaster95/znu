@@ -1,10 +1,8 @@
-#include "arch/prelude.h"
 #include <termios.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
-
 #include <proc.h>
 #include <devfs.h>
 #include <kernel/tty.h>
@@ -71,6 +69,7 @@ static void tty_wake_reader(tty_t* tty) {
     proc->wait_channel = NULL;
     proc->wait_pid = -1;
     proc->state = TASK_READY;
+    debugln("[tty] waking pid=%llu state=%d", proc->pid, proc->state);
 }
 
 size_t tty_read(tty_t* tty, char* buf, size_t count, bool nonblock) {
@@ -122,14 +121,10 @@ size_t tty_read(tty_t* tty, char* buf, size_t count, bool nonblock) {
             arch_halt();
             arch_disable_interrupts();
 
-            if (current_process->state != TASK_READY) continue;
 	    #ifdef KRNLDBG
-            debugln("[tty] woke pid=%llu current=%p waiter=%p",
-	                current_process ? current_process->pid : 0,
-                	(void*)current_process,
-        	        (void*)tty->waiting_reader);
-	    #endif
-        }
+            debugln("[tty] resumed pid=%llu state=%d head=%zu tail=%zu", current_process ? current_process->pid : 0, current_process ? current_process->state : -1, tty->cooked_head, tty->cooked_tail);
+            #endif
+	}
 
         if (tty_buf_empty(tty))
             break;

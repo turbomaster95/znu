@@ -61,24 +61,6 @@ void arch_debug_kernel_pml4(uint64_t *pml4) {
     debugln("[kernel_debug] PML4[511] is: %p", (void *)pml4[511]);
 }
 
-void arch_system_init(void) {
-    lapic_init(0);
-    debugln("[lapic] LAPIC initialized.");
-
-    serial_init();
-    debugln("[serial] Serial initialized.");
-
-    ps2_init();
-    rtc_init();
-    timekeeper_init();
-    debugln("[lapic] LAPIC calibrated: %u ticks/ms", lapic_ticks_per_ms);
-
-    __asm__ volatile("cli");
-    pit_init(1000);
-    outb(0x21, 0xFD);
-    __asm__ volatile("sti");
-}
-
 void arch_timer_start(void) {
     debugln("[lapic] Starting LAPIC periodic timer...");
     lapic_write(LAPIC_REG_DIVIDE_CONF, 0x3);
@@ -97,7 +79,9 @@ bool arch_has_acpi(void) {
 }
 
 void arch_smp_init(void) {
+#ifdef CONFIG_SMP
     mp_init();
+#endif
 }
 
 void arch_syscall_init(uintptr_t stack_top) {

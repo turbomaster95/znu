@@ -47,13 +47,6 @@ void arch_debug_kernel_pml4(uint64_t *pml4) {
     debugln("[kernel_debug] L0[511] is: %p", (void *)pml4[511]);
 }
 
-void arch_system_init(void) {
-    arch_serial_init();
-    timekeeper_init();
-    arch_timer_init(1000);
-    debugln("[arch] System initialized");
-}
-
 void arch_timer_start(void) {
 }
 

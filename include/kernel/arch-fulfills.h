@@ -12,7 +12,6 @@ void arch_pat_init(void);
 void arch_map_local_irq(uint64_t *pml4);
 void arch_seed_entropy(void);
 void arch_debug_kernel_pml4(uint64_t *pml4);
-void arch_system_init(void);
 void arch_timer_start(void);
 void arch_uaccess_enable(void);
 bool arch_has_acpi(void);
