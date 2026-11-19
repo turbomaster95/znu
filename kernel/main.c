@@ -68,6 +68,8 @@ void kmain(void) {
     //  extern void terminal_teardown(void);
     //  terminal_teardown();
 
+    devkit_dump_registry();
+
     #ifdef CONFIG_E1000
        extern pci_device_t *pci_dev;
        e1000_init();

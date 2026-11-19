@@ -27,11 +27,15 @@
 #define PCI_SUBCLASS_USB      0x03
 #define PCI_SUBCLASS_PCI      0x04
 
+#define PCI_BAR_NONE 0
+#define PCI_BAR_MMIO 1
+#define PCI_BAR_IO   2
+
 typedef struct {
-    uint8_t  bus;
-    uint8_t  slot;
-    uint8_t  func;
-    uint8_t  irq;
+    uint8_t bus;
+    uint8_t slot;
+    uint8_t func;
+    uint8_t irq;
 
     uint16_t vendor_id;
     uint16_t device_id;
@@ -43,8 +47,14 @@ typedef struct {
 
     uint8_t  header_type;
 
+
     uint32_t bar[6];
-    uint32_t bar_size[6];
+    uint64_t bar_base[6];
+    uint64_t bar_size[6];
+    uint8_t bar_type[6];
+    uint8_t bar_width[6];
+    bool bar_prefetchable[6];
+    bool bar_upper[6];
 
     bool present;
 } pci_device_t;
@@ -80,6 +90,8 @@ pci_device_t* pci_find_device_by_class(uint8_t class_code, uint8_t subclass);
 void pci_enable_busmaster(pci_device_t* dev);
 void pci_enable_memory_space(pci_device_t* dev);
 void pci_enable_msi(pci_device_t* dev, uint8_t vector, void (*handler)(void), const char* name);
+
+void pci_write_word(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, uint16_t value);
 
 struct pci_ops* arch_pci_get_ops(void);
 

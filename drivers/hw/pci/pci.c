@@ -37,6 +37,81 @@ void pci_write_dword(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, ui
     g_ops->write(bus, slot, func, offset, value, 4);
 }
 
+void pci_write_word(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, uint16_t value) {
+    g_ops->write(bus, slot, func, offset, value, 2);
+}
+
+static void pci_probe_bars(pci_device_t* dev) {
+    uint8_t header = dev->header_type & 0x7F;
+    uint8_t count = header == 0 ? 6 : header == 1 ? 2 : header == 2 ? 1 : 0;
+    uint16_t command = pci_read_word(dev->bus, dev->slot, dev->func, 0x04);
+
+    pci_write_dword(dev->bus, dev->slot, dev->func, 0x04, command & ~3U);
+
+    for (uint8_t i = 0; i < count; i++) {
+        uint8_t offset = 0x10 + i * 4;
+        uint32_t original_low = pci_read_dword(dev->bus, dev->slot, dev->func, offset);
+        uint32_t mask_low = 0;
+        uint32_t original_high = 0;
+        uint32_t mask_high = 0;
+        bool is_io = (original_low & 1U) != 0;
+        bool is_64 = !is_io && ((original_low >> 1) & 3U) == 2;
+
+        dev->bar[i] = original_low;
+
+        if (original_low == 0 || original_low == 0xFFFFFFFFU) continue;
+
+        if (is_64) {
+            if (i + 1 >= count) continue;
+            original_high = pci_read_dword(dev->bus, dev->slot, dev->func, offset + 4);
+            dev->bar[i + 1] = original_high;
+            dev->bar_upper[i + 1] = true;
+        }
+
+        pci_write_dword(dev->bus, dev->slot, dev->func, offset, 0xFFFFFFFFU);
+        if (is_64) pci_write_dword(dev->bus, dev->slot, dev->func, offset + 4, 0xFFFFFFFFU);
+
+        mask_low = pci_read_dword(dev->bus, dev->slot, dev->func, offset);
+        if (is_64) mask_high = pci_read_dword(dev->bus, dev->slot, dev->func, offset + 4);
+
+        pci_write_dword(dev->bus, dev->slot, dev->func, offset, original_low);
+        if (is_64) pci_write_dword(dev->bus, dev->slot, dev->func, offset + 4, original_high);
+
+        if (is_io) {
+            uint32_t mask = mask_low & ~3U;
+            uint32_t size = ~mask + 1U;
+            if (!mask || !size) continue;
+            dev->bar_type[i] = PCI_BAR_IO;
+            dev->bar_width[i] = 32;
+            dev->bar_base[i] = original_low & ~3U;
+            dev->bar_size[i] = size;
+        } else if (is_64) {
+            uint64_t mask = ((uint64_t)mask_high << 32) | (mask_low & ~0xFULL);
+            uint64_t base = ((uint64_t)original_high << 32) | (original_low & ~0xFULL);
+            uint64_t size = ~mask + 1ULL;
+            if (!mask || !size) { i++; continue; }
+            dev->bar_type[i] = PCI_BAR_MMIO;
+            dev->bar_width[i] = 64;
+            dev->bar_prefetchable[i] = (original_low & 8U) != 0;
+            dev->bar_base[i] = base;
+            dev->bar_size[i] = size;
+            i++;
+        } else {
+            uint32_t mask = mask_low & ~0xFU;
+            uint32_t size = ~mask + 1U;
+            if (!mask || !size) continue;
+            dev->bar_type[i] = PCI_BAR_MMIO;
+            dev->bar_width[i] = 32;
+            dev->bar_prefetchable[i] = (original_low & 8U) != 0;
+            dev->bar_base[i] = original_low & ~0xFU;
+            dev->bar_size[i] = size;
+        }
+	p_debug("pci", "PCI %02X:%02X.%u BAR%u: %s base=%016llX size=%016llX width=%u%s", dev->bus, dev->slot, dev->func, i, dev->bar_type[i] == PCI_BAR_MMIO ? "MMIO" : dev->bar_type[i] == PCI_BAR_IO ? "I/O" : "None", dev->bar_base[i], dev->bar_size[i], dev->bar_width[i], dev->bar_prefetchable[i] ? " prefetchable" : "");
+    }
+
+    pci_write_dword(dev->bus, dev->slot, dev->func, 0x04, command);
+}
+
 const char* pci_get_class_name(uint8_t class_code, uint8_t subclass, uint8_t prog_if) {
     for (int i = 0; pci_class_names[i].name != NULL; i++) {
         if (pci_class_names[i].class_code == class_code &&
@@ -79,11 +154,18 @@ static void pci_add_device(uint8_t bus, uint8_t slot, uint8_t func) {
     dev->header_type = pci_read_byte(bus, slot, func, 0x0E);
     dev->irq         = pci_read_byte(bus, slot, func, 0x3C);
 
-    for (int i = 0; i < 6; i++) {
-        dev->bar[i] = pci_read_dword(bus, slot, func, 0x10 + (i * 4));
-    }
+    pci_probe_bars(dev);
 
     dev->present = true;
+
+    devkit_pci_bar_t bars[6] = {0};
+    for (uint8_t i = 0; i < 6; i++) {
+       bars[i].base = dev->bar_base[i];
+       bars[i].size = dev->bar_size[i];
+       bars[i].type = dev->bar_type[i];
+       bars[i].width = dev->bar_width[i];
+       bars[i].prefetchable = dev->bar_prefetchable[i];
+    }
 
     p_debug("pci", "PCI %02X:%02X.%u class=%02X subclass=%02X progif=%02X vendor=%04X device=%04X [%s %s]",
             bus, slot, func, dev->class_code, dev->subclass, dev->prog_if,
@@ -93,7 +175,7 @@ static void pci_add_device(uint8_t bus, uint8_t slot, uint8_t func) {
 
     devkit_publish_pci_device(dev->bus, dev->slot, dev->func,
                                dev->vendor_id, dev->device_id,
-                               dev->bar[0], dev->irq);
+                               bars, dev->irq);
 }
 
 static void pci_scan_device(uint8_t bus, uint8_t slot) {
