@@ -9,6 +9,7 @@
 --define:nimNoLibc
 --define:noSignalHandler
 --define:nimBuiltinSetjmp
+--cc:clang
 
 # Compiler flags
 switch("passC", "-target x86_64-unknown-windows")
@@ -24,3 +25,4 @@ switch("passL", "-nostdlib")
 switch("passL", "-Wl,-entry:EfiMain")
 switch("passL", "-Wl,-subsystem:efi_application")
 switch("passL", "-nodefaultlibs")
+
