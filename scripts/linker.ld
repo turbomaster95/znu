@@ -106,6 +106,12 @@ SECTIONS
 	__initcall_end = .;
     }
 
+    . = ALIGN(CONSTANT(MAXPAGESIZE));
+
+    .metadata : {
+        *(.metadata .metadata.*)
+    } :data
+
     /DISCARD/ : {
         *(.eh_frame*)
         *(.note.gnu*)

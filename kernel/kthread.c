@@ -4,12 +4,14 @@
 #include <stdlib.h>
 #include <regs.h>
 #include <gdt.h>
+#include <syscall.h>
 
 extern uint64_t* kernel_pml4;
 extern uint64_t get_timer_ticks(void);
 extern void vmm_switch(uint64_t* pml4);
 extern int get_cpu_id(void);
 extern cpu_context_t cpu_contexts[MAX_CPUS];
+extern int current_process_index;
 
 #define MAX_KTHREADS 64
 
@@ -143,6 +145,7 @@ registers_t* kthread_scheduler(registers_t* regs) {
         bootstrap_captured = true;
         old = &bootstrap_thread;
         current_process = old;
+        current_process_index = -1;
     } else if (old && regs) {
         memcpy(&old->context, regs, sizeof(registers_t));
         old->context_ptr = &old->context;
@@ -155,6 +158,14 @@ registers_t* kthread_scheduler(registers_t* regs) {
         old->state = TASK_RUNNING;
         return regs ? regs : old->context_ptr;
     }
+    if (!next && bootstrap_captured && !init_process && old != &bootstrap_thread) {
+        if (old) __asm__ volatile("fxsave %0" : "=m"(old->sse_state));
+        current_process = &bootstrap_thread;
+        bootstrap_thread.state = TASK_RUNNING;
+        if (old && old->pml4 != bootstrap_thread.pml4) vmm_switch(bootstrap_thread.pml4);
+        __asm__ volatile("fxrstor %0" : : "m"(bootstrap_thread.sse_state));
+        return bootstrap_thread.context_ptr;
+    }
     if (!next) return regs;
     if (next == old) {
         next->state = TASK_RUNNING;
@@ -163,6 +174,7 @@ registers_t* kthread_scheduler(registers_t* regs) {
     if (old) __asm__ volatile("fxsave %0" : "=m"(old->sse_state));
     if (!old || old->pml4 != next->pml4) vmm_switch(next->pml4);
     current_process = next;
+    current_process_index = -1;
     next->state = TASK_RUNNING;
     kthread_update_stack(next);
     __asm__ volatile("fxrstor %0" : : "m"(next->sse_state));

@@ -1,0 +1,20 @@
+# Standard TOML 1.1 values.
+name = "znu"
+version = "0.1.0"
+enabled = true
+max_cpus = 64
+ratio = 1.25
+created = 1979-05-27T07:32:00Z
+features = ["acpi", "pci", "smp"]
+
+[boot]
+protocol = "limine"
+verbose = false
+
+[[devices]]
+name = "uart0"
+address = "0x3f8"
+
+[[devices]]
+name = "timer"
+address = "lapic"

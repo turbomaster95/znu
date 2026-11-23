@@ -1,4 +1,3 @@
-
 #include <proc.h>
 #include <regs.h>
 #include <stdbool.h>
@@ -24,7 +23,6 @@ registers_t* scheduler_dispatch(registers_t* regs) {
     bool user_ready = process_has_runnable();
     bool kthread_ready = kthread_has_runnable();
 
-    // Preserve the boot continuation before userspace starts.
     if (!init_process && !user_ready && !kthread_ready)
         return kthread_scheduler(regs);
 
@@ -51,7 +49,6 @@ registers_t* scheduler_dispatch(registers_t* regs) {
     return process_scheduler(regs);
 }
 
-// Keep the existing syscall assembly's scheduler symbol userspace-only.
 registers_t* scheduler(registers_t* regs) {
     return process_scheduler(regs);
 }

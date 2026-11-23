@@ -95,7 +95,6 @@ size_t tendril_glue_dma_map(void *ctx, void *ptr, size_t size, int dir, uint64_t
     (void)dir;
     if (dma) *dma = 0;
 
-    // Use DMA bounce buffers until Znu has a verified virtual-to-physical mapper.
     return 0;
 }
 

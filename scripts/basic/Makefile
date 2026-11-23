@@ -13,6 +13,7 @@
 hostprogs-y	:= fixdep
 hostprogs-y	+= devcom
 hostprogs-y	+= procom
+subdir-y        += zcfc
 always		:= $(hostprogs-y)
 
 # fixdep is needed to compile other host programs

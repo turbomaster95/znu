@@ -18,6 +18,7 @@ ifeq ($(ARCH),x86)
 endif
 obj-y += keyboard.o
 obj-y += sched.o
+obj-y += dispatcher.o
 obj-y += nifties.o
 obj-y += kthread.o
 obj-y += metadata.o

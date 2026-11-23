@@ -17,6 +17,7 @@
 !.vscode/
 .vscode/compile_commands.json
 !subb.json
+*.ccb
 *.ro
 *.o
 *.o.*
@@ -100,3 +101,4 @@ lib/musl/
 lib/fatfs/
 kernel/filters/external/nosry/
 drivers/external/tendril
+drivers/external/tendril/

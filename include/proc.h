@@ -116,4 +116,7 @@ registers_t* scheduler_dispatch(registers_t* regs);
 
 uint64_t get_timer_ticks(void);
 
+bool process_has_runnable(void);
+bool kthread_has_runnable(void);
+
 #endif

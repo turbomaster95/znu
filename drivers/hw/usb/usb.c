@@ -23,7 +23,9 @@ static void usb_hid_detach(struct tendril_hid *hid) {
 }
 
 static void usb_hid_key(struct tendril_hid *hid, uint16_t key, bool pressed, uint8_t modifiers) {
-    p_info("usb", "HID key: 0x%02x pressed=%d modifiers=0x%02x", key, pressed, modifiers);
+#ifdef KRNLDBG
+    p_trace("usb", "HID key: 0x%02x pressed=%d modifiers=0x%02x", key, pressed, modifiers);
+#endif
     if (!(tendril_hid_kinds(hid) & TENDRIL_HID_KEYBOARD)) return;
     keyboard_handle_hid_key(key, pressed, modifiers);
 }

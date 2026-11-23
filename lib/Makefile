@@ -30,3 +30,5 @@ $(obj)/uacpi/uacpi_lib.o: $(srctree)/scripts/uacpi.sh
 
 $(obj)/flanterm/flanterm_lib.o: $(srctree)/scripts/mkflanterm.sh
 	$(call if_changed,run_flanterm)
+
+obj-y += csexp.o
