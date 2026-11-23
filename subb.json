@@ -44,6 +44,11 @@
             "url": "https://github.com/Mintsuki/Tendril.git",
             "branch": "trunk",
             "hash": "a391e40fa752fb82bda295916069c23cffa8e1fe"
+        },
+        "scripts/basic/zcfc/vendor/tomlc17": {
+            "url": "https://github.com/cktan/tomlc17",
+            "branch": "main",
+            "hash": "93f6a3eedeaeba594cd6b8831222e1e036823142"
         }
     }
 }
