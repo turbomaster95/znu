@@ -1,4 +1,3 @@
-
 #include <proc.h>
 #include <page.h>
 #include <string.h>
@@ -197,4 +196,16 @@ void kthread_exit(int code) {
 
 int kthread_get_count(void) {
     return kthread_count;
+}
+
+
+bool kthread_has_runnable(void) {
+    kthread_wake_sleepers();
+
+    for (int i = 0; i < MAX_KTHREADS; i++) {
+        if (kthread_runnable(kthreads[i]))
+            return true;
+    }
+
+    return false;
 }

@@ -102,6 +102,19 @@ static void wake_sleeping_processes(void) {
     }
 }
 
+
+bool process_has_runnable(void) {
+    wake_sleeping_processes();
+
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        if (process_is_runnable(processes[i]))
+            return true;
+    }
+
+    return false;
+}
+
+
 static int find_highest_priority(void) {
     int highest = -1;
 
