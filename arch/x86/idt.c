@@ -123,7 +123,7 @@ registers_t* k_exception_handler(registers_t *regs) {
 
         timekeeper_on_tick();
 
-        regs = scheduler(regs);
+        regs = scheduler_dispatch(regs);
 
 	if (!regs) panic("[idt] scheduler returned NULL");
 
@@ -144,7 +144,7 @@ registers_t* k_exception_handler(registers_t *regs) {
 	// entropy_garden();
         lapic_eoi();
     } else if (int_no == 0x30) {
-        regs = scheduler(regs);
+        regs = scheduler_dispatch(regs);
 	if (!regs) panic("[idt] scheduler returned NULL");
 
         if (regs && (regs->cs & 0x3) == 3) {

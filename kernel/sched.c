@@ -281,7 +281,7 @@ int add_process(process_t* proc) {
     return 0;
 }
 
-registers_t* scheduler(registers_t* regs) {
+registers_t* process_scheduler(registers_t* regs) {
     process_t* old_process = current_process;
 
     if (old_process && regs)
@@ -438,7 +438,7 @@ registers_t* do_exit(int code) {
     current_process = NULL;
     current_process_index = -1;
 
-    registers_t* next = scheduler(NULL);
+    registers_t* next = process_scheduler(NULL);
 
     if (!next)
         panic("no runnable process after exit");

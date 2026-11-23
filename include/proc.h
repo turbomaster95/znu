@@ -107,6 +107,12 @@ void kthread_sleep_ms(uint64_t ms);
 void kthread_yield(void);
 void kthread_exit(int code);
 void kthread_wake(process_t* thread);
+registers_t* kthread_scheduler(registers_t* regs);
+int kthread_register(process_t* thread);
+int kthread_get_count(void);
+
+registers_t* process_scheduler(registers_t* regs);
+registers_t* scheduler_dispatch(registers_t* regs);
 
 uint64_t get_timer_ticks(void);
 

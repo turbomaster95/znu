@@ -2,7 +2,7 @@ default rel
 [BITS 64]
 global syscall_entry
 extern syscall_handler
-extern scheduler
+extern scheduler_dispatch
 
 syscall_entry:
     swapgs
@@ -94,7 +94,7 @@ syscall_entry:
 
 .block_current_process:
     mov rdi, rsp
-    call scheduler          ; Returns the registers_t* of the newly elected task
+    call scheduler_dispatch          ; Returns the registers_t* of the newly elected task
     
 .switch_to_new_context:
     mov rsp, rax
