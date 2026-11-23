@@ -99,3 +99,4 @@ lib/ulibc/third-party/zline/
 lib/musl/
 lib/fatfs/
 kernel/filters/external/nosry/
+drivers/external/tendril

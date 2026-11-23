@@ -181,3 +181,76 @@ size_t keyboard_read(char *buf, size_t count) {
 
     return i;
 }
+
+void keyboard_handle_hid_key(uint16_t key, bool pressed, uint8_t modifiers) {
+    static uint8_t caps_lock = 0;
+
+    uint8_t shift = (modifiers & (0x02 | 0x20)) != 0;
+    uint8_t ctrl = (modifiers & (0x01 | 0x10)) != 0;
+
+    struct input_event ev = {0};
+    ev.type = EV_KEY;
+    ev.code = key;
+    ev.value = pressed ? 1 : 0;
+
+    if (kbd_event_node) {
+        evdev_push_event(kbd_event_node, ev);
+        struct input_event sync = {0};
+        sync.type = EV_SYN;
+        sync.code = SYN_REPORT;
+        evdev_push_event(kbd_event_node, sync);
+    }
+
+    if (!pressed) return;
+
+    if (key == 0x39) {
+        caps_lock ^= 1;
+        return;
+    }
+
+    char c = 0;
+
+    if (key >= 0x04 && key <= 0x1D) {
+        c = (char)((shift ^ caps_lock) ? 'A' + key - 0x04 : 'a' + key - 0x04);
+    } else if (key >= 0x1E && key <= 0x27) {
+        static const char normal[] = "1234567890";
+        static const char shifted[] = "!@#$%^&*()";
+        c = (shift ? shifted : normal)[key - 0x1E];
+    } else {
+        switch (key) {
+            case 0x28: c = '\r'; break;
+            case 0x29: c = 27; break;
+            case 0x2A: c = 127; break;
+            case 0x2B: c = '\t'; break;
+            case 0x2C: c = ' '; break;
+            case 0x2D: c = shift ? '_' : '-'; break;
+            case 0x2E: c = shift ? '+' : '='; break;
+            case 0x2F: c = shift ? '{' : '['; break;
+            case 0x30: c = shift ? '}' : ']'; break;
+            case 0x31: c = shift ? '|' : '\\'; break;
+            case 0x33: c = shift ? ':' : ';'; break;
+            case 0x34: c = shift ? '"' : '\''; break;
+            case 0x35: c = shift ? '~' : '`'; break;
+            case 0x36: c = shift ? '<' : ','; break;
+            case 0x37: c = shift ? '>' : '.'; break;
+            case 0x38: c = shift ? '?' : '/'; break;
+            case 0x55: c = '*'; break;
+            case 0x56: c = shift ? '|' : '\\'; break;
+            case 0x57: c = '+'; break;
+            case 0x58: c = '\r'; break;
+            default: break;
+        }
+    }
+
+    if (!c) return;
+
+    if (ctrl) {
+        if (c >= 'a' && c <= 'z') c = c - 'a' + 1;
+        else if (c >= 'A' && c <= 'Z') c = c - 'A' + 1;
+    }
+
+    kb_buffer[kb_head] = (uint8_t)c;
+    kb_head = (kb_head + 1) % KB_BUF_SIZE;
+
+    tty_input_char(active_tty, c);
+}

@@ -39,6 +39,11 @@
             "url": "https://github.com/turbomaster95/nosry",
             "branch": "main",
             "hash": "e94c267bbeb8c8b784c0e0c7a035cbc37e58ee0f"
+        },
+        "drivers/external/tendril": {
+            "url": "https://github.com/Mintsuki/Tendril.git",
+            "branch": "trunk",
+            "hash": "a391e40fa752fb82bda295916069c23cffa8e1fe"
         }
     }
 }

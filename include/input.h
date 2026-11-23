@@ -32,5 +32,7 @@ typedef struct {
 void evdev_init(void);
 void keyboard_init_evdev(void);
 void evdev_push_event(vfs_node_t* node, struct input_event ev);
+void keyboard_handle_hid_key(uint16_t key, bool pressed, uint8_t modifiers);
+void keyboard_handle_scancode(uint8_t scancode);
 
 #endif

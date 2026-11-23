@@ -11,11 +11,11 @@
 #include <misc.h>
 #include <mailbox.h>
 #include <regs.h>
+#include <input.h>
 
 extern void hcf(void);
 struct idt_entry idt[256] __attribute__((aligned(16)));
 struct idtr idtr_instance;
-extern void keyboard_handle_scancode(uint8_t scancode);
 
 static int cnt = 0;
 

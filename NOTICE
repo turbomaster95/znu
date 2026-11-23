@@ -67,12 +67,13 @@ THIRD-PARTY SUBMODULES AND ATTRIBUTIONS
 
 --------------------------------------------------------------------------------
 
-6. GNU C Library ELF Header
-   Copyright (c) 1995-2026 Free Software Foundation, Inc.
-   License: GNU LGPL Version 2.1
+6. Musl ELF Header
+   Copyright (c) 2005-2020 Rich Felker, et al.
+   License: MIT License
    Location: [include/elf.h]
    
-   (Refer to the top of the file for the full permission notice.)
+   (Refer to the LICENSE file in the submodule directory for the full 
+   disclaimer and conditions.)
 
 --------------------------------------------------------------------------------
 
@@ -83,3 +84,13 @@ THIRD-PARTY SUBMODULES AND ATTRIBUTIONS
    Location: [scripts/makelst]
    
    (Refer to scripts/LICENSE.gpl2 for the full text of the GPLv2 license.)
+
+--------------------------------------------------------------------------------
+
+8. Tendril
+   Copyright (c) 2026 Mintsuki and contributors.
+   License: BSD 2-Clause
+   Location: [lib/tendril]
+   
+   (Refer to the LICENSE file in the submodule directory for the full 
+   disclaimer and conditions.)

@@ -65,6 +65,9 @@ void kmain(void) {
 
     do_initcalls();
 
+    extern int usb_dump(void);
+    usb_dump();
+
     //  extern void terminal_teardown(void);
     //  terminal_teardown();
 
