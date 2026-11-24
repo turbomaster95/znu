@@ -29,7 +29,7 @@ fi
 # Resolve absolute path for SRC to prevent find errors
 PROJECT_ROOT=$(realpath "$SRCTREE")
 SRC=$(realpath "$SRCTREE/lib/flanterm/src" 2>/dev/null)
-INC="-I$SRCTREE/lib/uacpi/include -I$SRCTREE/lib/libc/include -I$SRCTREE/include"
+INC="-I$SRCTREE/lib/libc/include -I$SRCTREE/include"
 INTERNAL_INC=$($CC -print-file-name=include)
 OUT="lib/flanterm/.flt_out"
 FINAL_OBJ="$OBJTREE/lib/flanterm/flanterm_lib.o"
@@ -89,5 +89,5 @@ if [ ! -f "$FINAL_OBJ" ] || [ "$NEW_FILES_COMPILED" = true ]; then
     echo "  LD      $FINAL_DISPATH"
     $LD -r $OBJ_LIST -o "$FINAL_OBJ"
 else
-    echo "  ACPI    $FINAL_DISPATH is up to date."
+    echo "  FLTM    $FINAL_DISPATH is up to date."
 fi

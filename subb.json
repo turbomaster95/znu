@@ -49,6 +49,11 @@
             "url": "https://github.com/cktan/tomlc17",
             "branch": "main",
             "hash": "93f6a3eedeaeba594cd6b8831222e1e036823142"
+        },
+        "drivers/external/lwip": {
+            "url": "https://github.com/lwip-tcpip/lwip",
+            "branch": "master",
+            "hash": "bbe09375cef4d2fe1f78aeb71a1a7b89a073380a"
         }
     }
 }

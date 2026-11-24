@@ -103,3 +103,4 @@ kernel/filters/external/nosry/
 drivers/external/tendril
 drivers/external/tendril/
 scripts/basic/zcfc/vendor/tomlc17/
+drivers/external/lwip/

@@ -234,6 +234,9 @@ else ifeq ($(ARCH),x86)
     # CC += --target=x86_64-elf
 endif   
 
+ARCH_CFLAGS  ?= 
+ARCH_CFLAGS  += -I$(srctree)/arch/$(ARCH)/include
+
 ifeq ($(ARCH),x86)
     ARCH_CFLAGS += -mno-mmx -mno-sse -mno-sse2 -mcmodel=large -mno-red-zone
 endif
@@ -269,7 +272,7 @@ LINUXINCLUDE    := -Iinclude -DLOG_LEVEL=$(CONFIG_DEFAULT_LOGLEVEL) \
                    -include include/generated/autoconf.h
 
 KBUILD_CPPFLAGS := -D__KERNEL__ -include $(srctree)/include/prelude.h
-KBUILD_CPPFLAGS += -I$(srctree)/lib/libc/include -I$(srctree)/arch/$(ARCH)/include -I$(srctree)/drivers/include
+KBUILD_CPPFLAGS += -I$(srctree)/lib/libc/include -I$(srctree)/drivers/include
 
 KBUILD_CFLAGS   := -Wall -Wno-unused-function -Wno-undef -Wno-array-compare -Wno-address-of-packed-member -Wno-infinite-recursion -Wno-unused-variable -Wno-format-truncation -Wno-misleading-indentation -Wno-undef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common -Wno-incompatible-pointer-types -fno-pic -fno-PIC -fno-PIE -fno-pie \

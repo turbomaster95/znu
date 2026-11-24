@@ -9,12 +9,10 @@ fi
 
 ARCHFLAGS=$2
 
-# In Kbuild, we execute from the OBJTREE (the build folder)
 OBJTREE=$PWD
 CONF="include/config/auto.conf"
 
 if [ -f "$CONF" ]; then
-    # Parse CONFIG_CROSS_COMPILE and strip quotes
     CROSS_COMPILE=$(grep "CONFIG_CROSS_COMPILE=" "$CONF" | cut -d'=' -f2 | tr -d '"')
 fi
 
@@ -26,38 +24,42 @@ if [ -z "$(command -v "$CC")" ]; then
     exit 1
 fi
 
-# Resolve absolute path for SRC to prevent find errors
 PROJECT_ROOT=$(realpath "$SRCTREE")
-SRC=$(realpath "$SRCTREE/drivers/external/tendril/src" 2>/dev/null)
-INC="-I$SRCTREE/lib/uacpi/include -I$SRCTREE/lib/libc/include -I$SRCTREE/include -I$SRCTREE/drivers/external/tendril/include"
+SRC=$(realpath "$SRCTREE/drivers/external/lwip/src" 2>/dev/null)
+LWIP_ROOT="$SRCTREE/drivers/external/lwip"
+INC="-I$SRCTREE/lib/uacpi/include -I$SRCTREE/lib/libc/include -I$SRCTREE/include -I$SRCTREE/drivers/include -I$SRCTREE/drivers/external/include -I$SRCTREE/drivers/external/include/lwip -I$SRC/include -I$LWIP_ROOT/include"
 INTERNAL_INC=$($CC -print-file-name=include)
-OUT="drivers/external/tendril/.tdl_out"
-FINAL_OBJ="$OBJTREE/drivers/external/tendril/tendril_lib.o"
+OUT="drivers/external/lwip/.lwip_out"
+FINAL_OBJ="$OBJTREE/drivers/external/lwip/lwip_lib.o"
 
 mkdir -p "$OUT"
 
-# 4. Find core files in the Source Tree
+# 2. Find core files
 if [ -z "$SRC" ] || [ ! -d "$SRC" ]; then
-    echo "  ERROR: Source directory ($SRCTREE/drivers/external/tendril/src) not found."
+    echo "  ERROR: Source directory ($SRCTREE/drivers/external/lwip/src) not found."
     echo "  DEBUG: Current PWD: $PWD"
     exit 1
 fi
 
-# Use find on the absolute path
-FILES=$(find "$SRC" -maxdepth 3 -name "*.c")
+# Grab all .c files (core, api, netif/ethernet, etc.)
+# Exclude apps/ unless you need http, snmp, mqtt, etc.
+FILES=$(find "$SRC" -maxdepth 3 -name "*.c" \
+    ! -path "*/apps/*" \
+    ! -path "*/ppp/*" \
+    ! -path "*/lowpan6*" \
+    ! -path "*/bridgeif*" \
+    ! -path "*/slipif*")
 
-# 5. Compile loop with Skip Logic
+# 3. Compile loop with Skip Logic
 OBJ_LIST=""
 NEW_FILES_COMPILED=false
 
 for f in $FILES; do
     DISPATH="${f#$PROJECT_ROOT/}"
-    # Create unique object name by converting path separators to underscores
     obj_name=$(echo "$f" | tr '/' '_').o
     obj_path="$OUT/$obj_name"
     OBJ_LIST="$OBJ_LIST $obj_path"
 
-    # FEATURE: Skip if individual .o already exists
     if [ -f "$obj_path" ]; then
         continue
     fi
@@ -67,6 +69,7 @@ for f in $FILES; do
         -U__linux__ -w -U__unix__ \
         -include "$SRCTREE/lib/libc/include/string.h" \
         -include "$SRCTREE/lib/libc/include/ctype.h" \
+        -include "$SRCTREE/include/prelude.h" \
         -D__is_libk \
         -ffreestanding -nostdinc -fno-stack-protector $ARCHFLAGS -fno-pic -fno-PIC -fno-PIE -fno-pie; then
         NEW_FILES_COMPILED=true
@@ -76,12 +79,11 @@ for f in $FILES; do
     fi
 done
 
-# 6. Final Link Logic
+# 4. Final Link
 if [ -z "$OBJ_LIST" ]; then
     echo "  ERROR: No input files found for linking in $SRC"
     exit 1
 fi
-
 
 FINAL_DISPATH="${FINAL_OBJ#$PROJECT_ROOT/}"
 
@@ -89,5 +91,5 @@ if [ ! -f "$FINAL_OBJ" ] || [ "$NEW_FILES_COMPILED" = true ]; then
     echo "  LD      $FINAL_DISPATH"
     $LD -r $OBJ_LIST -o "$FINAL_OBJ"
 else
-    echo "  ACPI    $FINAL_DISPATH is up to date."
+    echo "  LWIP    $FINAL_DISPATH is up to date."
 fi

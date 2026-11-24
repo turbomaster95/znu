@@ -74,9 +74,9 @@ void kmain(void) {
     devkit_dump_registry();
 
     #ifdef CONFIG_E1000
-       extern pci_device_t *pci_dev;
+       extern pci_device_t *e1000_pci_dev;
        e1000_init();
-       if (!pci_dev) {
+       if (!e1000_pci_dev) {
            debugerr("[kernel] E1000 NIC not found or initialization failed!");
        } else {
            net_init();

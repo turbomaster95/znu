@@ -11,10 +11,10 @@ KBUILD_CPPFLAGS += -I$(srctree)/lib/uacpi/include
 export KBUILD_CPPFLAGS KBUILD_CFLAGS
 
 quiet_cmd_run_uacpi  = SH      $(patsubst $(srctree)/%,%,$<)
-      cmd_run_uacpi  = /bin/bash $(srctree)/scripts/uacpi.sh $(srctree) "$(ARCH_CFLAGS)"
+      cmd_run_uacpi  = /bin/bash $(srctree)/scripts/uacpi.sh $(srctree) "$(KBUILD_CFLAGS)"
 
 quiet_cmd_run_flanterm  = SH      $(patsubst $(srctree)/%,%,$<)
-      cmd_run_flanterm  = /bin/bash $(srctree)/scripts/mkflanterm.sh $(srctree) "$(ARCH_CFLAGS)"
+      cmd_run_flanterm  = /bin/bash $(srctree)/scripts/mkflanterm.sh $(srctree) "$(KBUILD_CFLAGS)"
 
 no-clean-files += build-musl/
 

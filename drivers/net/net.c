@@ -20,7 +20,7 @@ static void udp_dns_handle(const uint8_t *payload, size_t len);
 
 uint8_t my_ip[4] = {10, 0, 2, 15};
 uint8_t my_gw[4] = {10, 0, 2, 2};
-uint8_t my_mac[6] = {01, 00, 52, 54, 00, 12};
+uint8_t my_mac[6] = {0x52, 0x54, 0x00, 0x12, 0x34, 0x56};
 uint8_t bcast_mac[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 void net_set_ip(const uint8_t ip[4], const uint8_t gw[4])
@@ -141,7 +141,7 @@ int net_arp_resolve(const uint8_t ip[4], uint8_t mac_out[6])
                 ;
         }
     }
-    p_warn("net", "ARP: failed to resolve %d.%d.%d.%d", 2, 1,
+    p_warn("net", "ARP: failed to resolve %d.%d.%d.%d",
         ip[0], ip[1], ip[2], ip[3]);
     return -1;
 }
@@ -318,7 +318,7 @@ static void tcp_handle(const uint8_t src_ip[4], const tcp_header_t *tcp,
             c->seq = ack_num;
             tcp_send_seg(c, TCP_FLAG_ACK, NULL, 0);
             c->state = TCP_STATE_ESTABLISHED;
-            p_debug("net", "TCP: established port %d", 1, 0, (int)c->local_port);
+            p_debug("net", "TCP: established port %d", (int)c->local_port);
         }
         break;
 
@@ -581,7 +581,7 @@ static int dns_parse_response(const uint8_t *buf, int len, uint8_t ip_out[4])
             continue;
         }
 
-        p_trace("net", "DNS: answer rtype=%d rdlen=%d", 1, 0, (int)rtype, (int)rdlen);
+        p_trace("net", "DNS: answer rtype=%d rdlen=%d", (int)rtype, (int)rdlen);
         if (rdata + rdlen > len)
             return -1;
         if (rtype == 1 && rdlen == 4)
@@ -667,22 +667,22 @@ int dns_resolve(const char *hostname, uint8_t ip_out[4])
         }
         if (dns_rx_ready)
             break;
-        p_debug("net", "DNS: timeout attempt %d for %s", 1, 0, attempt + 1, hostname);
+        p_debug("net", "DNS: timeout attempt %d for %s", attempt + 1, hostname);
     }
 
     if (!dns_rx_ready)
     {
-        p_warn("net", "DNS: failed to resolve %s", 2, 1, hostname);
+        p_warn("net", "DNS: failed to resolve %s", hostname);
         return -1;
     }
 
     if (dns_parse_response(dns_rx_buf, dns_rx_len, ip_out) < 0)
     {
-        p_warn("net", "DNS: no A record for %s", 2, 1, hostname);
+        p_warn("net", "DNS: no A record for %s", hostname);
         return -1;
     }
 
-    p_debug("net", "DNS: %s -> %d.%d.%d.%d", 1, 0,
+    p_debug("net", "DNS: %s -> %d.%d.%d.%d",
         hostname, ip_out[0], ip_out[1], ip_out[2], ip_out[3]);
     return 0;
 }
@@ -693,13 +693,12 @@ void net_init(void)
     memset(arp_cache, 0, sizeof(arp_cache));
     e1000_get_mac_address(my_mac);
     p_info("net", "net: MAC %02x:%02x:%02x:%02x:%02x:%02x  IP %d.%d.%d.%d",
-        1, 0,
         my_mac[0], my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5],
         my_ip[0], my_ip[1], my_ip[2], my_ip[3]);
 
     static const uint8_t qemu_gw_mac[6] = {0x52, 0x55, 0x0a, 0x00, 0x02, 0x02};
     arp_cache_put(my_gw, qemu_gw_mac);
-    p_info("net", "net: gateway %d.%d.%d.%d seeded in ARP cache", 1, 0,
+    p_info("net", "net: gateway %d.%d.%d.%d seeded in ARP cache",
         my_gw[0], my_gw[1], my_gw[2], my_gw[3]);
 }
 
@@ -739,13 +738,13 @@ int tcp_connect(const uint8_t ip[4], uint16_t port)
             return -1;
         if (i > 0 && (i % 50000) == 0)
         {
-            p_debug("net", "TCP: retransmit SYN (attempt %d)", 1, 0, i / 50000);
+            p_debug("net", "TCP: retransmit SYN (attempt %d)", i / 50000);
             tcp_send_seg(c, TCP_FLAG_SYN, NULL, 0);
         }
         for (volatile int d = 0; d < 2000; d++)
             ;
     }
-    p_warn("net", "TCP: connect timeout", 2, 1);
+    p_warn("net", "TCP: connect timeout");
     c->state = TCP_STATE_CLOSED;
     return -1;
 }
@@ -795,7 +794,7 @@ int tcp_recv(int id, void *buf, size_t max_len)
                 for (volatile int d = 0; d < 100; d++)
                     ;
             }
-            p_debug("net", "tcp_recv: EOF avail=%u fin=%d", 1, 0,
+            p_debug("net", "tcp_recv: EOF avail=%u fin=%d",
                 c->rx_avail, (int)c->fin_received);
             return 0;
         }
