@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <sys/types.h>
 
 #define NO_SYS                 0
 #define LWIP_SOCKET            0     /* we use raw API, not sockets */
@@ -11,6 +12,7 @@
 #define LWIP_ICMP              1
 #define LWIP_IGMP              0
 #define LWIP_IPV6              0
+#define LWIP_RAW               1
 
 #define MEM_SIZE               (64 * 1024)
 #define PBUF_POOL_SIZE         64

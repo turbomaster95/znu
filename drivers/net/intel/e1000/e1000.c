@@ -1,3 +1,4 @@
+#include <netdev.h>
 #include <e1000.h>
 #include <net.h>
 #include <page.h>
@@ -18,6 +19,29 @@ static void *tx_buf_virt[NUM_TX_DESC];
 #define TX_BUFS_PER_PAGE   (PAGE_SIZE / TX_BUFFER_SIZE)
 
 #define e1000_barrier()    __sync_synchronize()
+
+static int e1000_netdev_transmit(netdev_t *netdev, const void *data, size_t len) {
+    (void)netdev;
+    return e1000_send_packet((void *)data, len);
+}
+
+static int e1000_netdev_receive(netdev_t *netdev, void *buffer, size_t capacity) {
+    (void)netdev;
+    int result = e1000_receive_packet(buffer, capacity);
+    return result > 0 ? result : 0;
+}
+
+static const netdev_ops_t e1000_netdev_ops = {
+    .transmit = e1000_netdev_transmit,
+    .receive = e1000_netdev_receive
+};
+
+static netdev_t e1000_netdev = {
+    .name = "eth0",
+    .mtu = 1500,
+    .ops = &e1000_netdev_ops,
+    .driver_data = &dev
+};
 
 static uint32_t e1000_read(uint32_t reg)
 {
@@ -283,6 +307,13 @@ int e1000_init(void)
 
     dev.present = 1;
 
+    memcpy(e1000_netdev.hwaddr, dev.mac, 6);
+    if (netdev_register(&e1000_netdev) != 0) {
+        p_error("e1000", "Failed to register network device");
+        dev.present = 0;
+        return -1;
+    }
+
     p_info("e1000", "E1000: Init complete. MAC: %02x:%02x:%02x:%02x:%02x:%02x",
            dev.mac[0], dev.mac[1], dev.mac[2], dev.mac[3], dev.mac[4], dev.mac[5]);
 
@@ -393,8 +424,8 @@ void e1000_handle_interrupt(void)
     if (status & E1000_ICR_LSC)
         p_debug("e1000", "E1000: Link Status Change");
 
-    if (status & (E1000_ICR_RXT0 | E1000_ICR_RXO))
-        net_poll();
+//    if (status & (E1000_ICR_RXT0 | E1000_ICR_RXO))
+//        net_poll();
 }
 
 void e1000_get_mac_address(uint8_t *mac)

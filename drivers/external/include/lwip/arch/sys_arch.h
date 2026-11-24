@@ -4,14 +4,16 @@
 #include "lwip/opt.h"
 #include "lwip/sys.h"
 #include <sync.h>
+#include <stdint.h>
+#include <proc.h>
 
 typedef void (*lwip_thread_fn)(void *arg);
 
-typedef uint64_t sys_prot_t;
+typedef uintptr_t sys_prot_t;
+typedef process_t *sys_thread_t;
 typedef mutex_t     *sys_mutex_t;
 typedef semaphore_t *sys_sem_t;
 typedef struct sys_mbox *sys_mbox_t;
-typedef void *sys_thread_t;
 typedef uint32_t    sys_time_t;
 
 err_t sys_mutex_new(sys_mutex_t *mutex);

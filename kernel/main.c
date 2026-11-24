@@ -27,10 +27,13 @@
 #include <e1000.h>
 #include <generated/nifties.h>
 #include <devkit/devkit.h>
+#include <netdemo.h>
 
 extern void hcf(void);
 extern struct limine_module_response *mod_res;
+#ifdef CONFIG_KTEST
 extern void test_smp_workers(int total_cores);
+#endif
 extern void net_test_suite(void);
 
 void kmain(void) {
@@ -90,7 +93,9 @@ void kmain(void) {
     mp_init();
 
     sleep(10);
+    #ifdef CONFIG_KTEST
     test_smp_workers(2);
+    #endif
 
     #endif
 
@@ -104,6 +109,8 @@ void kmain(void) {
 
     tty_init();
     p_info("tty", "Initialized tty");
+
+    netdemo_start();
 
     syscall_init();
     gs_init(stack_top);

@@ -411,6 +411,7 @@ int cpu_has_rdseed(void) {
 }
 
 int rdrand64(uint64_t *val) {
+    if (!cpu_has_rdrand()) panic("Was about to call rdrand on a cpu without rdrand!");
     unsigned char ok;
     __asm__ volatile (
         "rdrand %0\n\t"
@@ -423,6 +424,7 @@ int rdrand64(uint64_t *val) {
 }
 
 int rdseed64(uint64_t *val) {
+    if (!cpu_has_rdseed()) panic("Was about to call rdseed on a cpu without rdseed!");
     unsigned char ok;
     __asm__ volatile (
         "rdseed %0\n\t"

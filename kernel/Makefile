@@ -37,9 +37,11 @@ obj-$(CONFIG_SMP) += mailbox.o
 obj-y += signal.o
 CFLAGS_diskio.o += -I$(srctree)/lib/fatfs/source
 obj-y += diskio.o
-obj-y += tests.o
+obj-$(CONFIG_KTEST) += tests.o
 obj-y += initcall.o
 
+CFLAGS_netdemo.o := -I$(srctree)/drivers/external/lwip/src/include -I$(srctree)/drivers/external/include -I$(srctree)/drivers/external/include/lwip
+obj-y += netdemo.o
 # Folders
 obj-y += vfs/
 obj-$(CONFIG_ZFILTER) += filters/

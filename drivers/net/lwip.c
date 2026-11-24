@@ -20,7 +20,9 @@ void sys_arch_unprotect(sys_prot_t pval) {
 }
 
 err_t sys_mutex_new(sys_mutex_t *mutex) {
+    if (!mutex) return ERR_MEM;
     mutex_t *m = kmalloc(sizeof(mutex_t));
+    if (!m) return ERR_MEM;
     mutex_init(m);
     *mutex = m;
     return ERR_OK;
@@ -65,17 +67,24 @@ struct sys_mbox {
 };
 
 err_t sys_mbox_new(sys_mbox_t *mbox, int size) {
+    if (!mbox || size <= 0) return ERR_ARG;
+    *mbox = NULL;
     struct sys_mbox *m = kmalloc(sizeof(*m));
-    m->buf = kmalloc(size * sizeof(void*));
+    if (!m) return ERR_MEM;
+    m->buf = kmalloc((size_t)size * sizeof(void *));
+    if (!m->buf) { kfree(m); return ERR_MEM; }
     m->size = size;
-    m->head = m->tail = m->count = 0;
+    m->head = 0;
+    m->tail = 0;
+    m->count = 0;
+    debugln("[LWIP] Mailbox created: %p, size=%d\n", (void *)m, size);
     spinlock_init(&m->lock);
     *mbox = m;
     return ERR_OK;
 }
 
 void sys_mbox_post(sys_mbox_t *mbox, void *msg) {
-    struct sys_mbox *m = (struct sys_mbox *)mbox;
+    struct sys_mbox *m = (struct sys_mbox *)*mbox;
     spinlock_acquire(&m->lock);
     m->buf[m->head] = msg;
     m->head = (m->head + 1) % m->size;
@@ -84,7 +93,12 @@ void sys_mbox_post(sys_mbox_t *mbox, void *msg) {
 }
 
 err_t sys_mbox_trypost(sys_mbox_t *mbox, void *msg) {
-    struct sys_mbox *m = (struct sys_mbox *)mbox;
+    if (!mbox || !*mbox) return ERR_ARG;
+    if (!mbox || !*mbox) {
+       debugln("[LWIP] ERROR: trypost received NULL mailbox: %p\n", (void *)mbox);
+       return ERR_ARG;
+    }
+    struct sys_mbox *m = *mbox;
     spinlock_acquire(&m->lock);
     if (m->count >= m->size) { spinlock_release(&m->lock); return ERR_MEM; }
     m->buf[m->head] = msg;
@@ -99,7 +113,7 @@ err_t sys_mbox_trypost_fromisr(sys_mbox_t *mbox, void *msg) {
 }
 
 u32_t sys_arch_mbox_fetch(sys_mbox_t *mbox, void **msg, u32_t timeout) {
-    struct sys_mbox *m = (struct sys_mbox *)mbox;
+    struct sys_mbox *m = (struct sys_mbox *)*mbox;
     uint32_t start = sys_now();
     for (;;) {
         spinlock_acquire(&m->lock);
@@ -112,13 +126,13 @@ u32_t sys_arch_mbox_fetch(sys_mbox_t *mbox, void **msg, u32_t timeout) {
         }
         spinlock_release(&m->lock);
 
-        if (timeout == 0 && (sys_now() - start) >= timeout)
+        if (timeout != 0 && (u32_t)(sys_now() - start) >= timeout)
             return SYS_ARCH_TIMEOUT;
     }
 }
 
 u32_t sys_arch_mbox_tryfetch(sys_mbox_t *mbox, void **msg) {
-    struct sys_mbox *m = (struct sys_mbox *)mbox;
+    struct sys_mbox *m = (struct sys_mbox *)*mbox;
     spinlock_acquire(&m->lock);
     if (m->count == 0) { spinlock_release(&m->lock); return SYS_ARCH_TIMEOUT; }
     *msg = m->buf[m->tail];
@@ -129,7 +143,7 @@ u32_t sys_arch_mbox_tryfetch(sys_mbox_t *mbox, void **msg) {
 }
 
 void sys_mbox_free(sys_mbox_t *mbox) {
-    struct sys_mbox *m = (struct sys_mbox *)mbox;
+    struct sys_mbox *m = (struct sys_mbox *)*mbox;
     kfree(m->buf);
     kfree(m);
 }
@@ -142,7 +156,7 @@ sys_thread_t sys_thread_new(const char *name, lwip_thread_fn thread,
 
 u32_t lwip_rand(void) {
     uint64_t val;
-    if (rdrand64(&val) == 0)
-        return (u32_t)val;
     return (u32_t)rand();
 }
+
+void sys_init(void) { }
