@@ -4,3 +4,4 @@ obj-y += debug.o
 obj-y += cr4.o
 obj-y += rand.o
 obj-y += entropy.o
+obj-y += str.o

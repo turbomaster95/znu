@@ -1,3 +1,5 @@
+#include <errno.h>
+
 #define NO_SYS                 0
 #define LWIP_SOCKET            0     /* we use raw API, not sockets */
 #define LWIP_NETCONN           0
@@ -31,3 +33,9 @@
 
 #define SYS_LIGHTWEIGHT_PROT  1
 #define LWIP_ALLOW_SYS_NO_TIMEOUTS 1
+
+#define LWIP_NOASSERT 1
+
+#define SSIZE_MAX 0x7fffffffffffffffLL
+
+#define LWIP_NO_UNISTD_H 1

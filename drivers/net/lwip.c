@@ -1,14 +1,13 @@
 #include "lwip/sys.h"
 #include "lwip/pbuf.h"
 #include <sync.h>
+#include <proc.h>
 #include <page.h>
 #include <stdlib.h>
+#include <timekeeper.h>
 
-extern volatile uint32_t kernel_ticks;
-#define HZ 100
-
-u32_t sys_jiffies(void) { return kernel_ticks; }
-u32_t sys_now(void)     { return (u32_t)(kernel_ticks / (HZ / 1000)); }
+u32_t sys_jiffies(void) { return (u32_t)nifties; }
+u32_t sys_now(void) { return (u32_t)nifties_to_msecs(nifties); }
 
 static spinlock_t prot_lock = SPINLOCK_INIT;
 
@@ -29,7 +28,7 @@ err_t sys_mutex_new(sys_mutex_t *mutex) {
 
 void sys_mutex_lock(sys_mutex_t *mutex)  { mutex_lock(*mutex); }
 void sys_mutex_unlock(sys_mutex_t *mutex) { mutex_unlock(*mutex); }
-void sys_mutex_free(sys_mutex_t *mutex)  { kfree(*mutex) }
+void sys_mutex_free(sys_mutex_t *mutex)  { kfree(*mutex); }
 
 err_t sys_sem_new(sys_sem_t *sem, u8_t count) {
     semaphore_t *s = kmalloc(sizeof(semaphore_t));
@@ -39,9 +38,22 @@ err_t sys_sem_new(sys_sem_t *sem, u8_t count) {
 }
 
 void sys_sem_signal(sys_sem_t *sem) { semaphore_signal(*sem); }
-u32_t sys_sem_wait(sys_sem_t *sem)  { semaphore_wait(*sem); return 0; }
-u32_t sys_sem_trywait(sys_sem_t *sem) { return semaphore_try_wait(*sem) ? 0 : SYS_TIMEOUT; }
-void sys_sem_free(sys_sem_t *sem)   { kfree(*sem) }
+u32_t sys_sem_trywait(sys_sem_t *sem) { return semaphore_try_wait(*sem) ? 0 : SYS_ARCH_TIMEOUT; }
+void sys_sem_free(sys_sem_t *sem)   { kfree(*sem); }
+
+u32_t sys_arch_sem_wait(sys_sem_t *sem, u32_t timeout) {
+    uint32_t start = sys_now();
+    if (timeout == 0) {
+        semaphore_wait(*sem);
+        return sys_now() - start;
+    }
+    while (!semaphore_try_wait(*sem)) {
+        if ((u32_t)(sys_now() - start) >= timeout)
+            return SYS_ARCH_TIMEOUT;
+        arch_yield();
+    }
+    return sys_now() - start;
+}
 
 struct sys_mbox {
     void **buf;
@@ -100,15 +112,15 @@ u32_t sys_arch_mbox_fetch(sys_mbox_t *mbox, void **msg, u32_t timeout) {
         }
         spinlock_release(&m->lock);
 
-        if (timeout != SYS_MBOX_WAIT_FOREVER && (sys_now() - start) >= timeout)
-            return SYS_TIMEOUT;
+        if (timeout == 0 && (sys_now() - start) >= timeout)
+            return SYS_ARCH_TIMEOUT;
     }
 }
 
 u32_t sys_arch_mbox_tryfetch(sys_mbox_t *mbox, void **msg) {
     struct sys_mbox *m = (struct sys_mbox *)mbox;
     spinlock_acquire(&m->lock);
-    if (m->count == 0) { spinlock_release(&m->lock); return SYS_TIMEOUT; }
+    if (m->count == 0) { spinlock_release(&m->lock); return SYS_ARCH_TIMEOUT; }
     *msg = m->buf[m->tail];
     m->tail = (m->tail + 1) % m->size;
     m->count--;

@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <kernel/logging.h>
 
 typedef uint8_t  u8_t;
 typedef int8_t   s8_t;
@@ -25,9 +26,6 @@ typedef int32_t  s32_t;
 #define PACK_STRUCT_STRUCT
 #define PACK_STRUCT_FIELD(x) x
 #define PACK_STRUCT_USE_INCLUDES
-
-#define LWIP_PLATFORM_ASSERT(x) do {p_error("Assertion \"%s\" failed at line %d in %s\n", \
-                                     x, __LINE__, __FILE__); abort();} while(0)
 
 u32_t lwip_rand(void);
 #define LWIP_RAND lwip_rand

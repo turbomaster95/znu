@@ -69,7 +69,6 @@ for f in $FILES; do
         -U__linux__ -w -U__unix__ \
         -include "$SRCTREE/lib/libc/include/string.h" \
         -include "$SRCTREE/lib/libc/include/ctype.h" \
-        -include "$SRCTREE/include/prelude.h" \
         -D__is_libk \
         -ffreestanding -nostdinc -fno-stack-protector $ARCHFLAGS -fno-pic -fno-PIC -fno-PIE -fno-pie; then
         NEW_FILES_COMPILED=true
