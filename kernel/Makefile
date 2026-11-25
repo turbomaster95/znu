@@ -40,8 +40,9 @@ obj-y += diskio.o
 obj-$(CONFIG_KTEST) += tests.o
 obj-y += initcall.o
 
-CFLAGS_netdemo.o := -I$(srctree)/drivers/external/lwip/src/include -I$(srctree)/drivers/external/include -I$(srctree)/drivers/external/include/lwip
+CFLAGS_netdemo.o += -I$(srctree)/drivers/external/znet/include
 obj-y += netdemo.o
+
 # Folders
 obj-y += vfs/
 obj-$(CONFIG_ZFILTER) += filters/

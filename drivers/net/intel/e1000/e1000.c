@@ -424,8 +424,8 @@ void e1000_handle_interrupt(void)
     if (status & E1000_ICR_LSC)
         p_debug("e1000", "E1000: Link Status Change");
 
-//    if (status & (E1000_ICR_RXT0 | E1000_ICR_RXO))
-//        net_poll();
+    if (status & (E1000_ICR_RXT0 | E1000_ICR_RXO))
+        net_poll();
 }
 
 void e1000_get_mac_address(uint8_t *mac)

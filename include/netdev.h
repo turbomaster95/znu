@@ -5,7 +5,7 @@
 #include <stddef.h>
 
 #define NETDEV_NAME_LEN 16
-#define NETDEV_MAX 8
+#define NETDEV_MAX 10
 
 typedef struct netdev netdev_t;
 
@@ -24,8 +24,9 @@ struct netdev {
     void *stack_data;
 };
 
-int netdev_register(netdev_t *dev);
 extern size_t netdev_count;
+
+int netdev_register(netdev_t *dev);
 netdev_t *netdev_get(size_t index);
 
 #endif

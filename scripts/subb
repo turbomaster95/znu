@@ -101,7 +101,7 @@ def add(url, path, branch=None, git_opts=""):
     if not os.path.exists(path):
         cmd = f"git clone {git_opts} -b {branch} {url} {path}".strip()
         run_with_bar(cmd, 1, 1, "Cloning", path)
-        sys.stdout.write(f"\r{CLEAR_LINE}done cloned {path}\n")
+        sys.stdout.write(f"\r{CLEAR_LINE}:D    cloned {path}\n")
     else:
         sys.stdout.write(f":D   tracked {path}\n")
     sys.stdout.flush()
@@ -141,7 +141,7 @@ def sync(git_opts=""):
         run("git clean -fd", cwd=path)
         
         if cloned:
-            sys.stdout.write(f"\r{CLEAR_LINE}done cloned {path}\n")
+            sys.stdout.write(f"\r{CLEAR_LINE}:D   cloned {path}\n")
         elif status_res or curr_res != info['hash']:
             sys.stdout.write(f"\r{CLEAR_LINE}:D   synced {path}\n")
         else:

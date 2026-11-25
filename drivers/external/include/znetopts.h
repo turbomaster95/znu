@@ -1,0 +1,1 @@
+#define ZNET_LITTLE_ENDIAN 1

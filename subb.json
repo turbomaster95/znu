@@ -3,7 +3,7 @@
         "lib/flanterm": {
             "url": "https://github.com/Mintsuki/Flanterm",
             "branch": "trunk",
-            "hash": "0b7b2e32b8e1f4a539d488aa3405b73f078071ad"
+            "hash": "af9ee5487a193d41a25f79adce29f8541449b8b0"
         },
         "user/dash": {
             "url": "https://git.kernel.org/pub/scm/utils/dash/dash.git",
@@ -13,7 +13,7 @@
         "scripts/limine": {
             "url": "https://github.com/limine-bootloader/limine",
             "branch": "v12.x",
-            "hash": "033b59788039d5aec35ced33082f23388ab33cda"
+            "hash": "6b3e0a81d8836abaa50e5758123e1ee28a0aedda"
         },
         "lib/uacpi": {
             "url": "https://github.com/uACPI/uACPI",
@@ -50,10 +50,10 @@
             "branch": "main",
             "hash": "93f6a3eedeaeba594cd6b8831222e1e036823142"
         },
-        "drivers/external/lwip": {
-            "url": "https://github.com/lwip-tcpip/lwip",
-            "branch": "master",
-            "hash": "bbe09375cef4d2fe1f78aeb71a1a7b89a073380a"
+        "drivers/external/znet": {
+            "url": "https://github.com/turbomaster95/znet",
+            "branch": "main",
+            "hash": "f89a9bc4faa8fd9d9e10e6f568df60cd0e39f526"
         }
     }
 }

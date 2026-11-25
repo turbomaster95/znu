@@ -25,30 +25,23 @@ if [ -z "$(command -v "$CC")" ]; then
 fi
 
 PROJECT_ROOT=$(realpath "$SRCTREE")
-SRC=$(realpath "$SRCTREE/drivers/external/lwip/src" 2>/dev/null)
-LWIP_ROOT="$SRCTREE/drivers/external/lwip"
-INC="-I$SRCTREE/lib/uacpi/include -I$SRCTREE/lib/libc/include -I$SRCTREE/include -I$SRCTREE/drivers/include -I$SRCTREE/drivers/external/include -I$SRCTREE/drivers/external/include/lwip -I$SRC/include -I$LWIP_ROOT/include"
+SRC=$(realpath "$SRCTREE/drivers/external/znet/core" 2>/dev/null)
+znet_ROOT="$SRCTREE/drivers/external/znet"
+INC="-I$SRCTREE/lib/libc/include -I$SRCTREE/include -I$SRCTREE/drivers/include -I$SRCTREE/drivers/external/include -I$SRCTREE/drivers/external/znet/include"
 INTERNAL_INC=$($CC -print-file-name=include)
-OUT="drivers/external/lwip/.lwip_out"
-FINAL_OBJ="$OBJTREE/drivers/external/lwip/lwip_lib.o"
+OUT="drivers/external/znet/.znet_out"
+FINAL_OBJ="$OBJTREE/drivers/external/znet/znet_lib.o"
 
 mkdir -p "$OUT"
 
 # 2. Find core files
 if [ -z "$SRC" ] || [ ! -d "$SRC" ]; then
-    echo "  ERROR: Source directory ($SRCTREE/drivers/external/lwip/src) not found."
+    echo "  ERROR: Source directory ($SRCTREE/drivers/external/znet/core) not found."
     echo "  DEBUG: Current PWD: $PWD"
     exit 1
 fi
 
-# Grab all .c files (core, api, netif/ethernet, etc.)
-# Exclude apps/ unless you need http, snmp, mqtt, etc.
-FILES=$(find "$SRC" -maxdepth 3 -name "*.c" \
-    ! -path "*/apps/*" \
-    ! -path "*/ppp/*" \
-    ! -path "*/lowpan6*" \
-    ! -path "*/bridgeif*" \
-    ! -path "*/slipif*")
+FILES=$(find "$SRC" -maxdepth 3 -name "*.c")
 
 # 3. Compile loop with Skip Logic
 OBJ_LIST=""
@@ -90,5 +83,5 @@ if [ ! -f "$FINAL_OBJ" ] || [ "$NEW_FILES_COMPILED" = true ]; then
     echo "  LD      $FINAL_DISPATH"
     $LD -r $OBJ_LIST -o "$FINAL_OBJ"
 else
-    echo "  LWIP    $FINAL_DISPATH is up to date."
+    echo "  ZNET    $FINAL_DISPATH is up to date."
 fi

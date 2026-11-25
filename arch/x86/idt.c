@@ -12,6 +12,7 @@
 #include <mailbox.h>
 #include <regs.h>
 #include <input.h>
+#include <net.h>
 
 extern void hcf(void);
 struct idt_entry idt[256] __attribute__((aligned(16)));
@@ -127,6 +128,7 @@ registers_t* k_exception_handler(registers_t *regs) {
 
 	if (!regs) panic("[idt] scheduler returned NULL");
 
+	net_poll();
 	cnt++;
 	if (cnt == 1000) {
 	    // p_trace("TICK!");

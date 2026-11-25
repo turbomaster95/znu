@@ -1,15 +1,3 @@
-/**
- * @brief : Network stack with ARP, IP, UDP, TCP, and DNS resolution support.
- * 
- * This file is a part of the Zen (ZenOS)
- * Operating System, and is released under
- * the terms of the MIT Licensing : Read
- * LICENSE at the root of the repository.
- * 
- * @copyright (c) 2026
- * @author : Rishies2010
- */
-
 #ifndef NET_H
 #define NET_H
 
@@ -123,6 +111,7 @@ typedef struct
 int dns_resolve(const char *hostname, uint8_t ip_out[4]);
 
 void net_init(void);
+void net_poll(void);
 
 void net_set_ip(const uint8_t ip[4], const uint8_t gw[4]);
 
