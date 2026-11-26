@@ -736,6 +736,9 @@ long sys_zfilt(const void* code_ptr, size_t len, struct zfilt_result* res_ptr) {
 }
 
 uint64_t syscall_handler(registers_t* regs) {
+    debugln("kstack_top=0x%lx RSP=0x%lx depth=%lu",
+        current_process->kstack_top, (uint64_t)__builtin_frame_address(0),
+        current_process->kstack_top - (uint64_t)__builtin_frame_address(0));   
     uint64_t num = regs->rax;
     uint64_t arg1 = regs->rdi;
     uint64_t arg2 = regs->rsi;

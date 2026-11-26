@@ -48,6 +48,7 @@ typedef struct process {
 
     uintptr_t entry;
     uintptr_t stack_top;
+    uintptr_t stack_min;
     uintptr_t kstack_top;
 
     uintptr_t brk;

@@ -71,42 +71,57 @@ registers_t* k_exception_handler(registers_t *regs) {
     uint8_t int_no = regs->int_no;
 
     if (int_no < 32) {
-        uint64_t cr2;
-        __asm__ volatile("mov %%cr2, %0" : "=r"(cr2));
-
         if (int_no == 14) { // Page Fault
-	    debugln("Page Fault");
-            bool is_user = (regs->err_code & 0x04) != 0;
+            uint64_t cr2;
+            __asm__ volatile("mov %%cr2, %0" : "=r"(cr2));
 
-            bool is_stack_range = (cr2 >= 0x7ffff0000000ULL && cr2 < 0x800000000000ULL);
+            bool not_present = !(regs->err_code & 0x01);
+            bool is_user     =  (regs->err_code & 0x04) != 0;
+            bool is_fetch    =  (regs->err_code & 0x20) != 0;
+            bool is_stack    = (cr2 >= 0x7FFFF0000000ULL && cr2 < 0x800000000000ULL);
 
-            if (is_user && is_stack_range && current_process) {
+            if (not_present && is_user && !is_fetch && is_stack
+                && current_process
+                && cr2 >= current_process->stack_min
+                && cr2 < regs->rsp) {
+
                 extern void* palloc_zero(void);
-                extern void map_page(uint64_t* pml4, uintptr_t virt, uint64_t phys, uint64_t flags);
+                extern void map_page(uint64_t* pml4, uintptr_t virt,
+                                     uint64_t phys, uint64_t flags);
 
                 uintptr_t page_addr = cr2 & ~0xFFFULL;
-
                 void* phys = palloc_zero();
                 if (phys) {
-                    map_page(current_process->pml4, page_addr, (uint64_t)phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+                    map_page(current_process->pml4, page_addr,
+                             (uint64_t)phys,
+                             PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+                    current_process->stack_top = page_addr;
                     return regs;
                 }
             }
+
+            debugln("Page Fault at %p (err=0x%x)", (void*)cr2,
+                    (unsigned)regs->err_code);
         }
 
         lapic_broadcast_panic_nmi();
-        debugln("\n--- CRITICAL CPU EXCEPTION at CPU %d : %d ---", get_cpu_id(), (int)int_no);
+        debugln("\n--- CRITICAL CPU EXCEPTION at CPU %d : %d ---",
+                get_cpu_id(), (int)int_no);
         debugln("Error Code: 0x%x | RIP: %p | RSP: %p",
                 (unsigned)regs->err_code, (void*)regs->rip, (void*)regs->rsp);
         debugln("RAX: %p", (void*)regs->rax);
 
         if (int_no == 14) {
+            uint64_t cr2;
+            __asm__ volatile("mov %%cr2, %0" : "=r"(cr2));
             debugln("Faulting Address: %p", (void*)cr2);
 
-            if (regs->rip >= 0xffff800000000000 && regs->rip < 0xffffffffffffffff) {
+            if (regs->rip >= 0xFFFF800000000000ULL &&
+                regs->rip <  0xFFFFFFFFFFFFFFFFULL) {
                 uint8_t *instruction = (uint8_t*)regs->rip;
                 debugln("Opcode at RIP: %02x %02x %02x %02x",
-                        instruction[0], instruction[1], instruction[2], instruction[3]);
+                        instruction[0], instruction[1],
+                        instruction[2], instruction[3]);
             } else {
                 debugln("RIP is invalid, cannot read opcode");
             }
@@ -118,6 +133,7 @@ registers_t* k_exception_handler(registers_t *regs) {
         while (1) {
             __asm__ volatile("hlt");
         }
+	__builtin_unreachable();
     } else if (int_no == LAPIC_TIMER_VECTOR) {
         timer_ticks++;
         lapic_timer_fired = true;

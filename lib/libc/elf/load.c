@@ -530,6 +530,7 @@ int process_populate_from_elf(process_t *proc, uint8_t *elf_data, char **argv, c
 
     proc->entry = hdr->e_entry;
     proc->stack_top = new_rsp;
+    proc->stack_min = USER_STACK_BASE;
     proc->brk_start = (max_vaddr + 0xFFFULL) & ~0xFFFULL;
     proc->brk = proc->brk_start;
     proc->tls_base = tls_base;
