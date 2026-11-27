@@ -12,7 +12,10 @@ export KBUILD_LDFLAGS
 
 obj-y := early.o
 obj-y += main.o
+CFLAGS_ubsan.o += -fno-sanitize=vptr -fno-sanitize=undefined
 obj-y += ubsan.o
+CFLAGS_cxx_ubsan.o += -fno-sanitize=vptr -fno-sanitize=undefined
+obj-y += cxx_ubsan.o
 ifeq ($(ARCH),x86)
    obj-y += acpi.o
 endif
@@ -48,5 +51,7 @@ obj-y += vfs/
 obj-$(CONFIG_ZFILTER) += filters/
 
 # DevKit
+CFLAGS_cxxstd.o += -fno-sanitize=vptr -fno-sanitize=undefined
 obj-y += cxxstd.o
+CFLAGS_devkit += -fno-sanitize=vptr -fno-sanitize=undefined
 obj-y += devkit/

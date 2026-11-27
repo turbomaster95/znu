@@ -62,18 +62,11 @@ struct ubsan_float_cast_overflow_data {
     struct ubsan_type_descriptor *to_type;
 };
 
-struct ubsan_dynamic_type_cache_miss_data {
-    struct ubsan_source_location location;
-    struct ubsan_type_descriptor *type;
-    void *type_info;
-    uint8_t type_check_kind;
-};
-
 struct ubsan_nonnull_return_data {
     struct ubsan_source_location attr_location;
 };
 
-static void ubsan_log_header(const char *err, struct ubsan_source_location *loc) {
+void ubsan_log_header(const char *err, struct ubsan_source_location *loc) {
     debugln("\n[UBSAN FATAL ERROR]\n");
     debugln("  Condition: %s\n", err);
     debugln("  Location : %s:%d:%d\n", loc->filename, loc->line, loc->column);
@@ -206,31 +199,6 @@ void __ubsan_handle_negate_overflow(void *data, void *location) {
 
 void __ubsan_handle_pointer_overflow(struct ubsan_overflow_data *data, uintptr_t base, uintptr_t result) {
     __ubsan_handle_pointer_overflow_abort(data, base, result);
-}
-
-#define UBSAN_VPTR_CACHE_SIZE 128
-uintptr_t __ubsan_vptr_type_cache[UBSAN_VPTR_CACHE_SIZE];
-
-void __ubsan_handle_dynamic_type_cache_miss_abort(
-    struct ubsan_dynamic_type_cache_miss_data *data,
-    uintptr_t ptr,
-    uintptr_t hash)
-{
-    (void)hash;
-    ubsan_log_header("C++ Dynamic Type Cache Miss (vptr)", &data->location);
-    debugln("  Object Address: %p\n", ptr);
-    if (data->type) {
-        debugln("  Expected Type : %s\n", data->type->type_name);
-    }
-    panic("[ubsan] Dynamic Type Cache Miss");
-}
-
-void __ubsan_handle_dynamic_type_cache_miss(
-    struct ubsan_dynamic_type_cache_miss_data *data,
-    uintptr_t ptr,
-    uintptr_t hash)
-{
-    __ubsan_handle_dynamic_type_cache_miss_abort(data, ptr, hash);
 }
 
 void __ubsan_handle_nonnull_return_v1_abort(struct ubsan_nonnull_return_data *data, struct ubsan_source_location *loc) {

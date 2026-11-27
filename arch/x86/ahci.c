@@ -19,7 +19,7 @@ void* ahci_arch_phys_to_virt(uintptr_t phys) {
 }
 
 void ahci_arch_cpu_relax(void) {
-    arch_pause();
+    arch_yield();
 }
 
 uint32_t ahci_arch_mmio_read(volatile uint32_t* addr) {

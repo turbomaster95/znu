@@ -1,0 +1,30 @@
+#pragma once
+#include <cxx/basic>
+#include <stddef.h>
+
+__BEGIN_DECLS
+
+namespace std {
+class type_info {
+public:
+    virtual ~type_info();
+    const char* name() const noexcept { return __type_name; }
+
+    bool operator==(const type_info& rhs) const noexcept {
+        return this == &rhs; // Pointer comparison works when symbols are merged properly
+    }
+    bool operator!=(const type_info& rhs) const noexcept {
+        return !(*this == rhs);
+    }
+
+protected:
+    explicit type_info(const char* n) : __type_name(n) {}
+    const char* __type_name;
+
+private:
+    type_info(const type_info&) = delete;
+    type_info& operator=(const type_info&) = delete;
+};
+} // namespace std
+
+__END_DECLS

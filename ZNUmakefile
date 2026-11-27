@@ -274,7 +274,7 @@ LINUXINCLUDE    := -Iinclude -DLOG_LEVEL=$(CONFIG_DEFAULT_LOGLEVEL) \
 KBUILD_CPPFLAGS := -D__KERNEL__ -include $(srctree)/include/prelude.h
 KBUILD_CPPFLAGS += -I$(srctree)/lib/libc/include -I$(srctree)/drivers/include -I$(srctree)/drivers/external/include
 
-KBUILD_CFLAGS   := -Wall -Wno-unused-function -Wno-undef -Wno-array-compare -Wno-address-of-packed-member -Wno-infinite-recursion -Wno-unused-variable -Wno-format-truncation -Wno-misleading-indentation -Wno-undef -Wstrict-prototypes -Wno-trigraphs \
+KBUILD_CFLAGS   := -Wall -Wno-unused-function -Wno-undef -Wno-array-compare -Wno-address-of-packed-member -Wno-infinite-recursion -Wno-unused-variable -Wno-format-truncation -Wno-misleading-indentation -Wno-undef -Wstrict-prototypes -Wno-trigraphs -Wfatal-errors \
 		   -fno-strict-aliasing -fno-common -Wno-incompatible-pointer-types -fno-pic -fno-PIC -fno-PIE -fno-pie \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
@@ -283,7 +283,7 @@ KBUILD_CFLAGS   := -Wall -Wno-unused-function -Wno-undef -Wno-array-compare -Wno
 
 KBUILD_CFLAGS += $(ARCH_CFLAGS)
 
-KBUILD_CXXFLAGS := $(KBUILD_CFLAGS) -fno-exceptions -fno-rtti \
+KBUILD_CXXFLAGS := $(KBUILD_CFLAGS) -fno-exceptions \
                    -fno-use-cxa-atexit -fno-threadsafe-statics -nostdinc++ \
                    -fno-unwind-tables -fno-asynchronous-unwind-tables
 

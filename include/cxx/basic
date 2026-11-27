@@ -1,0 +1,17 @@
+#pragma once
+
+#ifndef __cplusplus
+#error "C++ header (<cxx/...>) included in a C file!"
+#else
+
+#include <stddef.h>
+#include <stdint.h>
+
+#define EXTERNC      extern "C"
+#define __BEGIN_DECLS extern "C" {
+#define __END_DECLS   }
+
+#define XNORETURN       [[noreturn]]
+#define XUNUSED         [[maybe_unused]]
+
+#endif

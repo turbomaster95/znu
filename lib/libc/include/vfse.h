@@ -88,7 +88,6 @@ typedef struct vfse_file {
     int fd_flags;
     int ref_count;
     struct vfse_pipe* pipe;
-    void* private;
 } vfse_file_t;
 
 typedef struct vfse_process {

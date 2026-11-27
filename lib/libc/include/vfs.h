@@ -48,7 +48,6 @@ typedef struct vfs_file_instance {
     vfs_node_t* node;
     size_t pos;
     int flags;
-    void* private;   // tty buffer, pipe state, etc.
 } vfs_file_instance_t;
 
 typedef struct vfs_file {
