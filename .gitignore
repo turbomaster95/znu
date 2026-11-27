@@ -10,6 +10,7 @@
 # Normal rules
 #
 .*
+!include/znu/
 !.clangd
 !**/.gitkeep
 !.tokeignore
@@ -18,6 +19,7 @@
 .vscode/compile_commands.json
 !subb.json
 *.ccb
+*.rtm
 *.ro
 *.o
 *.o.*

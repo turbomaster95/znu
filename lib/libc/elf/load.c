@@ -579,7 +579,7 @@ process_t *create_process_from_elf(uint8_t *elf_data, char **argv, char **envp)
        return NULL;
     }
 
-    proc->kstack_top   = ((uintptr_t)kstack + 32768) & ~0xFULL;
+    proc->kstack_top   = ((uintptr_t)kstack + 32768); // & ~0xFULL;
 
     if (proc->pid == 1) init_process = proc;
 

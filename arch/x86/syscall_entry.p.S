@@ -1,3 +1,5 @@
+#include <generated/asm-offsets.h>   
+
 default rel
 [BITS 64]
 global syscall_entry
@@ -101,7 +103,7 @@ syscall_entry:
 
     extern current_process
     mov rdi, [current_process] 
-    mov rsi, [rdi + 48]        
+    mov rsi, [rdi + OFFSET_KSTACK_TOP]
     mov [gs:0], rsi            
 
     jmp .return_to_user

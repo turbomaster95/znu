@@ -206,3 +206,7 @@ cmd_xzmisc = (cat $(filter-out FORCE,$^) | \
 # misc stuff
 # ---------------------------------------------------------------------------
 quote:="
+
+# Strip all occurrences of $(1) and the word immediately following it
+# $(call strip-flag,-include,$(a_flags))
+strip-flag = $(if $(2),$(if $(filter $(1),$(firstword $(2))),$(call strip-flag,$(1),$(wordlist 2,$(words $(2)),$(2))),$(firstword $(2)) $(call strip-flag,$(1),$(wordlist 2,$(words $(2)),$(2)))),)   

@@ -217,7 +217,7 @@ ifeq ($(ARCH),arm64)
 quiet_cmd_as_o_S = AS $(quiet_modtag)  $@
       cmd_as_o_S = $(CC) $(a_flags) -c -o $@ $<
 else
-quiet_cmd_as_o_S = NASM $(quiet_modtag)$@
+quiet_cmd_as_o_S = NASM $(quiet_modtag) $@
       cmd_as_o_S = $(NASM) -f elf64 -o $@ $< -MD $(depfile)
 endif
 
@@ -228,7 +228,7 @@ $(obj)/%.o: $(src)/%.S FORCE
 # ---------------------------------------------------------------------------
 
 quiet_cmd_cpp_pS = CPP $(quiet_modtag) $@
-cmd_cpp_pS = $(CC) $(filter-out %.h,$(a_flags)) -Xpreprocessor -E -o $@ $<
+cmd_cpp_pS = $(CC) -E $(filter-out -include include/generated/autoconf.h $(srctree)/include/prelude.h,$(a_flags)) -o $@ $<
 
 $(obj)/%.i: $(src)/%.p.S FORCE
 	$(call if_changed,cpp_pS)

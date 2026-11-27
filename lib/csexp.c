@@ -1,4 +1,3 @@
-
 #include <csexp.h>
 
 static int csexp_is_digit(uint8_t c) { return c >= (uint8_t)'0' && c <= (uint8_t)'9'; }

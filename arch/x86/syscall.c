@@ -527,22 +527,24 @@ long sys_fork(registers_t* regs) {
         return -1;
     }
     
-    add_process(child);
     return (long)child->pid;
 }
 
 long sys_execve(const char* path, char** argv, char** envp, registers_t* regs) {
     if (!current_process) return -1;
-    
+
+    // --- FIX 1: stac() around user memory reads ---
+    stac();
     char kpath[256];
     size_t i;
     for (i = 0; i < 255; i++) {
-        if (!is_user_addr((void*)&path[i], 1)) return -1;
+        if (!is_user_addr((void*)&path[i], 1)) { clac(); return -1; }
         kpath[i] = path[i];
         if (kpath[i] == '\0') break;
     }
     kpath[i] = '\0';
-    
+    clac();
+
     p_info("sys", "PID %d EXECVE: %s", current_process->pid, kpath);
 
     char abspath[4096];
@@ -550,46 +552,79 @@ long sys_execve(const char* path, char** argv, char** envp, registers_t* regs) {
 
     vfs_node_t* node = vfs_path_to_node(abspath);
     if (!node || node->type != VFS_FILE) {
-        return -1; // -ENOENT
+        return -ENOENT;
     }
 
     uint8_t* elf_buffer = kmalloc(node->size);
-    if (!elf_buffer) {
-      debugerr("NO MEMORY TO ALLOCATE ELF BUFFER???");
-      p_error("sys", "Now panicing because what to do else if no memory?");
-      panic("No memory left!");
-      return -ENOMEM;
-    }
+    if (!elf_buffer) return -ENOMEM;
 
     int bytes_read = vfs_read(node, elf_buffer, node->size, 0);
     if (bytes_read != (int)node->size) {
         kfree(elf_buffer);
         return -EIO;
     }
-    extern int replace_process_with_elf(process_t* proc, uint8_t* elf_data, char** argv, char** envp, registers_t* regs);
-    int result = replace_process_with_elf(current_process, elf_buffer, argv, envp, regs);
 
-    if (result < 0) {
-        kfree(elf_buffer);
-        return result;
+    // --- FIX 2: Copy argv/envp to kernel space (same pattern as sys_spawn) ---
+    char** k_argv = NULL;
+    if (argv && is_user_addr(argv, sizeof(char*))) {
+        stac();
+        int argc = 0;
+        while (is_user_addr(&argv[argc], sizeof(char*)) && argv[argc]) argc++;
+        k_argv = kmalloc(sizeof(char*) * (argc + 1));
+        for (int j = 0; j < argc; j++) {
+            char* u_arg = argv[j];
+            char* k_arg = kmalloc(256);
+            int l;
+            for (l = 0; l < 255; l++) {
+                if (!is_user_addr(&u_arg[l], 1)) break;
+                k_arg[l] = u_arg[l];
+                if (k_arg[l] == '\0') break;
+            }
+            k_arg[l] = '\0';
+            k_argv[j] = k_arg;
+        }
+        k_argv[argc] = NULL;
+        clac();
     }
+
+    char** k_envp = NULL;
+    if (envp && is_user_addr(envp, sizeof(char*))) {
+        stac();
+        int envc = 0;
+        while (is_user_addr(&envp[envc], sizeof(char*)) && envp[envc]) envc++;
+        k_envp = kmalloc(sizeof(char*) * (envc + 1));
+        for (int j = 0; j < envc; j++) {
+            char* u_env = envp[j];
+            char* k_env = kmalloc(256);
+            int l;
+            for (l = 0; l < 255; l++) {
+                if (!is_user_addr(&u_env[l], 1)) break;
+                k_env[l] = u_env[l];
+                if (k_env[l] == '\0') break;
+            }
+            k_env[l] = '\0';
+            k_envp[j] = k_env;
+        }
+        k_envp[envc] = NULL;
+        clac();
+    }
+
+    // --- Replace the process image ---
+    extern int replace_process_with_elf(process_t* proc, uint8_t* elf_data,
+                                        char** argv, char** envp, registers_t* regs);
+    int result = replace_process_with_elf(current_process, elf_buffer, k_argv, k_envp, regs);
+
+    kfree(elf_buffer);
+    if (result < 0) return result;
+
     vmm_switch(current_process->pml4);
 
-    p_debug("exec", "Jumping to RIP=0x%x, RSP=0x%x", 
-         current_process->entry, 
-         current_process->stack_top);
+    regs->rip = current_process->entry;
+    regs->rsp = current_process->stack_top;
+    regs->rax = 0;  // execve returns 0 on success (x86_64 ABI)
 
-    if (current_process->entry < 0x1000) {
-      debugerr("[exec] CRITICAL: Entry point is NULL or invalid!");
-      return -1; 
-    }
-
-    // Jump into the new process entry point
-    jump_to_usermode(current_process->entry, current_process->stack_top);
-
-    // should NEVER reach here!
     return 0;
-}
+}   
 
 long sys_ioctl(int fd, unsigned long request, void* argp) {
     if (!current_process)
@@ -736,9 +771,9 @@ long sys_zfilt(const void* code_ptr, size_t len, struct zfilt_result* res_ptr) {
 }
 
 uint64_t syscall_handler(registers_t* regs) {
-    debugln("kstack_top=0x%lx RSP=0x%lx depth=%lu",
-        current_process->kstack_top, (uint64_t)__builtin_frame_address(0),
-        current_process->kstack_top - (uint64_t)__builtin_frame_address(0));   
+    // debugln("kstack_top=0x%lx RSP=0x%lx depth=%lu",
+     //   current_process->kstack_top, (uint64_t)__builtin_frame_address(0),
+       // current_process->kstack_top - (uint64_t)__builtin_frame_address(0));   
     uint64_t num = regs->rax;
     uint64_t arg1 = regs->rdi;
     uint64_t arg2 = regs->rsi;

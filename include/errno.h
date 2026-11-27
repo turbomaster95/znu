@@ -3,10 +3,12 @@
 
 #include <stdint.h>
 
-#ifndef errno
-#ifdef __is_libk
-static int errno;
-#endif
+#ifndef __KERNEL__
+   #include_next <errno.h>
+#else
+   #ifndef errno
+      static int errno;
+   #endif
 #endif
 
 /* Taken from the linux source code at include/uapi/asm-generic */

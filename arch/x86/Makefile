@@ -16,6 +16,7 @@ obj-y += lapic.o
 obj-y += timekeeper.o
 obj-y += usermode.o
 obj-y += syscall.o
+targets += syscall_entry.i
 obj-y += syscall_entry.o
 obj-y += ps2.o
 obj-y += pat.o
