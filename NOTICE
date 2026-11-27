@@ -94,3 +94,11 @@ THIRD-PARTY SUBMODULES AND ATTRIBUTIONS
    
    (Refer to the LICENSE file in the submodule directory for the full 
    disclaimer and conditions.)
+
+--------------------------------------------------------------------------------
+
+9. BSD Compatibility Subsystem
+   Portions Copyright (c) The NetBSD Foundation, Inc. and contributors.
+   Portions Copyright (c) 2026 Deva Midhun.
+   License: BSD 2-Clause
+   Location: [bsd]
