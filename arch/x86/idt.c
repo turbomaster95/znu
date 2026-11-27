@@ -15,7 +15,7 @@
 #include <net.h>
 
 extern void hcf(void);
-struct idt_entry idt[256] __attribute__((aligned(16)));
+struct idt_entry idt[256] ALIGNED(16);
 struct idtr idtr_instance;
 
 static int cnt = 0;
@@ -27,7 +27,7 @@ static isr_t interrupt_handlers[MAX_INTERRUPTS];
 
 /* Externs from the ASM file */
 extern void isr0(void);
-extern void isr32(void); 
+extern void isr32(void);
 extern void* isr_ptr_table[];
 
 extern volatile uint64_t timer_ticks;
@@ -133,7 +133,7 @@ registers_t* k_exception_handler(registers_t *regs) {
         while (1) {
             __asm__ volatile("hlt");
         }
-	__builtin_unreachable();
+	UNREACHABLE();
     } else if (int_no == LAPIC_TIMER_VECTOR) {
         timer_ticks++;
         lapic_timer_fired = true;

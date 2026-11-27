@@ -19,18 +19,18 @@ void* ahci_arch_phys_to_virt(uintptr_t phys) {
 }
 
 void ahci_arch_cpu_relax(void) {
-    asm volatile("pause");
+    arch_pause();
 }
 
 uint32_t ahci_arch_mmio_read(volatile uint32_t* addr) {
     uint32_t val = *addr;
-    asm volatile("" ::: "memory");
+    barrier();
     return val;
 }
 
 void ahci_arch_mmio_write(volatile uint32_t* addr, uint32_t val) {
     *addr = val;
-    asm volatile("" ::: "memory");
+    barrier();
 }
 
 uint64_t ahci_arch_get_abar(void) {

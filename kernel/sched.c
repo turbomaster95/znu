@@ -7,7 +7,7 @@
 #include <regs.h>
 #include <gdt.h>
 
-extern void force_context_restore(registers_t* regs) __attribute__((noreturn));
+extern void force_context_restore(registers_t* regs) NORETURN;
 extern uint64_t next_pid;
 extern uint64_t* vmm_clone_pml4(uint64_t* src_pml4);
 extern void vmm_switch(uint64_t* pml4);

@@ -14,9 +14,9 @@ namespace __cxxabiv1 {
 }
 
 void *operator new(size_t size) {
-    void *ptr = kmalloc(size); 
+    void *ptr = kmalloc(size);
 
-    if (!ptr) panic("C++: operator new failed"); 
+    if (!ptr) panic("C++: operator new failed");
 
     return ptr;
 }
@@ -34,7 +34,7 @@ void operator delete(void *p) noexcept {
 }
 
 void operator delete(void *p, size_t) noexcept {
-    kfree(p); 
+    kfree(p);
 }
 
 void operator delete[](void *p) noexcept {

@@ -14,7 +14,7 @@ typedef struct
     uint8_t dst[ETH_ALEN];
     uint8_t src[ETH_ALEN];
     uint16_t type;
-} __attribute__((packed)) eth_frame_t;
+} PACKED eth_frame_t;
 
 #define ARP_OP_REQUEST 1
 #define ARP_OP_REPLY 2
@@ -30,7 +30,7 @@ typedef struct
     uint8_t spa[4];
     uint8_t tha[ETH_ALEN];
     uint8_t tpa[4];
-} __attribute__((packed)) arp_packet_t;
+} PACKED arp_packet_t;
 
 #define IP_PROTO_ICMP 1
 #define IP_PROTO_TCP 6
@@ -48,7 +48,7 @@ typedef struct
     uint16_t checksum;
     uint8_t src[4];
     uint8_t dst[4];
-} __attribute__((packed)) ip_header_t;
+} PACKED ip_header_t;
 
 #define TCP_FLAG_FIN (1 << 0)
 #define TCP_FLAG_SYN (1 << 1)
@@ -67,7 +67,7 @@ typedef struct
     uint16_t window;
     uint16_t checksum;
     uint16_t urg_ptr;
-} __attribute__((packed)) tcp_header_t;
+} PACKED tcp_header_t;
 
 typedef enum
 {
@@ -98,7 +98,7 @@ typedef struct
     uint32_t rx_tail;
     uint32_t rx_avail;
     bool fin_received;
-} __attribute__((packed)) tcp_conn_t;
+} PACKED tcp_conn_t;
 
 typedef struct
 {
@@ -106,7 +106,7 @@ typedef struct
     uint16_t dst_port;
     uint16_t length;
     uint16_t checksum;
-} __attribute__((packed)) udp_header_t;
+} PACKED udp_header_t;
 
 int dns_resolve(const char *hostname, uint8_t ip_out[4]);
 

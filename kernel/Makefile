@@ -4,7 +4,7 @@ ifeq ($(ARCH),x86)
 KBUILD_CFLAGS += -mno-red-zone
 endif
 
-KBUILD_CPPFLAGS += -I$(srctree)/include -I$(srctree)/lib/libc/include -I$(srctree)/arch/$(ARCH)/include -I$(srctree)/lib/uacpi/include/ -I$(srctree)/drivers/include
+KBUILD_CPPFLAGS += -I$(srctree)/include -I$(srctree)/lib/libc/include -I$(srctree)/arch/$(ARCH)/include -I$(srctree)/lib/uacpi/include/ -I$(srctree)/drivers/include -I$(srctree)/drivers/external/include -I$(srctree)/drivers/external/tendril/include
 KBUILD_CPPFLAGS += -DUACPI_OVERRIDE_LIBC -DUACPI_NATIVE_ALLOC_ZEROED -DUACPI_FORMATTED_LOGGING
 
 KBUILD_LDFLAGS := -T $(LINKER_SCRIPT) -z max-page-size=0x1000
@@ -48,5 +48,5 @@ obj-y += vfs/
 obj-$(CONFIG_ZFILTER) += filters/
 
 # DevKit
-obj-y += devkit.o
+obj-y += cxxstd.o
 obj-y += devkit/

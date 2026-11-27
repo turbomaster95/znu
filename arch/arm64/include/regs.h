@@ -10,6 +10,6 @@ typedef struct {
     uint64_t pstate;    // SPSR_EL1
     uint64_t esr;       // ESR_EL1
     uint64_t far;       // FAR_EL1
-} __attribute__((packed)) registers_t;
+} PACKED registers_t;
 
 #endif /* REGS_H */

@@ -14,7 +14,7 @@ struct gdt_entry {
     uint8_t  access;
     uint8_t  granularity;
     uint8_t  base_high;
-} __attribute__((packed));
+} PACKED;
 
 struct tss_entry {
     uint16_t length;
@@ -25,12 +25,12 @@ struct tss_entry {
     uint8_t  base_hi;
     uint32_t base_upper32;
     uint32_t reserved;
-} __attribute__((packed));
+} PACKED;
 
 struct gdt_ptr {
     uint16_t limit;
     uint64_t base;
-} __attribute__((packed));
+} PACKED;
 
 struct gdt_entry gdt_per_cpu[MAX_CPUS][8];
 struct gdt_ptr   gdt_ptr_per_cpu[MAX_CPUS];
@@ -38,8 +38,7 @@ struct tss       tss_per_cpu[MAX_CPUS];
 
 cpu_context_t    cpu_contexts[MAX_CPUS];
 
-__attribute__((aligned(16)))
-uint8_t ap_kernel_stacks[MAX_CPUS][32768];
+ALIGNED(16) uint8_t ap_kernel_stacks[MAX_CPUS][32768];
 
 /* Dedicated 4KB hardware emergency stack per CPU for handling heavy exceptions */
 static uint8_t emergency_fault_stack[MAX_CPUS][4096] __attribute__((aligned(16)));

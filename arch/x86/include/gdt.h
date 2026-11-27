@@ -20,7 +20,7 @@ struct tss {
     uint64_t reserved2;
     uint16_t reserved3;
     uint16_t iopb_offset;
-} __attribute__((packed));
+} PACKED;
 
 extern struct tss tss_per_cpu[MAX_CPUS];
 

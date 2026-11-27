@@ -14,7 +14,7 @@ typedef struct {
     uint64_t rflags; // Expected at [rsp+16]
     uint64_t rsp;    // Expected at [rsp+24]
     uint64_t ss;     // Expected at [rsp+32]
-} __attribute__((packed)) registers_t;
+} PACKED registers_t;
 
 #endif /* REGS_H */
 

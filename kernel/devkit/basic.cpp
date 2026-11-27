@@ -1,4 +1,3 @@
-
 #include <devkit/devkit.h>
 #include <devkit/core.hpp>
 #include <string.h>
@@ -42,6 +41,17 @@ static void dk_match_and_attach(DKService *stub) {
             debugln("[devkit] driver '%s' failed to start", bestFactory->driverName);
         }
         bestInstance->release();
+    }
+}
+
+static const char *dk_usb_speed_str(DKUSBSpeed speed) {
+    switch (speed) {
+        case DKUSBSpeed::Low:       return "1.5M";
+        case DKUSBSpeed::Full:      return "12M";
+        case DKUSBSpeed::High:      return "480M";
+        case DKUSBSpeed::Super:     return "5G";
+        case DKUSBSpeed::SuperPlus: return "10G";
+        default:                    return "?";
     }
 }
 
@@ -122,6 +132,21 @@ static void dk_print_tree(DKService *node, const char *parentPrefix, bool isLast
         if (strcmp(node->getName(), "DKPCIDevice") == 0) {
             DKPCIDevice *device = static_cast<DKPCIDevice *>(node);
             debugln("%sPCI %02X:%02X.%u [%04X:%04X] IRQ %u", linePrefix, device->bus, device->slot, device->func, device->vendorID, device->deviceID, (unsigned int)device->irq);
+        } else if (node->isUSBHostController()) {
+            DKUSBHostController *usbHC = static_cast<DKUSBHostController *>(node);
+            debugln("%sUSB-HC type=%d ports=%zu quirks=0x%X", linePrefix, usbHC->hcType, usbHC->portCount, usbHC->quirks);
+        } else if (strcmp(node->getName(), "DKUSBDevice") == 0) {
+            DKUSBDevice *usbDev = static_cast<DKUSBDevice *>(node);
+            debugln("%sUSB port=%u addr=%u [%04X:%04X] cls=%02X/%02X/%02X speed=%s",
+                    linePrefix,
+                    (unsigned int)usbDev->port,
+                    (unsigned int)usbDev->address,
+                    usbDev->vendorID,
+                    usbDev->productID,
+                    (unsigned int)usbDev->deviceClass,
+                    (unsigned int)usbDev->deviceSubClass,
+                    (unsigned int)usbDev->deviceProtocol,
+                    dk_usb_speed_str(usbDev->speed));
         } else {
             debugln("%s%s", linePrefix, node->getName());
         }
@@ -172,6 +197,41 @@ extern "C" void devkit_publish_pci_device(uint8_t bus, uint8_t slot, uint8_t fun
 
     DKPCIDevice *stub = new DKPCIDevice(bus, slot, func, vendor_id, device_id, bars, irq);
     gRootService->attachChild(stub);
+    dk_match_and_attach(stub);
+    stub->release();
+}
+
+extern "C" void *devkit_publish_usb_controller(void *hc, void *ctx, int hc_type, uint32_t quirks, size_t port_count) {
+    if (!gRootService) devkit_init();
+
+    DKUSBHostController *stub = new DKUSBHostController(
+        static_cast<struct tendril_hc *>(hc),
+        static_cast<struct znu_tendril_ctx *>(ctx),
+        hc_type,
+        quirks,
+        port_count
+    );
+    gRootService->attachChild(stub);
+    dk_match_and_attach(stub);
+    return stub;
+}
+
+extern "C" void devkit_publish_usb_device(void *parent_hc, void *tdev, uint8_t port, uint8_t address, uint8_t speed, uint16_t vid, uint16_t pid, uint8_t dev_class, uint8_t dev_subclass, uint8_t dev_proto) {
+    if (!gRootService) devkit_init();
+
+    DKService *parent = parent_hc ? static_cast<DKService *>(parent_hc) : gRootService;
+    DKUSBDevice *stub = new DKUSBDevice(
+        static_cast<struct tendril_device *>(tdev),
+        port,
+        address,
+        static_cast<DKUSBSpeed>(speed),
+        vid,
+        pid,
+        dev_class,
+        dev_subclass,
+        dev_proto
+    );
+    parent->attachChild(stub);
     dk_match_and_attach(stub);
     stub->release();
 }

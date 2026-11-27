@@ -21,7 +21,7 @@ typedef struct {
 } tendril_dma_header_t;
 
 static inline void tendril_memory_barrier(void) {
-    __asm__ volatile("mfence" ::: "memory");
+    barrier();
 }
 
 void znu_tendril_init(znu_tendril_ctx_t *ctx, pci_device_t *dev, volatile void *mmio) {

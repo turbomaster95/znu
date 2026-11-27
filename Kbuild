@@ -29,7 +29,7 @@ need-gen-files += $(offsets-file)
 define filechk_offsets
 	echo '#ifndef __ASM_OFFSETS_H'; \
 	echo '#define __ASM_OFFSETS_H'; \
-	echo -e '\n'; \
+	printf '\n'; \
 	sed -ne 's:^[[:space:]]*\.ascii[[:space:]]*"\(.*\)".*:\1:; /^->/{s:->#\(.*\):/* \1 */:; s:^->\([^ ]*\) [\$$#]*\([^ ]*\) \(.*\):#define \1 \2 /* \3 */:; s:->::; p;}' < $<; \
 	echo '#endif'
 endef

@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <gdt.h>
 
-static struct ap_mailbox mailboxes[MAX_CPUS] __attribute__((aligned(64)));
+static struct ap_mailbox mailboxes[MAX_CPUS] ALIGNED(64);
 
 void mailbox_init(void) {
     for (int i = 0; i < MAX_CPUS; i++) {

@@ -6,7 +6,7 @@
 
 #include <arch/sync.h>
 
-#define compiler_barrier() __asm__ volatile ("" ::: "memory")
+#define compiler_barrier() barrier();
 
 typedef struct spinlock {
     volatile uint32_t locked;

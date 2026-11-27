@@ -484,7 +484,7 @@ static void init_regs(process_t *proc, uintptr_t entry, uintptr_t stack_top) {
 
 static void init_fpu(process_t *proc)
 {
-    static uint8_t fxbuf[512] __attribute__((aligned(16)));
+    static uint8_t fxbuf[512] ALIGNED(16);
     __asm__ volatile("fninit");
     __asm__ volatile("fxsave %0" : "=m"(*fxbuf));
     /* Set MXCSR default (0x1F80) */

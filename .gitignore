@@ -10,7 +10,6 @@
 # Normal rules
 #
 .*
-!include/znu/
 !.clangd
 !**/.gitkeep
 !.tokeignore
@@ -81,9 +80,9 @@ GTAGS
 *.rej
 *~
 \#*#
-Znu.iso
-znu
-znus
+/Znu.iso
+/znu
+/znus
 ninja.build
 lib/build-musl/
 lib/pbuild-musl/

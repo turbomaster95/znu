@@ -12,12 +12,12 @@ struct idt_entry {
     uint16_t isr_mid;
     uint32_t isr_high;
     uint32_t reserved;
-} __attribute__((packed));
+} PACKED;
 
 struct idtr {
     uint16_t limit;
     uint64_t base;
-} __attribute__((packed));
+} PACKED;
 
 void idt_init(void);
 void idt_local_load(void);

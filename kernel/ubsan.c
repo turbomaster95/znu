@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-__attribute__((weak)) void* __emutls_get_address(void* obj) {
+WEAK void* __emutls_get_address(void* obj) {
     (void)obj;
     return (void*)0;
 }

@@ -11,8 +11,8 @@ extern "C" {
 
 #define PERFORM __attribute__((no_sanitize("undefined", "address", "thread"), noinline))
 
-#define likely(x)      __builtin_expect(!!(x), 1)
-#define unlikely(x)    __builtin_expect(!!(x), 0)
+// Basic C preprocessor macros
+#include <znu/basics.h>
 
 #include <arch/prelude.h>
 

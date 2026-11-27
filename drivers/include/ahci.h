@@ -25,7 +25,7 @@ typedef volatile struct {
     uint32_t fbs;
     uint32_t reserved1[11];
     uint32_t vendor[4];
-} __attribute__((packed)) HBA_PORT;
+} PACKED HBA_PORT;
 
 /* HBA Generic Host Control Registers */
 typedef volatile struct {
@@ -43,7 +43,7 @@ typedef volatile struct {
     uint8_t reserved[0xA0 - 0x2C];
     uint8_t vendor[0x100 - 0xA0];
     HBA_PORT ports[32];
-} __attribute__((packed)) HBA_MEM;
+} PACKED HBA_MEM;
 
 /* FIS Registers & Command Structures */
 typedef struct {
@@ -66,7 +66,7 @@ typedef struct {
     uint8_t icc;
     uint8_t control;
     uint8_t reserved1[4];
-} __attribute__((packed)) FIS_REG_H2D;
+} PACKED FIS_REG_H2D;
 
 typedef struct {
     uint32_t cfl : 5;
@@ -82,7 +82,7 @@ typedef struct {
     uint32_t prdbc;
     uint64_t ctba;
     uint32_t reserved1[4];
-} __attribute__((packed)) HBA_CMD_HEADER;
+} PACKED HBA_CMD_HEADER;
 
 typedef struct {
     uint32_t dba;
@@ -91,14 +91,14 @@ typedef struct {
     uint32_t dbc:22;
     uint32_t reserved1:9;
     uint32_t i:1;
-} __attribute__((packed)) HBA_PRDT_ENTRY;
+} PACKED HBA_PRDT_ENTRY;
 
 typedef struct {
     uint8_t cfis[64];
     uint8_t acmd[16];
     uint8_t reserved[48];
     HBA_PRDT_ENTRY prdt_entry[8];
-} __attribute__((packed)) HBA_CMD_TBL;
+} PACKED HBA_CMD_TBL;
 
 void ahci_arch_cpu_relax(void);
 void* ahci_arch_phys_to_virt(uintptr_t phys);

@@ -67,7 +67,7 @@ typedef struct process {
     vfs_file_t* files[MAX_FILES];
     vfse_process_t* vfse;
 
-    uint8_t sse_state[512] __attribute__((aligned(16)));
+    uint8_t sse_state[512] ALIGNED(16);
 
     uintptr_t tls_base;
     uint32_t tls_size;

@@ -135,7 +135,7 @@ typedef struct {
     volatile uint8_t status;
     volatile uint8_t errors;
     volatile uint16_t special;
-} __attribute__((packed)) e1000_rx_desc;
+} PACKED e1000_rx_desc;
 
 typedef struct {
     volatile uint64_t addr;
@@ -145,7 +145,7 @@ typedef struct {
     volatile uint8_t status;
     volatile uint8_t css;
     volatile uint16_t special;
-} __attribute__((packed)) e1000_tx_desc;
+} PACKED e1000_tx_desc;
 
 typedef struct {
     uint8_t bus, slot, func;
