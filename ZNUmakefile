@@ -227,14 +227,15 @@ BISON		= bison
 FLEX		= flex
 
 ARCH		?= x86
-
-ifeq ($(ARCH),arm64)
-    CC += --target=aarch64-elf
-else ifeq ($(ARCH),x86)
-    # CC += --target=x86_64-elf
-endif   
-
 ARCH_CFLAGS  ?= 
+
+ifeq ($(CONFIG_CLANG), y)
+ifeq ($(ARCH),arm64)
+    ARCH_CFLAGS += --target=aarch64-elf
+else ifeq ($(ARCH),x86)
+    ARCH_CFLAGS += --target=x86_64-elf
+endif   
+endif
 ARCH_CFLAGS  += -I$(srctree)/arch/$(ARCH)/include
 
 ifeq ($(ARCH),x86)

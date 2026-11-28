@@ -5,11 +5,14 @@
 
 #ifndef __KERNEL__
    #include_next <errno.h>
+   #define NKRNL
 #else
    #ifndef errno
       static int errno;
    #endif
 #endif
+
+#ifndef NKRNLL
 
 /* Taken from the linux source code at include/uapi/asm-generic */
 
@@ -170,5 +173,6 @@
 
 #define EHWPOISON	133	/* Memory page has hardware error */
 
-#endif
+#endif // NKRNL
 
+#endif

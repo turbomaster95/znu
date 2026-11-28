@@ -25,6 +25,8 @@
 #include <sys/queue.h>
 #include <sys/tree.h>
 
+#include <sys/systm.h>
+
 #include <err.h>
 
 #if defined(__x86_64__)

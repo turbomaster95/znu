@@ -1,0 +1,256 @@
+#!/usr/bin/env python3
+
+"""
+bsdtool — provenance manager for the BSD layer.
+Usage:
+  bsdtool pull <netbsd-path> <krnl-path> [notes]
+  bsdtool check
+  bsdtool update <krnl-path>
+  bsdtool status
+"""
+
+import sys
+import os
+import subprocess
+import re
+from datetime import date
+
+PROVENANCE = "bsd/PROVENANCE.txt"
+NETBSD_SRC = os.path.expanduser("~/netbsd-src-sparse")
+
+
+def read_manifest():
+    """Parse PROVENANCE.txt into a list of dicts."""
+    entries = []
+    if not os.path.exists(PROVENANCE):
+        return entries
+    with open(PROVENANCE) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = [p.strip() for p in line.split("|")]
+            if len(parts) >= 4:
+                entries.append({
+                    "your_path": parts[0],
+                    "nb_path": parts[1],
+                    "commit": parts[2],
+                    "date": parts[3],
+                    "notes": parts[4] if len(parts) > 4 else "",
+                })
+    return entries
+
+
+def write_manifest(entries):
+    with open(PROVENANCE, "w") as f:
+        f.write("# PROVENANCE.txt\n")
+        f.write("# format: <your-path> | <netbsd-path> | <commit> | <date> | <notes>\n")
+        f.write(f"# baseline: NetBSD trunk @ 02172b2d46a3c1a92af3caca09858dfca626e410\n\n")
+        for e in entries:
+            f.write(f"{e['your_path']} | {e['nb_path']} | {e['commit']} | {e['date']} | {e['notes']}\n")
+
+
+def get_head():
+    return subprocess.check_output(
+        ["git", "-C", NETBSD_SRC, "rev-parse", "--short=8", "HEAD"],
+        text=True
+    ).strip()
+
+
+def cmd_pull(args):
+    if len(args) < 2:
+        print("usage: bsdtool pull <netbsd-path> <your-path> [notes]")
+        sys.exit(1)
+    nb_path, your_path = args[0], args[1]
+    notes = args[2] if len(args) > 2 else ""
+
+    src = os.path.join(NETBSD_SRC, nb_path)
+    if not os.path.exists(src):
+        print(f"error: {src} not found")
+        sys.exit(1)
+
+    commit = get_head()
+    today = date.today().isoformat()
+
+    os.makedirs(os.path.dirname(your_path), exist_ok=True)
+    subprocess.run(["cp", src, your_path], check=True)
+
+    entries = read_manifest()
+    # Replace existing entry for this path or append
+    entries = [e for e in entries if e["your_path"] != your_path]
+    entries.append({
+        "your_path": your_path,
+        "nb_path": nb_path,
+        "commit": commit,
+        "date": today,
+        "notes": notes,
+    })
+    write_manifest(entries)
+    print(f"✓ pulled {nb_path} → {your_path} @ {commit}")
+
+
+def cmd_check(_args):
+    """Check all entries for upstream changes since recorded commit."""
+    entries = read_manifest()
+    stale = []
+    for e in entries:
+        if e["nb_path"] == "local" or e["commit"] == "-":
+            continue
+        try:
+            out = subprocess.check_output(
+                ["git", "-C", NETBSD_SRC, "log", "--oneline",
+                 f"{e['commit']}..HEAD", "--", e["nb_path"]],
+                text=True
+            ).strip()
+            if out:
+                n = len(out.splitlines())
+                stale.append((e, n))
+        except subprocess.CalledProcessError:
+            stale.append((e, -1))  # commit not found (rebase?)
+
+    if not stale:
+        print("✓ all files up to date")
+        return
+
+    print(f"{len(stale)} file(s) have upstream changes:\n")
+    for e, n in stale:
+        suffix = f" ({n} commit(s))" if n > 0 else " (commit not found?)"
+        print(f"  {e['your_path']}{suffix}")
+        print(f"    upstream: {e['nb_path']} since {e['commit']}")
+    print(f"\nrun: bsdtool update <your-path> to review changes")
+
+
+def cmd_update(args):
+    if len(args) < 1:
+        print("usage: bsdtool update <your-path>")
+        sys.exit(1)
+    your_path = args[0]
+    entries = read_manifest()
+    entry = next((e for e in entries if e["your_path"] == your_path), None)
+    if not entry:
+        print(f"error: {your_path} not in manifest")
+        sys.exit(1)
+    if entry["nb_path"] == "local":
+        print("error: local file, nothing to update")
+        sys.exit(1)
+
+    commit = entry["commit"]
+    nb_path = entry["nb_path"]
+
+    # Get the three versions
+    base = subprocess.check_output(
+        ["git", "-C", NETBSD_SRC, "show", f"{commit}:{nb_path}"],
+        text=True
+    )
+    theirs = subprocess.check_output(
+        ["git", "-C", NETBSD_SRC, "show", f"HEAD:{nb_path}"],
+        text=True
+    )
+
+    if base == theirs:
+        print(f"✓ {your_path} is already up to date (no upstream changes)")
+        return
+
+    # Check if local file was modified
+    with open(your_path) as f:
+        ours = f.read()
+
+    if ours == base:
+        # Unmodified — safe blind copy
+        with open(your_path, "w") as f:
+            f.write(theirs)
+        entry["commit"] = get_head()
+        entry["date"] = date.today().isoformat()
+        write_manifest(entries)
+        print(f"✓ {your_path} updated cleanly @ {entry['commit']}")
+        return
+
+    # Modified — do a 3-way merge
+    print(f"⚠  {your_path} has local modifications. Attempting 3-way merge...")
+    print(f"   base:   {nb_path} @ {commit}")
+    print(f"   ours:   {your_path} (local)")
+    print(f"   theirs: {nb_path} @ HEAD\n")
+
+    # Write temp files for git merge-file
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        base_f = os.path.join(tmp, "base")
+        ours_f = os.path.join(tmp, "ours")
+        theirs_f = os.path.join(tmp, "theirs")
+
+        for path, content in [(base_f, base), (ours_f, ours), (theirs_f, theirs)]:
+            with open(path, "w") as f:
+                f.write(content)
+
+        # git merge-file does the 3-way merge in-place on "ours"
+        result = subprocess.run(
+            ["git", "merge-file", "-L", "ours (local)", "-L", "base", "-L", "theirs (upstream)",
+             ours_f, base_f, theirs_f],
+            capture_output=True, text=True
+        )
+
+        with open(ours_f) as f:
+            merged = f.read()
+
+        if result.returncode == 0:
+            # Clean merge
+            with open(your_path, "w") as f:
+                f.write(merged)
+            entry["commit"] = get_head()
+            entry["date"] = date.today().isoformat()
+            write_manifest(entries)
+            print(f"✓ {your_path} merged cleanly @ {entry['commit']}")
+        else:
+            # Conflicts — write conflict markers, open editor
+            with open(your_path, "w") as f:
+                f.write(merged)
+            n_conflicts = result.stdout.strip()  # git merge-file prints conflict count
+            print(f"⚡ {n_conflicts} conflict(s) in {your_path}")
+            print("   Resolving in your editor...\n")
+
+            editor = os.environ.get("EDITOR", "vim")
+            subprocess.run([editor, your_path])
+
+            # After editor closes, check for remaining conflict markers
+            with open(your_path) as f:
+                final = f.read()
+            if "<<<<<<<" in final:
+                print("⚠  Unresolved conflicts remain. Fix manually and re-run.")
+                return
+
+            # User resolved — update provenance
+            entry["commit"] = get_head()
+            entry["date"] = date.today().isoformat()
+            write_manifest(entries)
+            print(f"✓ {your_path} merged @ {entry['commit']}")
+
+
+def cmd_status(_args):
+    entries = read_manifest()
+    local = [e for e in entries if e["nb_path"] == "local"]
+    external = [e for e in entries if e["nb_path"] != "local"]
+    print(f"total: {len(entries)} files")
+    print(f"  from NetBSD: {len(external)}")
+    print(f"  local:       {len(local)}")
+    # Group by source dir
+    by_dir = {}
+    for e in external:
+        top = e["nb_path"].split("/")[2] if e["nb_path"].startswith("sys/") else "other"
+        by_dir.setdefault(top, []).append(e["your_path"])
+    for d in sorted(by_dir):
+        print(f"  {d}: {len(by_dir[d])}")
+
+
+def main():
+    if len(sys.argv) < 2:
+        print(__doc__)
+        sys.exit(0)
+    cmd = sys.argv[1]
+    args = sys.argv[2:]
+    {"pull": cmd_pull, "check": cmd_check, "update": cmd_update, "status": cmd_status}.get(
+        cmd, lambda a: (print(f"unknown command: {cmd}"), sys.exit(1))
+    )(args)
+
+
+if __name__ == "__main__":
+    main()

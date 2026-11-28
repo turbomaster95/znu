@@ -1,0 +1,72 @@
+# PROVENANCE.txt
+# format: <your-path> | <netbsd-path> | <commit> | <date> | <notes>
+# baseline: NetBSD trunk @ 02172b2d46a3c1a92af3caca09858dfca626e410
+
+bsd/include/err.h | include/err.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/ansi.h | sys/sys/ansi.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/bswap.h | sys/sys/bswap.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/cdefs.h | sys/sys/cdefs.h | 02172b2d | 2026-11-28 | (MODIFIED) removed a.out dep
+bsd/include/sys/cdefs_elf.h | sys/sys/cdefs_elf.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/common_ansi.h | sys/sys/common_ansi.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/common_int_const.h | sys/sys/common_int_const.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/common_int_fmtio.h | sys/sys/common_int_fmtio.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/common_int_limits.h | sys/sys/common_int_limits.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/common_int_mwgwtypes.h | sys/sys/common_int_mwgwtypes.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/common_int_types.h | sys/sys/common_int_types.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/endian.h | sys/sys/endian.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/fd_set.h | sys/sys/fd_set.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/featuretest.h | sys/sys/featuretest.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/inttypes.h | sys/sys/inttypes.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/null.h | sys/sys/null.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/queue.h | sys/sys/queue.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/stdalign.h | sys/sys/stdalign.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/stdarg.h | sys/sys/stdarg.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/stdbool.h | sys/sys/stdbool.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/stddef.h | sys/sys/stddef.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/stdint.h | sys/sys/stdint.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/tree.h | sys/sys/tree.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/types.h | sys/sys/types.h | 02172b2d | 2026-11-28 | 
+bsd/lib/libpthread/pthread_types.h | sys/lib/libpthread/pthread_types.h | 02172b2d | 2026-11-28 | 
+bsd/tests/hdr_int_test.c | local | - | 2026-11-28 | test harness
+bsd/tests/hdr_test1.c | local | - | 2026-11-28 | test harness
+arch/x86/bsd/include/machine/ansi.h | sys/arch/x86/include/ansi.h | 02172b2d | 2026-11-28 | 
+arch/x86/bsd/include/machine/bswap.h | sys/arch/x86/include/bswap.h | 02172b2d | 2026-11-28 | 
+arch/x86/bsd/include/machine/byte_swap.h | sys/arch/x86/include/byte_swap.h | 02172b2d | 2026-11-28 | 
+arch/x86/bsd/include/machine/cdefs.h | sys/arch/x86/include/cdefs.h | 02172b2d | 2026-11-28 | 
+arch/x86/bsd/include/machine/endian_machdep.h | sys/arch/x86/include/endian_machdep.h | 02172b2d | 2026-11-28 | 
+arch/x86/bsd/include/machine/int_const.h | sys/arch/x86/include/int_const.h | 02172b2d | 2026-11-28 | 
+arch/x86/bsd/include/machine/int_fmtio.h | sys/arch/x86/include/int_fmtio.h | 02172b2d | 2026-11-28 | 
+arch/x86/bsd/include/machine/int_limits.h | sys/arch/x86/include/int_limits.h | 02172b2d | 2026-11-28 | 
+arch/x86/bsd/include/machine/int_mwgwtypes.h | sys/arch/x86/include/int_mwgwtypes.h | 02172b2d | 2026-11-28 | 
+arch/x86/bsd/include/machine/int_types.h | sys/arch/x86/include/int_types.h | 02172b2d | 2026-11-28 | 
+arch/x86/bsd/include/machine/types.h | sys/arch/x86/include/types.h | 02172b2d | 2026-11-28 | 
+arch/x86/bsd/include/machine/wchar_limits.h | sys/arch/x86/include/wchar_limits.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/aarch64/byte_swap.h | sys/arch/aarch64/include/aarch64/byte_swap.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/arm/ansi.h | sys/arch/arm/include/ansi.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/arm/bswap.h | sys/arch/arm/include/bswap.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/arm/byte_swap.h | sys/arch/arm/include/byte_swap.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/arm/cdefs.h | sys/arch/arm/include/cdefs.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/arm/endian_machdep.h | sys/arch/arm/include/endian_machdep.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/arm/int_const.h | sys/arch/arm/include/int_const.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/arm/int_fmtio.h | sys/arch/arm/include/int_fmtio.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/arm/int_limits.h | sys/arch/arm/include/int_limits.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/arm/int_mwgwtypes.h | sys/arch/arm/include/int_mwgwtypes.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/arm/int_types.h | sys/arch/arm/include/int_types.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/arm/types.h | sys/arch/arm/include/types.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/arm/wchar_limits.h | sys/arch/arm/include/wchar_limits.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/machine/ansi.h | sys/arch/aarch64/include/ansi.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/machine/bswap.h | sys/arch/aarch64/include/bswap.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/machine/byte_swap.h | sys/arch/aarch64/include/byte_swap.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/machine/cdefs.h | sys/arch/aarch64/include/cdefs.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/machine/endian_machdep.h | sys/arch/aarch64/include/endian_machdep.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/machine/int_const.h | sys/arch/aarch64/include/int_const.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/machine/int_fmtio.h | sys/arch/aarch64/include/int_fmtio.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/machine/int_limits.h | sys/arch/aarch64/include/int_limits.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/machine/int_mwgwtypes.h | sys/arch/aarch64/include/int_mwgwtypes.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/machine/int_types.h | sys/arch/aarch64/include/int_types.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/machine/wchar_limits.h | sys/arch/aarch64/include/wchar_limits.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/machine/types.h | local | - | 2026-11-26 | just includes arm/types.h
+bsd/include/sys/systm.h | sys/sys/systm.h | 02172b2d | 2026-11-28 | 
+arch/arm64/bsd/include/machine/endian.h | sys/arch/aarch64/include/endian.h | 02172b2d | 2026-11-28 | 
+arch/x86/bsd/include/machine/endian.h | sys/arch/amd64/include/endian.h | 02172b2d | 2026-11-28 | 
+bsd/include/sys/device_if.h | sys/sys/device_if.h | 02172b2d | 2026-11-28 | 
