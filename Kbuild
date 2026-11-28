@@ -1,3 +1,4 @@
+# Kbuild File for generating files
 
 # --- Nifties convertion file --
 nifties-file := include/generated/nifties.h
